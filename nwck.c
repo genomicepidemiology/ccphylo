@@ -93,8 +93,8 @@ void formLastNode(Qseqs *node1, Qseqs *node2, double L) {
 	
 	/* form node */
 	if(L < 0) {
-		node1->len = sprintf((char *) node1->seq, "%s,%s)", (char *) node1->seq, (char *) node2->seq);
+		node1->len += sprintf((char *) node1->seq + node1->len, ",%s)", (char *) node2->seq);
 	} else {
-		node1->len = sprintf((char *) node1->seq, "%s,%s:%.2f)", (char *) node1->seq, (char *) node2->seq, L);
+		node1->len += sprintf((char *) node1->seq + node1->len, ",%s:%.2f)", (char *) node2->seq, L);
 	}
 }

@@ -21,11 +21,7 @@
 #include "qseqs.h"
 #include "vector.h"
 
-#ifndef NJ
-
-#define NJ 1
-#endif
-
+void limbLength(double *Li, double *Lj, unsigned i, unsigned j, Vector *sD, unsigned *N, double D_ij);
 unsigned * initSummaD(Vector *sD, Matrix *D, unsigned *N);
 long unsigned initQ(Matrix *D, Matrix *Q, Vector *sD, unsigned *N);
 long unsigned minPair(Matrix *Q);

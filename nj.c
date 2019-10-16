@@ -25,15 +25,41 @@
 #include "qseqs.h"
 #include "pherror.h"
 #include "vector.h"
-#define deltaPair(i, j, sD, N)((sD->vec[i] / (N[i] - 2)) - (sD->vec[j] / (N[j] - 2)))
-#define limbLengths(Li, Lj, D_ij, delta_ij) \
-	Li = (D_ij + delta_ij) / 2;\
-	Lj = (D_ij - delta_ij) / 2;\
-	if(Li < 0) {\
-		Lj += Li; Li = 0;\
-	} else if(Lj < 0) {\
-		Li += Lj; Lj = 0;\
+
+void limbLength(double *Li, double *Lj, unsigned i, unsigned j, Vector *sD, unsigned *N, double D_ij) {
+	
+	unsigned Ni, Nj;
+	double delta_ij;
+	
+	Ni = N[i] - 2;
+	Nj = N[j] - 2;
+	if(0 < Ni && 0 < Nj) {
+		/* standard */
+		delta_ij = (sD->vec[i] / Ni) - (sD->vec[j] / Nj);
+		*Li = (D_ij + delta_ij) / 2;
+		*Lj = (D_ij - delta_ij) / 2;
+		
+		/* avoid negative branch lengths */
+		if(*Li < 0) {
+			*Lj = D_ij;
+			*Li = 0;
+		} else if(*Lj < 0) {
+			*Li = D_ij;
+			*Lj = 0;
+		}
+	} else if(0 < Ni) {
+		/* j only shares similarity with i */
+		*Li = 0;
+		*Lj = D_ij;
+	} else if(0 < Nj) {
+		/* j only shares similarity with i */
+		*Li = D_ij;
+		*Lj = 0;
+	} else {
+		/* i and j only share similarity with eachother */
+		*Li = (*Lj = D_ij / 2);
 	}
+}
 
 unsigned * initSummaD(Vector *sD, Matrix *D, unsigned *N) {
 	
@@ -253,7 +279,7 @@ unsigned * nj(Matrix *D, Matrix *Q, Vector *sD, unsigned *N, Qseqs **names) {
 	
 	unsigned i, j, mask, shift;
 	long unsigned pair;
-	double D_ij, delta_ij, Li, Lj;
+	double Li, Lj;
 	Qseqs *tmp;
 	
 	/* init */
@@ -267,9 +293,7 @@ unsigned * nj(Matrix *D, Matrix *Q, Vector *sD, unsigned *N, Qseqs **names) {
 		i = pair >> shift;
 		
 		/* get limbs */
-		delta_ij = deltaPair(i, j, sD, N);
-		D_ij = D->mat[i][j];
-		limbLengths(Li, Lj, D_ij, delta_ij);
+		limbLength(&Li, &Lj, i, j, sD, N, D->mat[i][j]);
 		
 		/* form leaf */
 		formNode(names[j], names[i], Lj, Li);
