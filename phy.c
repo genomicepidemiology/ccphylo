@@ -213,7 +213,7 @@ Qseqs ** loadPhy(Matrix *src, Qseqs **names, FileBuff *infile) {
 		while(c != '\n') {
 			c = *buff++;
 			if(--avail == 0) {
-				if((avail = buffFileBuff(infile)) == 0 && (stop != '\n' || i != n - 1)) {
+				if((avail = buffFileBuff(infile)) == 0 && i != n - 1) {
 					fprintf(stderr, "Malformatted phylip file, missing newline at row:\t%d\n", ++i);
 					errno |= 1;
 					return 0;
