@@ -289,11 +289,11 @@ double coscmp(short unsigned *counts1, short unsigned *counts2, int tot1, int to
 	return d < 0 ? 0 : d;
 }
 
-double cmpMats(MatrixCounts *mat1, NucCount *mat2, FileBuff *infile, unsigned norm, unsigned minDepth, double (*veccmp)(short unsigned*, short unsigned*, int, int)) {
+double cmpMats(MatrixCounts *mat1, NucCount *mat2, FileBuff *infile, unsigned norm, unsigned minDepth, unsigned minLength, double minCov, double (*veccmp)(short unsigned*, short unsigned*, int, int)) {
 	
 	/* requires mat1 to be stripped from insertions */
 	
-	unsigned rowNum, rowsInc;
+	unsigned rowNum, rowsInc, nNucs;
 	short unsigned *counts1;
 	double dist, d, tot1;
 	
@@ -305,6 +305,7 @@ double cmpMats(MatrixCounts *mat1, NucCount *mat2, FileBuff *infile, unsigned no
 	dist = 0;
 	rowNum = 0;
 	rowsInc = 0;
+	nNucs = 0;
 	counts1 = mat1->counts;
 	while(FileBuffGetRow(infile, mat2) && mat2->ref) {
 		if(mat2->ref != '-') {
@@ -312,17 +313,24 @@ double cmpMats(MatrixCounts *mat1, NucCount *mat2, FileBuff *infile, unsigned no
 			if(mat1->len < ++rowNum) {
 				return -1;
 			}
-			if(minDepth <= mat2->total && minDepth <= (tot1 = counts1[6]) && 0 <= (d = veccmp(counts1, mat2->counts, tot1, mat2->total))) {
-				dist += d;
-				++rowsInc;
+			if(minDepth <= mat2->total) {
+				++nNucs;
+				if(minDepth <= (tot1 = counts1[6]) && 0 <= (d = veccmp(counts1, mat2->counts, tot1, mat2->total))) {
+					dist += d;
+					++rowsInc;
+				}
 			}
 			counts1 += 7;
 		}
 	}
 	
-	if(rowsInc == 0) {
+	if(nNucs < minLength || nNucs < minCov * rowNum) {
+		return -2.0;
+	} else if(rowsInc < minLength) {
+		mat2->total = 0;
 		return -1.0;
 	}
 	
+	mat2->total = nNucs;
 	return dist / rowsInc * norm;
 }

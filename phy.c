@@ -41,29 +41,28 @@ static char * stripDir(char *str) {
 	return str;
 }
 
-void printphy(FILE *outfile, Matrix *src, char **names, unsigned format) {
+void printphy(FILE *outfile, Matrix *src, char **names, unsigned char *include, unsigned format) {
 	
-	int i, j;
+	int i, j, jStart;
 	double *ptr;
-	
-	/* here */
-	Qseqs **Names = (Qseqs **) names;
 	
 	fprintf(outfile, "%10d\n", src->n);
 	ptr = *(src->mat);
-	for(i = 0; i < src->n; ++i) {
-		if(format & 1) {
-			fprintf(outfile, "%s", Names[i]->seq);
-		} else {
-			fprintf(outfile, "%10s", stripDir(names[i]));
-		}
-		
-		if((j = i) != 0) {
+	jStart = 0;
+	for(i = 0; jStart != src->n; ++i) {
+		if(include[i]) {
+			if(format & 1) {
+				fprintf(outfile, "%s", names[i]);
+			} else {
+				fprintf(outfile, "%10s", stripDir(names[i]));
+			}
+			
+			j = jStart++;
 			while(j--) {
 				fprintf(outfile, "\t%.4f", *ptr++);
 			}
+			fprintf(outfile, "\n");
 		}
-		fprintf(outfile, "\n");
 	}
 }
 
@@ -147,7 +146,8 @@ Qseqs ** loadPhy(Matrix *src, Qseqs **names, FileBuff *infile) {
 				if((avail = buffFileBuff(infile)) == 0) {
 					fprintf(stderr, "Malformatted phylip file, name on row: %d\n", ++i);
 					errno |= 1;
-					return 0;
+					src->n = 0;
+					return names;
 				}
 				buff = infile->buffer;
 			}
@@ -167,12 +167,13 @@ Qseqs ** loadPhy(Matrix *src, Qseqs **names, FileBuff *infile) {
 			*seq = 0;
 			++size;
 		}
-		name->len = name->size - size;
+		name->len = name->size - size + 1;
 		if(--avail == 0) {
 			if((avail = buffFileBuff(infile)) == 0) {
 				fprintf(stderr, "Malformatted phylip file, name on row: %d\n", ++i);
 				errno |= 1;
-				return 0;
+				src->n = 0;
+				return names;
 			}
 			buff = infile->buffer;
 		}
@@ -190,7 +191,8 @@ Qseqs ** loadPhy(Matrix *src, Qseqs **names, FileBuff *infile) {
 						++i;
 						fprintf(stderr, "Malformatted phylip file, distance pos:\t(%d,%d)\n", i, i - j);
 						errno |= 1;
-						return 0;
+						src->n = 0;
+						return names;
 					}
 					buff = infile->buffer;
 				}
@@ -204,7 +206,8 @@ Qseqs ** loadPhy(Matrix *src, Qseqs **names, FileBuff *infile) {
 				exit(errno | 1);
 			} else if(--avail == 0 && (stop != '\n' || i != n - 1)) {
 				if((avail = buffFileBuff(infile)) == 0) {
-					return 0;
+					src->n = 0;
+					return names;
 				}
 				buff = infile->buffer;
 			}
@@ -216,7 +219,8 @@ Qseqs ** loadPhy(Matrix *src, Qseqs **names, FileBuff *infile) {
 				if((avail = buffFileBuff(infile)) == 0 && i != n - 1) {
 					fprintf(stderr, "Malformatted phylip file, missing newline at row:\t%d\n", ++i);
 					errno |= 1;
-					return 0;
+					src->n = 0;
+					return names;
 				}
 				buff = infile->buffer;
 			}

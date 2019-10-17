@@ -7,7 +7,7 @@ cd ccphylo && make
 ./ccphylo -h
 ./ccphylo dist -i path/to/kma/alignments/*.mat.gz -o results.phy
 ./ccphylo tree -i results.phy -o results.nwck
-./ccphylo dist -i path/to/kma/alignments/*.res
+./ccphylo union -i path/to/kma/alignments/*.res
 ```
 
 # Introduction #

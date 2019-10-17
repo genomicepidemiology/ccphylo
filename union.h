@@ -19,7 +19,7 @@
 
 #include "hashmapstr.h"
 
-HashMapStr * unionRes(char **filenames, int numFile, char *outputfilename, double minCov, double minDepth);
-int unionResPrint(char **filenames, int numFile, char *outputfilename, double minCov, double minDepth);
-int unionResOrderPrint(char **filenames, int numFile, char *outputfilename, char *dbfilename, double minCov, double minDepth);
+HashMapStr * unionRes(char **filenames, int numFile, char *outputfilename, double minCov, double minDepth, unsigned minLength);
+int unionResPrint(char **filenames, int numFile, char *outputfilename, double minCov, double minDepth, unsigned minLength);
+int unionResOrderPrint(char **filenames, int numFile, char *outputfilename, char *dbfilename, double minCov, double minDepth, unsigned minLength);
 int main_union(int argc, char *argv[]);

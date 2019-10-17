@@ -20,6 +20,7 @@
 #include "nwck.h"
 #include "qseqs.h"
 #include "pherror.h"
+#define exchange(src1, src2, tmp) tmp = src1; src1 = src2; src2 = tmp;
 
 void formNode(Qseqs *node1, Qseqs *node2, double L1, double L2) {
 	
@@ -29,18 +30,10 @@ void formNode(Qseqs *node1, Qseqs *node2, double L1, double L2) {
 	
 	/* move largest qseq down */
 	if(node1->size < node2->size) {
-		seq = node1->seq;
-		node1->seq = node2->seq;
-		node2->seq = seq;
-		newsize = node1->size;
-		node1->size = node2->size;
-		node2->size = newsize;
-		newsize = node1->len;
-		node1->len = node2->len;
-		node2->len = newsize;
-		L = L1;
-		L1 = L2;
-		L2 = L;
+		exchange(node1->seq, node2->seq, seq);
+		exchange(node1->size, node2->size, newsize);
+		exchange(node1->len, node2->len, newsize);
+		exchange(L1, L2, L);
 	}
 	
 	/* alloc */
@@ -53,6 +46,7 @@ void formNode(Qseqs *node1, Qseqs *node2, double L1, double L2) {
 	}
 	
 	/* form node */
+	node1->seq[node1->len] = 0;
 	if(L1 < 0 && L2 < 0) {
 		node1->len = sprintf((char *) node1->seq, "%c%s,%s)", *node1->seq, (char *) node1->seq, (char *) node2->seq);
 	} else {
@@ -68,15 +62,9 @@ void formLastNode(Qseqs *node1, Qseqs *node2, double L) {
 	
 	/* move largest qseq down */
 	if(node1->size < node2->size) {
-		seq = node1->seq;
-		node1->seq = node2->seq;
-		node2->seq = seq;
-		newsize = node1->size;
-		node1->size = node2->size;
-		node2->size = newsize;
-		newsize = node1->len;
-		node1->len = node2->len;
-		node2->len = newsize;
+		exchange(node1->seq, node2->seq, seq);
+		exchange(node1->size, node2->size, newsize);
+		exchange(node1->len, node2->len, newsize);
 	}
 	
 	/* alloc */

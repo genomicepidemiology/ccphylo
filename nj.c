@@ -34,10 +34,14 @@ void limbLength(double *Li, double *Lj, unsigned i, unsigned j, Vector *sD, unsi
 	Ni = N[i] - 2;
 	Nj = N[j] - 2;
 	if(0 < Ni && 0 < Nj) {
-		/* standard */
-		delta_ij = (sD->vec[i] / Ni) - (sD->vec[j] / Nj);
+		/* semi-standard */
+		delta_ij = (sD->vec[i] - D_ij) / Ni) - ((sD->vec[j] - D_ij) / Nj);
 		*Li = (D_ij + delta_ij) / 2;
 		*Lj = (D_ij - delta_ij) / 2;
+		
+		/* org:
+		delta_ij = (sD->vec[i] - sD->vec[j]) / N = (sD->vec[i] - D_ij) / N) - ((sD->vec[j] - D_ij) / N;
+		*/
 		
 		/* avoid negative branch lengths */
 		if(*Li < 0) {
@@ -114,6 +118,8 @@ long unsigned initQ(Matrix *D, Matrix *Q, Vector *sD, unsigned *N) {
 	/*
 	Q(i,j) = (n(i) + n(j) - 4) / 2 * D(i,j) - summa(d(i,k)) - summa(d(k,j));
 	sD(i) = summa(d(i,k));
+	org:
+	Q(i,j) = (n - 2) * D(i,j) - summa(d(i,k)) - summa(d(k,j));
 	*/
 	
 	/* alloc */

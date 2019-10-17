@@ -26,7 +26,7 @@
 #include "matrix.h"
 #include "pherror.h"
 #include "phy.h"
-#define missArg(opt) fprintf(stderr, "Missing argument at %s.", opt); exit(1);
+#define missArg(opt) fprintf(stderr, "Missing argument at %s.\n", opt); exit(1);
 #define invaArg(opt) fprintf(stderr, "Invalid value parsed at %s.\n", opt); exit(1);
 
 static int helpMessage(FILE *out) {
@@ -37,6 +37,8 @@ static int helpMessage(FILE *out) {
 	fprintf(out, "# %16s\t%-32s\t%s\n", "-o", "Output file", "stdout");
 	fprintf(out, "# %16s\t%-32s\t%s\n", "-t", "Target template(s)", "None");
 	fprintf(out, "# %16s\t%-32s\t%s\n", "-md", "Minimum depth", "15");
+	fprintf(out, "# %16s\t%-32s\t%s\n", "-mc", "Minimum coverage", "50.0%");
+	fprintf(out, "# %16s\t%-32s\t%s\n", "-ml", "Minimum overlapping length", "1");
 	fprintf(out, "# %16s\t%-32s\t%s\n", "-nm", "Normalization", "1000000");
 	fprintf(out, "# %16s\t%-32s\t%s\n", "-f", "Output format", "0");
 	fprintf(out, "# %16s\t%-32s\t%s\n", "-fh", "Help on option \"-f\"", "");
@@ -48,20 +50,28 @@ static int helpMessage(FILE *out) {
 
 int main_dist(int argc, char *argv[]) {
 	
-	unsigned args, numFile, format, norm, minDepth, n;
+	unsigned args, numFile, format, norm, minDepth, minLength, n;
 	char *arg, *targetTemplate, **filenames, *outputfilename, *errorMsg;
-	double alpha, (*veccmp)(short unsigned*, short unsigned*, int, int);
+	unsigned char *include;
+	double minCov, alpha;
+	double (*veccmp)(short unsigned*, short unsigned*, int, int);
 	FILE *outfile;
-	Matrix *distMat;
+	Matrix *distMat, *nDest;
+	MatrixCounts *mat1;
+	NucCount *mat2;
+	FileBuff *infile;
+	TimeStamp **targetStamps;
 	
 	/* set defaults */
 	numFile = 0;
 	format = 0;
 	norm = 1000000;
 	minDepth = 15;
+	minLength = 1;
 	targetTemplate = 0;
 	filenames = 0;
 	outputfilename = "--";
+	minCov = 0.5;
 	alpha = 0.05;
 	veccmp = &coscmp;
 	
@@ -101,6 +111,27 @@ int main_dist(int argc, char *argv[]) {
 					}
 				} else {
 					missArg("\"-md\"");
+				}
+			} else if(strcmp(arg, "ml") == 0) {
+				if(++args < argc) {
+					if((minLength = strtoul(argv[args], &errorMsg, 10)) == 0) {
+						minLength = 1;
+					}
+					if(*errorMsg != 0) {
+						invaArg("\"-ml\"");
+					}
+				} else {
+					missArg("\"-ml\"");
+				}
+			} else if(strcmp(arg, "mc") == 0) {
+				if(++args < argc) {
+					minCov = strtod(argv[args], &errorMsg);
+					if(*errorMsg != 0 || minCov < 0 || 100 < minCov) {
+						invaArg("\"-mc\"");
+					}
+					minCov /= 100.0;
+				} else {
+					missArg("\"-mc\"");
 				}
 			} else if(strcmp(arg, "nm") == 0) {
 				if(++args < argc) {
@@ -213,16 +244,38 @@ int main_dist(int argc, char *argv[]) {
 		return helpMessage(stderr);
 	}
 	
-	/* make ltd matrix */
-	distMat = ltdMatrix_get(targetTemplate, filenames, numFile, norm, minDepth, veccmp);
-	
-	/* print ltd matrix */
+	/* open output */
 	if(*outputfilename == '-' && outputfilename[1] == '-' && outputfilename[2] == 0) {
 		outfile = stdout;
 	} else {
 		outfile = sfopen(outputfilename, "wb");
 	}
-	printphy(outfile, distMat, filenames, format);
+	
+	/* init */
+	distMat = ltdMatrix_init(numFile);
+	nDest = ltdMatrix_init(numFile);
+	mat1 = initMat(1048576, 128);
+	mat2 = initNucCount(128);
+	infile = setFileBuff(1048576);
+	if(!(targetStamps = calloc(numFile, sizeof(TimeStamp *)))) {
+		ERROR();
+	}
+	include = smalloc(numFile);
+	memset(include, 1, numFile);
+	
+	if(targetTemplate) {
+		/* make ltd matrix */
+		ltdMatrix_get(distMat, nDest, mat1, mat2, infile, targetStamps, include, targetTemplate, filenames, numFile, norm, minDepth, minLength, minCov, veccmp);
+		/* print ltd matrix */
+		if(1 < distMat->n) {
+			printphy(outfile, distMat, filenames, include, format);
+		}
+	} else {
+		/* create many matrices */
+		/* here */
+	}
+	
+	/* close */
 	fclose(outfile);
 	
 	return 0;

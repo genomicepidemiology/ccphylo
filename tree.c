@@ -31,8 +31,6 @@
 
 void formTree(char *inputfilename, char *outputfilename) {
 	
-	/* here */
-	/* generalize to output several trees */
 	unsigned i, *N;
 	FILE *outfile;
 	FileBuff *infile;
@@ -56,14 +54,19 @@ void formTree(char *inputfilename, char *outputfilename) {
 	
 	/* set */
 	openAndDetermine(infile, inputfilename);
-	names = loadPhy(D, names, infile);
 	
-	if(1 < D->n) {
-		/* make tree */
-		N = nj(D, Q, sD, N, names);
-		
-		/* output tree */
-		fprintf(outfile, ">%s%s;\n", "nj", (*names)->seq);
+	/* generate trees */
+	while((names = loadPhy(D, names, infile)) && D->n) {
+		if(2 < D->n) {
+			/* make tree */
+			N = nj(D, Q, sD, N, names);
+			
+			/* output tree */
+			fprintf(outfile, ">%s%s;\n", "nj", (*names)->seq);
+		} else if(D->n == 2) {
+			/* output tree */
+			fprintf(outfile, "(%s,%s:%.2f);\n", (*names)->seq, names[1]->seq, **(D->mat));
+		}
 	}
 	
 	/* clean */

@@ -28,60 +28,23 @@
 #include "pherror.h"
 #define strcmp2(str1, str2) (*(str1) == *(str2) && strcmp(str1 + 1, str2 + 1) == 0)
 
-Matrix * ltdMatrix_get(char *targetTemplate, char **filenames, int numFile, unsigned norm, unsigned minDepth, double (*veccmp)(short unsigned*, short unsigned*, int, int)) {
+void ltdMatrix_get(Matrix *dest, Matrix *nDest, MatrixCounts *mat1, NucCount *mat2, FileBuff *infile, TimeStamp **targetStamps, unsigned char *include, char *targetTemplate, char **filenames, int numFile, unsigned norm, unsigned minDepth, unsigned minLength, double minCov, double (*veccmp)(short unsigned*, short unsigned*, int, int)) {
 	
-	/* here */
-	/* get matrix of used nucs per distance */
-	int i, j;
+	int i, j, n;
 	char **filename;
-	double dist, *mat;
-	FileBuff *infile;
-	Matrix *dest;
-	MatrixCounts *mat1;
-	NucCount *mat2;
-	TimeStamp **targetStamp, **targetStamps;
-	
-	/* init */
-	dest = ltdMatrix_init(numFile);
-	mat1 = initMat(1048576, 128);
-	mat2 = initNucCount(128);
-	infile = setFileBuff(1048576);
-	if(!(targetStamps = calloc(numFile, sizeof(TimeStamp *)))) {
-		ERROR();
-	}
+	double dist, *mat, *nMat;
+	TimeStamp **targetStamp;
 	
 	/* get distances */
 	dest->n = numFile;
 	mat = *(dest->mat);
+	nMat = *(nDest->mat);
 	for(i = 0; i < numFile; ++i) {
 		if((j = i) != 0) {
-			/* open matrix file, and find target */
-			openAndDetermine(infile, filenames[i]);
-			if(*(targetStamp = targetStamps)) {
-				seekFileBiff(infile, *targetStamp);
-			} else {
-				while(FileBuffSkipTemplate(infile, mat2) && !(strcmp2(targetTemplate, (char *) mat2->name)));
-			}
-			/* make timestamp */
-			*targetStamp = timeStampFileBuff(infile, *targetStamp);
-			
-			/* initialize mat1 */
-			setMatName(mat1, mat2);
-			if(FileBuffLoadMat(mat1, infile) == 0) {
-				fprintf(stderr, "Malformed matrix in:\t%s\n", filenames[i]);
-				exit(1);
-			}
-			closeFileBuff(infile);
-			
-			/* strip matrix for insersions */
-			stripMat(mat1);
-			
-			/* calculate distances */
-			filename = filenames;
-			while(j--) {
+			if(include[i]) {
 				/* open matrix file, and find target */
-				openAndDetermine(infile, *filename++);
-				if(*targetStamp) {
+				openAndDetermine(infile, filenames[i]);
+				if(*(targetStamp = targetStamps)) {
 					seekFileBiff(infile, *targetStamp);
 				} else {
 					while(FileBuffSkipTemplate(infile, mat2) && !(strcmp2(targetTemplate, (char *) mat2->name)));
@@ -89,26 +52,69 @@ Matrix * ltdMatrix_get(char *targetTemplate, char **filenames, int numFile, unsi
 				/* make timestamp */
 				*targetStamp = timeStampFileBuff(infile, *targetStamp);
 				
-				/* get distance between the matrices */
-				dist = cmpMats(mat1, mat2, infile, norm, minDepth, veccmp);
-				if(dist < 0) {
-					if(dist == -1.0) {
-						fprintf(stderr, "No sufficient overlap between samples:\t%s, %s\n", filenames[i], *(filename - 1));
-					} else if(dist == -2.0) {
-						fprintf(stderr, "Template does not exist in file:\t%s\n", *(filename - 1));
-						exit(1);
-					} else {
-						fprintf(stderr, "Failed to produce a distance metric between samples:\t%s, %s\n", filenames[i], *(filename - 1));
-					}
+				/* initialize mat1 */
+				setMatName(mat1, mat2);
+				if(FileBuffLoadMat(mat1, infile, minDepth) == 0) {
+					fprintf(stderr, "Malformed matrix in:\t%s\n", filenames[i]);
+					exit(1);
 				}
-				*mat++ = dist;
-				
-				/* close mtrix file */
 				closeFileBuff(infile);
-				++targetStamp;
+				
+				/* validate matrix */
+				if(mat1->nNucs < minLength || mat1->nNucs < minCov * mat1->len) {
+					fprintf(stderr, "Template did exceed threshold for inclusion:\t%s\n", filenames[i]);
+					--dest->n;
+					include[i] = 0;
+				}
+				
+				/* strip matrix for insersions */
+				stripMat(mat1);
+			}
+			
+			if(include[i]) {
+				/* calculate distances */
+				filename = filenames;
+				n = 0;
+				while(j--) {
+					if(include[n]) {
+						/* open matrix file, and find target */
+						openAndDetermine(infile, *filename);
+						if(*targetStamp) {
+							seekFileBiff(infile, *targetStamp);
+						} else {
+							while(FileBuffSkipTemplate(infile, mat2) && !(strcmp2(targetTemplate, (char *) mat2->name)));
+						}
+						/* make timestamp */
+						*targetStamp = timeStampFileBuff(infile, *targetStamp);
+						
+						/* get distance between the matrices */
+						dist = cmpMats(mat1, mat2, infile, norm, minDepth, minLength, minCov, veccmp);
+						if(dist < 0) {
+							if(dist == -1.0) {
+								fprintf(stderr, "No sufficient overlap between samples:\t%s, %s\n", filenames[i], *filename);
+							} else if(dist == -2.0) {
+								fprintf(stderr, "Template did exceed threshold for inclusion:\t%s\n", *filename);
+							} else {
+								fprintf(stderr, "Failed to produce a distance metric between samples:\t%s, %s\n", filenames[i], *filename);
+							}
+						}
+						
+						if(-1.0 <= dist) {
+							*mat++ = dist;
+							*nMat++ = mat2->total;
+						} else {
+							--dest->n;
+							include[n] = 0;
+						}
+						
+						/* close mtrix file */
+						closeFileBuff(infile);
+						++targetStamp;
+					}
+					++filename;
+					++n;
+				}
 			}
 		}
 	}
-	
-	return dest;
 }

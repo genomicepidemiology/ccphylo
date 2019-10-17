@@ -33,6 +33,7 @@ struct matrixCounts {
 	Qseqs *name;
 	unsigned len;
 	unsigned size;
+	unsigned nNucs;
 	unsigned char *refs;
 	short unsigned *counts;
 };
@@ -44,4 +45,4 @@ int FileBuffGetRow(FileBuff *src, NucCount *dest);
 int FileBuffSkipTemplate(FileBuff *src, NucCount *dest);
 MatrixCounts * initMat(unsigned matSize, unsigned nameSize);
 void setMatName(MatrixCounts *dest, NucCount *src);
-int FileBuffLoadMat(MatrixCounts *dest, FileBuff *src);
+int FileBuffLoadMat(MatrixCounts *dest, FileBuff *src, unsigned minDepth);

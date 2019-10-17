@@ -22,6 +22,6 @@
 #include "matrix.h"
 #include "qseqs.h"
 
-void printphy(FILE *outfile, Matrix *src, char **names, unsigned format);
+void printphy(FILE *outfile, Matrix *src, char **names, unsigned char *include, unsigned format);
 Qseqs ** loadPhy(Matrix *src, Qseqs **names, FileBuff *infile);
 int main_tree(int argc, char *argv[]);

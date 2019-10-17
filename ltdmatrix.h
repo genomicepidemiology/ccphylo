@@ -17,6 +17,10 @@
  * limitations under the License.
 */
 
+#include "fbseek.h"
+#include "filebuff.h"
+#include "matrix.h"
+#include "matparse.h"
 #include "matrix.h"
 
-Matrix * ltdMatrix_get(char *targetTemplate, char **filenames, int numFile, unsigned norm, unsigned minDepth, double (*veccmp)(short unsigned*, short unsigned*, int, int));
+void ltdMatrix_get(Matrix *dest, Matrix *nDest, MatrixCounts *mat1, NucCount *mat2, FileBuff *infile, TimeStamp **targetStamps, unsigned char *include, char *targetTemplate, char **filenames, int numFile, unsigned norm, unsigned minDepth, unsigned minLength, double minCov, double (*veccmp)(short unsigned*, short unsigned*, int, int));

@@ -23,6 +23,16 @@
 #include "hashmapstr.h"
 #include "pherror.h"
 
+int minimalStandard(int rand) {
+	
+	rand = 16807 * (rand % 127773) - 2836 * (rand / 127773);
+	if (rand <= 0) {
+			rand += 0x7fffffff;
+	}
+	
+	return rand;
+}
+
 long unsigned djb2(unsigned char *str) {
 	
 	long unsigned hash;
@@ -34,7 +44,7 @@ long unsigned djb2(unsigned char *str) {
 		hash = ((hash << 5) + hash) + c;
 	}
 	
-	return hash;
+	return minimalStandard(hash);
 }
 
 long unsigned next2power(long unsigned num) {
@@ -112,7 +122,7 @@ void HashMapStr_grow(HashMapStr *src) {
 	}
 }
 
-int HashMapStr_add(HashMapStr *src, unsigned char *str) {
+int HashMapStr_add(HashMapStr *src, unsigned char *str, unsigned n) {
 	
 	unsigned hash, pos;
 	BucketStr *node;
@@ -123,7 +133,11 @@ int HashMapStr_add(HashMapStr *src, unsigned char *str) {
 	/* search hashmap */
 	for(node = src->table[pos]; node; node = node->next) {
 		if(hash == node->hash && strcmp((char *) str, (char *) node->str) == 0) {
-			return ++node->num;
+			if(!(node->uList = realloc(node->uList, (++node->num + 1) * sizeof(unsigned)))) {
+				ERROR();
+			}
+			node->uList[node->num] = n;
+			return node->num;
 		}
 	}
 	
@@ -134,13 +148,15 @@ int HashMapStr_add(HashMapStr *src, unsigned char *str) {
 	node->str = ustrdup(str);
 	node->hash = hash;
 	node->num = 0;
+	node->uList = smalloc(8 * sizeof(unsigned));
+	*(node->uList) = n;
 	node->next = src->table[pos];
 	src->table[pos] = node;
 	
 	return 0;
 }
 
-int HashMapStr_get(HashMapStr *src, unsigned char *str) {
+BucketStr * HashMapStr_get(HashMapStr *src, unsigned char *str) {
 	
 	unsigned hash, pos;
 	BucketStr *node, *prev;
@@ -158,22 +174,19 @@ int HashMapStr_get(HashMapStr *src, unsigned char *str) {
 			} else {
 				src->table[pos] = node->next;
 			}
-			pos = node->num;
-			free(node->str);
-			free(node);
 			--src->n;
-			return pos;
+			return node;
 		}
 		prev = node;
 		node = node->next;
 	}
 	
-	return -1;
+	return 0;
 }
 
 int HashMapStr_print(HashMapStr *src, FILE *out) {
 	
-	unsigned size, nc;
+	unsigned size, nc, num, *ptr;
 	BucketStr *node, **table;
 	
 	nc = 0;
@@ -181,8 +194,14 @@ int HashMapStr_print(HashMapStr *src, FILE *out) {
 	table = src->table - 1;
 	while(--size) {
 		for(node = *++table; node; node = node->next) {
-			if(node->num) {
-				nc += fprintf(out, "%s\t%d\n", node->str, node->num + 1);
+			if((num = node->num)) {
+				nc += fprintf(out, "%s\t%d", node->str, ++num);
+				++num;
+				ptr = node->uList - 1;
+				while(--num) {
+					nc += fprintf(out, "\t%u", *++ptr);
+				}
+				nc += fprintf(out, "\n");
 			}
 		}
 	}

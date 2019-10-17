@@ -24,6 +24,7 @@ struct bucketStr {
 	unsigned char *str;
 	unsigned hash;
 	unsigned num;
+	unsigned *uList;
 	struct bucketStr *next;
 };
 struct hashMapStr {
@@ -34,12 +35,13 @@ struct hashMapStr {
 #define HASHMAPSTR 1
 #endif
 
+int minimalStandard(int rand);
 long unsigned djb2(unsigned char *str);
 long unsigned next2power(long unsigned num);
 unsigned char * ustrdup(unsigned char *src);
 HashMapStr * HashMapStr_init(long unsigned size);
 void HashMapStr_grow(HashMapStr *src);
-int HashMapStr_add(HashMapStr *src, unsigned char *str);
-int HashMapStr_get(HashMapStr *src, unsigned char *str);
+int HashMapStr_add(HashMapStr *src, unsigned char *str, unsigned n);
+BucketStr * HashMapStr_get(HashMapStr *src, unsigned char *str);
 int HashMapStr_print(HashMapStr *src, FILE *out);
 void HashMapStr_destroy(HashMapStr *src);

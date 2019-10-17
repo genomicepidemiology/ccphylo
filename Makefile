@@ -1,4 +1,5 @@
-CFLAGS = -Wall -O3 -std=c99
+CFLAGS ?= -Wall -O3
+CFLAGS += -std=c99
 LIBS = dbparse.o dist.o fbseek.o filebuff.o hashmapstr.o ltdmatrix.o matcmp.o matparse.o matrix.o nj.o nwck.o pherror.o phy.o qseqs.o resparse.o stdstat.o tree.o union.o vector.o
 PROGS = ccphylo
 

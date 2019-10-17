@@ -195,10 +195,10 @@ void setMatName(MatrixCounts *dest, NucCount *src) {
 	name->len = strxfrm((char *) name->seq, (char *) src->name, src->size);
 }
 
-int FileBuffLoadMat(MatrixCounts *dest, FileBuff *src) {
+int FileBuffLoadMat(MatrixCounts *dest, FileBuff *src, unsigned minDepth) {
 	
 	unsigned char *buff, *refs, c;
-	unsigned size, avail, num, total, len;
+	unsigned size, avail, num, total, len, nNucs;
 	short unsigned *counts;
 	int (*buffFileBuff)(FileBuff *);
 	
@@ -215,6 +215,7 @@ int FileBuffLoadMat(MatrixCounts *dest, FileBuff *src) {
 	refs = dest->refs;
 	counts = dest->counts - 1;
 	len = 0;
+	nNucs = 0;
 	total = (num = 0);
 	*refs++ = *buff++;
 	if(--avail == 0) {
@@ -237,12 +238,16 @@ int FileBuffLoadMat(MatrixCounts *dest, FileBuff *src) {
 			*counts++ = num;
 			*counts = total;
 			++len;
+			if(minDepth <= total) {
+				++nNucs;
+			}
 			num = 0;
 			total = 0;
 			/* get ref */
 			if((*refs++ = *buff++) == '\n') {
 				*--refs = 0;
 				dest->len = len;
+				dest->nNucs = nNucs;
 				src->bytes = avail - 1;
 				src->next = buff;
 				return 1;
@@ -250,6 +255,7 @@ int FileBuffLoadMat(MatrixCounts *dest, FileBuff *src) {
 			if(--avail == 0) {
 				if((avail = buffFileBuff(src)) == 0) {
 					dest->len = len;
+					dest->nNucs = nNucs;
 					return 0;
 				}
 				buff = src->buffer;
@@ -277,6 +283,7 @@ int FileBuffLoadMat(MatrixCounts *dest, FileBuff *src) {
 	}
 	
 	dest->len = len;
+	dest->nNucs = nNucs;
 	src->bytes = avail;
 	src->next = buff - 1;
 	

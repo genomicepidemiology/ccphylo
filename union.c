@@ -29,28 +29,29 @@
 #define missArg(opt) fprintf(stderr, "Missing argument at %s.", opt); exit(1);
 #define invaArg(opt) fprintf(stderr, "Invalid value parsed at %s.\n", opt); exit(1);
 
-HashMapStr * unionRes(char **filenames, int numFile, char *outputfilename, double minCov, double minDepth) {
+HashMapStr * unionRes(char **filenames, int numFile, char *outputfilename, double minCov, double minDepth, unsigned minLength) {
 	
+	unsigned n;
 	FileBuff *infile;
 	HashMapStr *entries;
 	ResEntry *entry;
 	
 	/* init */
-	entries = HashMapStr_init(1024);
+	entries = HashMapStr_init(128);
 	entry = ResEntry_init(128);
 	infile = setFileBuff(1048576);
+	minLength *= 100;
 	
 	/* iterate files */
-	++numFile;
-	while(--numFile) {
+	for(n = 0; n < numFile; ++n) {
 		openAndDetermine(infile, *filenames++);
 		if(FileBuffValidateHeader(infile)) {
 			fprintf(stderr, "Malformed res file:\t%s\n", *--filenames);
 			exit(1);
 		}
 		while(FileBuffGetEntry(infile, entry)) {
-			if(minCov <= entry->Template_Coverage && minDepth <= entry->Depth) {
-				HashMapStr_add(entries, entry->Template->seq);
+			if(minCov <= entry->Template_Coverage && minDepth <= entry->Depth && minLength <= entry->Template_length * entry->Template_Coverage) {
+				HashMapStr_add(entries, entry->Template->seq, n);
 			}
 		}
 		closeFileBuff(infile);
@@ -62,7 +63,7 @@ HashMapStr * unionRes(char **filenames, int numFile, char *outputfilename, doubl
 	return entries;
 }
 
-int unionResPrint(char **filenames, int numFile, char *outputfilename, double minCov, double minDepth) {
+int unionResPrint(char **filenames, int numFile, char *outputfilename, double minCov, double minDepth, unsigned minLength) {
 	
 	FILE *outfile;
 	HashMapStr *entries;
@@ -75,7 +76,7 @@ int unionResPrint(char **filenames, int numFile, char *outputfilename, double mi
 	}
 	
 	/* get union */
-	entries = unionRes(filenames, numFile, outputfilename, minCov, minDepth);
+	entries = unionRes(filenames, numFile, outputfilename, minCov, minDepth, minLength);
 	
 	/* print results */
 	numFile = HashMapStr_print(entries, outfile);
@@ -87,10 +88,12 @@ int unionResPrint(char **filenames, int numFile, char *outputfilename, double mi
 	return numFile;
 }
 
-int unionResOrderPrint(char **filenames, int numFile, char *outputfilename, char *dbfilename, double minCov, double minDepth) {
+int unionResOrderPrint(char **filenames, int numFile, char *outputfilename, char *dbfilename, double minCov, double minDepth, unsigned minLength) {
 	
 	int nc, num;
+	unsigned *ptr;
 	FILE *outfile, *templatefile;
+	BucketStr *node;
 	HashMapStr *entries;
 	Qseqs *templatename;
 	
@@ -105,13 +108,23 @@ int unionResOrderPrint(char **filenames, int numFile, char *outputfilename, char
 	templatefile = sfopen((char *) templatename->seq, "rb");
 	
 	/* get union */
-	entries = unionRes(filenames, numFile, outputfilename, minCov, minDepth);
+	entries = unionRes(filenames, numFile, outputfilename, minCov, minDepth, minLength);
 	
 	/* print db ordered results */
 	nc = 0;
 	while(entries->n && nameLoad(templatename, templatefile)) {
-		if(0 < (num = HashMapStr_get(entries, templatename->seq))) {
-			nc += fprintf(outfile, "%s\t%d\n", templatename->seq, num + 1);
+		if((node = HashMapStr_get(entries, templatename->seq)) && 0 < (num = node->num)) {
+			nc += fprintf(outfile, "%s\t%d", templatename->seq, ++num);
+			++num;
+			ptr = node->uList - 1;
+			while(--num) {
+				nc += fprintf(outfile, "\t%s", filenames[*++ptr]);
+			}
+			nc += fprintf(outfile, "\n");
+			/* destroy node */
+			free(node->str);
+			free(node->uList);
+			free(node);
 		}
 	}
 	
@@ -133,13 +146,14 @@ static int helpMessage(FILE *out) {
 	fprintf(out, "# %16s\t%-32s\t%s\n", "-t", "Print ordered wrt. template DB filename", "none");
 	fprintf(out, "# %16s\t%-32s\t%s\n", "-md", "Minimum depth", "1.0");
 	fprintf(out, "# %16s\t%-32s\t%s\n", "-mc", "Minimum coverage", "50.0");
+	fprintf(out, "# %16s\t%-32s\t%s\n", "-ml", "Minimum consensus length", "1");
 	fprintf(out, "# %16s\t%-32s\t%s\n", "-h", "Shows this helpmessage", "");
 	return (out == stderr);
 }
 
 int main_union(int argc, char *argv[]) {
 	
-	unsigned args, numFile;
+	unsigned args, numFile, minLength;
 	double minCov, minDepth;
 	char *arg, **filenames, *outputfilename, *templatefilename, *errorMsg;
 	
@@ -149,6 +163,7 @@ int main_union(int argc, char *argv[]) {
 	templatefilename = 0;
 	minDepth = 1;
 	minCov = 50.0;
+	minLength = 1;
 	
 	args = 1;
 	while(args < argc) {
@@ -194,6 +209,15 @@ int main_union(int argc, char *argv[]) {
 				} else {
 					missArg("\"-mc\"");
 				}
+			} else if(strcmp(arg, "ml") == 0) {
+				if(++args < argc) {
+					minLength = strtoul(argv[args], &errorMsg, 10);
+					if(*errorMsg != 0) {
+						invaArg("\"-mc\"");
+					}
+				} else {
+					missArg("\"-mc\"");
+				}
 			} else if(strcmp(arg, "h") == 0) {
 				return helpMessage(stdout);
 			} else {
@@ -207,10 +231,16 @@ int main_union(int argc, char *argv[]) {
 		++args;
 	}
 	
+	/* check for required input */
+	if(!numFile || !filenames) {
+		fprintf(stderr, "Missing arguments, printing helpmessage.\n");
+		return helpMessage(stderr);
+	}
+	
 	if(templatefilename) {
-		unionResOrderPrint(filenames, numFile, outputfilename, templatefilename, minCov, minDepth);
+		unionResOrderPrint(filenames, numFile, outputfilename, templatefilename, minCov, minDepth, minLength);
 	} else {
-		unionResPrint(filenames, numFile, outputfilename, minCov, minDepth);
+		unionResPrint(filenames, numFile, outputfilename, minCov, minDepth, minLength);
 	}
 	
 	return 0;
