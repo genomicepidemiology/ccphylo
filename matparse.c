@@ -36,6 +36,12 @@ NucCount * initNucCount(unsigned size) {
 	return dest;
 }
 
+void destroyNucCount(NucCount *src) {
+	
+	free(src->name);
+	free(src);
+}
+
 int FileBuffGetRow(FileBuff *src, NucCount *dest) {
 	
 	unsigned char *buff, *name;
@@ -179,6 +185,14 @@ MatrixCounts * initMat(unsigned matSize, unsigned nameSize) {
 	dest->counts = smalloc(7 * matSize * sizeof(short unsigned));
 	
 	return dest;
+}
+
+void destroyMat(MatrixCounts *src) {
+	
+	free(src->name);
+	free(src->refs);
+	free(src->counts);
+	free(src);
 }
 
 void setMatName(MatrixCounts *dest, NucCount *src) {

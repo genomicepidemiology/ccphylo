@@ -26,6 +26,8 @@
 #include "matrix.h"
 #include "pherror.h"
 #include "phy.h"
+#include "str.h"
+#include "unionparse.h"
 #define missArg(opt) fprintf(stderr, "Missing argument at %s.\n", opt); exit(1);
 #define invaArg(opt) fprintf(stderr, "Invalid value parsed at %s.\n", opt); exit(1);
 
@@ -35,7 +37,8 @@ static int helpMessage(FILE *out) {
 	fprintf(out, "# %16s\t%-32s\t%s\n", "Options are:", "Desc:", "Default:");
 	fprintf(out, "# %16s\t%-32s\t%s\n", "-i", "Input file(s).", "None");
 	fprintf(out, "# %16s\t%-32s\t%s\n", "-o", "Output file", "stdout");
-	fprintf(out, "# %16s\t%-32s\t%s\n", "-t", "Target template(s)", "None");
+	fprintf(out, "# %16s\t%-32s\t%s\n", "-n", "Output number of nucleotides included", "False");
+	fprintf(out, "# %16s\t%-32s\t%s\n", "-r", "Target reference", "None");
 	fprintf(out, "# %16s\t%-32s\t%s\n", "-md", "Minimum depth", "15");
 	fprintf(out, "# %16s\t%-32s\t%s\n", "-mc", "Minimum coverage", "50.0%");
 	fprintf(out, "# %16s\t%-32s\t%s\n", "-ml", "Minimum overlapping length", "1");
@@ -50,17 +53,19 @@ static int helpMessage(FILE *out) {
 
 int main_dist(int argc, char *argv[]) {
 	
-	unsigned args, numFile, format, norm, minDepth, minLength, n;
-	char *arg, *targetTemplate, **filenames, *outputfilename, *errorMsg;
+	unsigned args, numFile, format, norm, minDepth, minLength, n, pos, len;
+	char *arg, *targetTemplate, **filenames, *errorMsg;
+	char *outputfilename, *noutputfilename;
 	unsigned char *include;
 	double minCov, alpha;
 	double (*veccmp)(short unsigned*, short unsigned*, int, int);
-	FILE *outfile;
+	FILE *outfile, *noutfile;
 	Matrix *distMat, *nDest;
 	MatrixCounts *mat1;
 	NucCount *mat2;
-	FileBuff *infile;
+	FileBuff *infile, *unionfile;
 	TimeStamp **targetStamps;
+	UnionEntry *entry;
 	
 	/* set defaults */
 	numFile = 0;
@@ -71,6 +76,8 @@ int main_dist(int argc, char *argv[]) {
 	targetTemplate = 0;
 	filenames = 0;
 	outputfilename = "--";
+	noutputfilename = 0;
+	noutfile = 0;
 	minCov = 0.5;
 	alpha = 0.05;
 	veccmp = &coscmp;
@@ -95,11 +102,17 @@ int main_dist(int argc, char *argv[]) {
 				} else {
 					missArg("\"-o\"");
 				}
-			} else if(strcmp(arg, "t") == 0) {
+			} else if(strcmp(arg, "n") == 0) {
+				if(++args < argc) {
+					noutputfilename = argv[args];
+				} else {
+					noutputfilename = "--";
+				}
+			} else if(strcmp(arg, "r") == 0) {
 				if(++args < argc) {
 					targetTemplate = argv[args];
 				} else {
-					missArg("\"-t\"");
+					missArg("\"-r\"");
 				}
 			} else if(strcmp(arg, "md") == 0) {
 				if(++args < argc) {
@@ -239,9 +252,12 @@ int main_dist(int argc, char *argv[]) {
 	zcmp(0, (short unsigned *)(&alpha), 0, 0);
 	
 	/* check for required input */
-	if(!numFile || !targetTemplate) {
-		fprintf(stderr, "Missing arguments, printing helpmessage.\n");
-		return helpMessage(stderr);
+	if(!numFile) {
+		if(targetTemplate) {
+			fprintf(stderr, "Missing arguments, printing helpmessage.\n");
+			return helpMessage(stderr);
+		}
+		numFile = 1;
 	}
 	
 	/* open output */
@@ -250,33 +266,125 @@ int main_dist(int argc, char *argv[]) {
 	} else {
 		outfile = sfopen(outputfilename, "wb");
 	}
+	if(noutputfilename) {
+		if(strcmp(noutputfilename, outputfilename) == 0) {
+			noutfile = outfile;
+		} else if(*noutputfilename == '-' && noutputfilename[1] == '-' && noutputfilename[2] == 0) {
+			noutfile = stdout;
+		} else {
+			noutfile = sfopen(noutputfilename, "wb");
+		}
+	}
 	
 	/* init */
-	distMat = ltdMatrix_init(numFile);
-	nDest = ltdMatrix_init(numFile);
 	mat1 = initMat(1048576, 128);
 	mat2 = initNucCount(128);
 	infile = setFileBuff(1048576);
-	if(!(targetStamps = calloc(numFile, sizeof(TimeStamp *)))) {
-		ERROR();
-	}
-	include = smalloc(numFile);
-	memset(include, 1, numFile);
 	
 	if(targetTemplate) {
+		/* init */
+		distMat = ltdMatrix_init(numFile);
+		nDest = ltdMatrix_init(numFile);
+		if(!(targetStamps = calloc(numFile, sizeof(TimeStamp *)))) {
+			ERROR();
+		}
+		include = smalloc(numFile);
+		memset(include, 1, numFile);
+		
 		/* make ltd matrix */
 		ltdMatrix_get(distMat, nDest, mat1, mat2, infile, targetStamps, include, targetTemplate, filenames, numFile, norm, minDepth, minLength, minCov, veccmp);
 		/* print ltd matrix */
 		if(1 < distMat->n) {
 			printphy(outfile, distMat, filenames, include, format);
+			if(noutputfilename) {
+				printphy(noutfile, nDest, filenames, include, format);
+			}
 		}
-	} else {
+	} else if(numFile == 1) {
 		/* create many matrices */
-		/* here */
+		/* requires *.union */
+		unionfile = setFileBuff(524288);
+		if(filenames) {
+			openAndDetermine(unionfile, *filenames);
+		} else {
+			openAndDetermine(unionfile, "--");
+		}
+		/* get samplenames */
+		if(!(filenames = UnionEntry_getHeader(unionfile, &numFile))) {
+			fprintf(stderr, "Malformed union input.\n");
+			return 1;
+		}
+		/* init */
+		entry = UnionEntry_init(32, numFile);
+		distMat = ltdMatrix_init(numFile);
+		nDest = ltdMatrix_init(numFile);
+		if(!(targetStamps = calloc(numFile, sizeof(TimeStamp *)))) {
+			ERROR();
+		}
+		include = smalloc(numFile);
+		
+		/* get filenames */
+		n = numFile;
+		while(n--) {
+			/* truncate */
+			len = strlen(filenames[n]);
+			if((pos = rstrpos(filenames[n], '.', len)) != -1) {
+				filenames[n][pos] = 0;
+				len = pos;
+			}
+			
+			/* add .mat.gz */
+			strcpy(filenames[n] + len, ".mat.gz");
+			len += 7;
+			
+			/* check if file exists */
+			if(!fileExist(filenames[n])) {
+				len -= 3;
+				filenames[n][len] = 0;
+			}
+		}
+		
+		/* parse candidates */
+		while(UnionEntry_get(unionfile, entry)) {
+			/* get included templates */
+			memset(include, 0, numFile);
+			n = entry->num;
+			while(n--) {
+				include[entry->filenames[n]] = 1;
+			}
+			
+			/* get matrix */
+			ltdMatrix_get(distMat, nDest, mat1, mat2, infile, targetStamps, include, entry->target, filenames, numFile, norm, minDepth, minLength, minCov, veccmp);
+			
+			/* print ltd matrix */
+			if(1 < distMat->n) {
+				printphy(outfile, distMat, filenames, include, format);
+				if(noutputfilename) {
+					printphy(noutfile, nDest, filenames, include, format);
+				}
+			}
+		}
+		closeFileBuff(unionfile);
+		destroyFileBuff(unionfile);
+		UnionEntry_destroy(entry);
+	} else {
+		fprintf(stderr, "Missing arguments, printing helpmessage.\n");
+		return helpMessage(stderr);
 	}
+	
+	Matrix_destroy(distMat);
+	Matrix_destroy(nDest);
+	destroyMat(mat1);
+	destroyNucCount(mat2);
+	destroyFileBuff(infile);
+	free(targetStamps);
+	free(include);
 	
 	/* close */
 	fclose(outfile);
+	if(noutputfilename && strcmp(noutputfilename, outputfilename) != 0) {
+		fclose(noutfile);
+	}
 	
 	return 0;
 }

@@ -25,6 +25,27 @@ For practical reasons you might want to add ccphylo to your path, this is usuall
 mv ccphylo ~/bin/
 ```
 
+# Examples #
+Generate a distance matrix and a tree between the samples, using "CP015990.1" as a reference, and include a matrix 
+describing how many nucleotide positions that were used between each sample.
+```
+ccphylo dist -i path/to/kma/alignments/*.mat.gz -o path/to/ccphylo/results/result.phy -n path/to/ccphylo/results/result.num -r CP015990.1
+ccphylo tree -i path/to/ccphylo/results/result.phy -o path/to/ccphylo/results/result.nwck
+```
+
+Find all pairwise shared templates between samples, and make a diatance matrix and tree for each of them.
+```
+ccphylo union -i path/to/kma/alignments/*.res -o path/to/ccphylo/results/result.union -t_db path/to/kma/db
+ccphylo dist -i path/to/ccphylo/results/result.union -o path/to/ccphylo/results/result.phy
+ccphylo tree -i path/to/ccphylo/results/result.phy -o path/to/ccphylo/results/result.nwck
+```
+
+This can also be done without saving the intermediate results of CCPhylo, with:
+```
+ccphylo union -i path/to/kma/alignments/*.res -t_db path/to/kma/db | ccphylo dist -md 1 | ccphylo tree
+```
+
+
 # Installation Requirements #
 In order to install CCPhylo, you need to have a C-compiler and zlib development files installed.
 Zlib development files can be installed on unix systems with:

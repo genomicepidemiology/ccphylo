@@ -65,6 +65,7 @@ HashMapStr * unionRes(char **filenames, int numFile, char *outputfilename, doubl
 
 int unionResPrint(char **filenames, int numFile, char *outputfilename, double minCov, double minDepth, unsigned minLength) {
 	
+	int nc;
 	FILE *outfile;
 	HashMapStr *entries;
 	
@@ -78,14 +79,22 @@ int unionResPrint(char **filenames, int numFile, char *outputfilename, double mi
 	/* get union */
 	entries = unionRes(filenames, numFile, outputfilename, minCov, minDepth, minLength);
 	
+	/* print tested filenames */
+	fprintf(outfile, "%d", numFile);
+	nc = numFile + 1;
+	while(--nc) {
+		fprintf(outfile, "\t%s", *filenames++);
+	}
+	fprintf(outfile, "\n");
+	
 	/* print results */
-	numFile = HashMapStr_print(entries, outfile);
+	nc = HashMapStr_print(entries, outfile);
 	
 	/* clean up */
 	fclose(outfile);
 	HashMapStr_destroy(entries);
 	
-	return numFile;
+	return nc;
 }
 
 int unionResOrderPrint(char **filenames, int numFile, char *outputfilename, char *dbfilename, double minCov, double minDepth, unsigned minLength) {
@@ -110,6 +119,14 @@ int unionResOrderPrint(char **filenames, int numFile, char *outputfilename, char
 	/* get union */
 	entries = unionRes(filenames, numFile, outputfilename, minCov, minDepth, minLength);
 	
+	/* print tested filenames */
+	fprintf(outfile, "%d", numFile);
+	nc = numFile + 1;
+	while(--nc) {
+		fprintf(outfile, "\t%s", *filenames++);
+	}
+	fprintf(outfile, "\n");
+	
 	/* print db ordered results */
 	nc = 0;
 	while(entries->n && nameLoad(templatename, templatefile)) {
@@ -118,7 +135,7 @@ int unionResOrderPrint(char **filenames, int numFile, char *outputfilename, char
 			++num;
 			ptr = node->uList - 1;
 			while(--num) {
-				nc += fprintf(outfile, "\t%s", filenames[*++ptr]);
+				nc += fprintf(outfile, "\t%d", *++ptr);
 			}
 			nc += fprintf(outfile, "\n");
 			/* destroy node */
@@ -143,7 +160,7 @@ static int helpMessage(FILE *out) {
 	fprintf(out, "# %16s\t%-32s\t%s\n", "Options are:", "Desc:", "Default:");
 	fprintf(out, "# %16s\t%-32s\t%s\n", "-i", "Input file(s).", "None");
 	fprintf(out, "# %16s\t%-32s\t%s\n", "-o", "Output file", "stdout");
-	fprintf(out, "# %16s\t%-32s\t%s\n", "-t", "Print ordered wrt. template DB filename", "none");
+	fprintf(out, "# %16s\t%-32s\t%s\n", "-t_db", "Print ordered wrt. template DB filename", "none");
 	fprintf(out, "# %16s\t%-32s\t%s\n", "-md", "Minimum depth", "1.0");
 	fprintf(out, "# %16s\t%-32s\t%s\n", "-mc", "Minimum coverage", "50.0");
 	fprintf(out, "# %16s\t%-32s\t%s\n", "-ml", "Minimum consensus length", "1");
@@ -185,11 +202,11 @@ int main_union(int argc, char *argv[]) {
 				} else {
 					missArg("\"-o\"");
 				}
-			} else if(strcmp(arg, "t") == 0) {
+			} else if(strcmp(arg, "t_db") == 0) {
 				if(++args < argc) {
 					templatefilename = argv[args];
 				} else {
-					missArg("\"-t\"");
+					missArg("\"-t_db\"");
 				}
 			} else if(strcmp(arg, "md") == 0) {
 				if(++args < argc) {

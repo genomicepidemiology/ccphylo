@@ -35,7 +35,7 @@ void limbLength(double *Li, double *Lj, unsigned i, unsigned j, Vector *sD, unsi
 	Nj = N[j] - 2;
 	if(0 < Ni && 0 < Nj) {
 		/* semi-standard */
-		delta_ij = (sD->vec[i] - D_ij) / Ni) - ((sD->vec[j] - D_ij) / Nj);
+		delta_ij = ((sD->vec[i] - D_ij) / Ni) - ((sD->vec[j] - D_ij) / Nj);
 		*Li = (D_ij + delta_ij) / 2;
 		*Lj = (D_ij - delta_ij) / 2;
 		

@@ -41,8 +41,10 @@ struct matrixCounts {
 #endif
 
 NucCount * initNucCount(unsigned size);
+void destroyNucCount(NucCount *src);
 int FileBuffGetRow(FileBuff *src, NucCount *dest);
 int FileBuffSkipTemplate(FileBuff *src, NucCount *dest);
 MatrixCounts * initMat(unsigned matSize, unsigned nameSize);
+void destroyMat(MatrixCounts *src);
 void setMatName(MatrixCounts *dest, NucCount *src);
 int FileBuffLoadMat(MatrixCounts *dest, FileBuff *src, unsigned minDepth);

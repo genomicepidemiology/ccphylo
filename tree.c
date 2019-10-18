@@ -102,10 +102,7 @@ int main_tree(int argc, char *argv[]) {
 	inputfilename = "--";
 	outputfilename = "--";
 	
-	if((args = 1) == argc) {
-		fprintf(stderr, "Missing arguments, printing helpmessage.\n");
-		return helpMessage(stderr);
-	}
+	args = 1;
 	while(args < argc) {
 		arg = argv[args];
 		if(*arg++ == '-') {

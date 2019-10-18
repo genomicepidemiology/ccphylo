@@ -36,7 +36,7 @@ void ltdMatrix_get(Matrix *dest, Matrix *nDest, MatrixCounts *mat1, NucCount *ma
 	TimeStamp **targetStamp;
 	
 	/* get distances */
-	dest->n = numFile;
+	dest->n = 0;
 	mat = *(dest->mat);
 	nMat = *(nDest->mat);
 	for(i = 0; i < numFile; ++i) {
@@ -63,7 +63,6 @@ void ltdMatrix_get(Matrix *dest, Matrix *nDest, MatrixCounts *mat1, NucCount *ma
 				/* validate matrix */
 				if(mat1->nNucs < minLength || mat1->nNucs < minCov * mat1->len) {
 					fprintf(stderr, "Template did exceed threshold for inclusion:\t%s\n", filenames[i]);
-					--dest->n;
 					include[i] = 0;
 				}
 				
@@ -103,7 +102,6 @@ void ltdMatrix_get(Matrix *dest, Matrix *nDest, MatrixCounts *mat1, NucCount *ma
 							*mat++ = dist;
 							*nMat++ = mat2->total;
 						} else {
-							--dest->n;
 							include[n] = 0;
 						}
 						
@@ -117,4 +115,17 @@ void ltdMatrix_get(Matrix *dest, Matrix *nDest, MatrixCounts *mat1, NucCount *ma
 			}
 		}
 	}
+	
+	/* get number of include templates */
+	++numFile;
+	--include;
+	n = 0;
+	while(--numFile) {
+		if(*++include) {
+			++n;
+		}
+	}
+	dest->n = n;
+	nDest->n = n;
+	
 }

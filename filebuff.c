@@ -23,6 +23,18 @@
 #include "filebuff.h"
 #include "pherror.h"
 
+int fileExist(char *filename) {
+	
+	FILE *exist;
+	
+	if((exist = fopen(filename, "rb"))) {
+		fclose(exist);
+		return 1;
+	}
+	
+	return 0;
+}
+
 void openAndDetermine(FileBuff *inputfile, char *filename) {
 	
 	short unsigned *check;
