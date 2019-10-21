@@ -17,18 +17,7 @@
  * limitations under the License.
 */
 
-#ifndef MATRIX
-typedef struct matrix Matrix;
-struct matrix {
-	int n;
-	int size;
-	double **mat;
-};
-#define MATRIX 1
-#endif
+#include "hashmapstr.h"
+#include "pherror.h"
 
-Matrix * ltdMatrix_init(unsigned size);
-void ltdMatrix_realloc(Matrix *src, unsigned size);
-void Matrix_destroy(Matrix *src);
-void ltdMatrix_popArrange(Matrix *mat, unsigned pos);
-int ltdMatrix_add(Matrix *src);
+int HashMapStrindex_add(HashMapStr *src, unsigned char *str);

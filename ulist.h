@@ -17,18 +17,17 @@
  * limitations under the License.
 */
 
-#ifndef MATRIX
-typedef struct matrix Matrix;
-struct matrix {
+#ifndef ULIST
+typedef struct ulist uList;
+struct ulist {
 	int n;
 	int size;
-	double **mat;
+	unsigned *list;
 };
-#define MATRIX 1
+#define ULIST 1
 #endif
 
-Matrix * ltdMatrix_init(unsigned size);
-void ltdMatrix_realloc(Matrix *src, unsigned size);
-void Matrix_destroy(Matrix *src);
-void ltdMatrix_popArrange(Matrix *mat, unsigned pos);
-int ltdMatrix_add(Matrix *src);
+uList * uList_init(unsigned size);
+void uList_realloc(uList *src, unsigned newsize);
+void uList_destroy(uList *src);
+void uList_push(uList *src, unsigned num);

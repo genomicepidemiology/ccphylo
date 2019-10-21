@@ -104,3 +104,23 @@ void ltdMatrix_popArrange(Matrix *mat, unsigned pos) {
 		}
 	}
 }
+
+int ltdMatrix_add(Matrix *src) {
+	
+	int i;
+	double *ptr;
+	
+	/* realloc */
+	if(++src->n == src->size) {
+		ltdMatrix_realloc(src, src->size << 1);
+	}
+	
+	/* init new row */
+	i = src->n;
+	ptr = src->mat[i - 1] - 1;
+	while(--i) {
+		*++ptr = 0;
+	}
+	
+	return src->n - 1;
+}

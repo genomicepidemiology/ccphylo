@@ -17,6 +17,8 @@
  * limitations under the License.
 */
 
+#include <stdio.h>
+
 #ifndef HASHMAPSTR
 typedef struct hashMapStr HashMapStr;
 typedef struct bucketStr BucketStr;

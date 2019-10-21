@@ -33,9 +33,9 @@
 
 static int helpMessage(FILE *out) {
 	
-	fprintf(out, "#CCPhylo calculates distances between samples based on overlaps between nucleotide count matrices created by e.g. KMA.\n");
+	fprintf(out, "#CCPhylo dist calculates distances between samples based on overlaps between nucleotide count matrices created by e.g. KMA.\n");
 	fprintf(out, "# %16s\t%-32s\t%s\n", "Options are:", "Desc:", "Default:");
-	fprintf(out, "# %16s\t%-32s\t%s\n", "-i", "Input file(s).", "None");
+	fprintf(out, "# %16s\t%-32s\t%s\n", "-i", "Input file(s)", "stdin");
 	fprintf(out, "# %16s\t%-32s\t%s\n", "-o", "Output file", "stdout");
 	fprintf(out, "# %16s\t%-32s\t%s\n", "-n", "Output number of nucleotides included", "False");
 	fprintf(out, "# %16s\t%-32s\t%s\n", "-r", "Target reference", "None");

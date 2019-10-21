@@ -20,6 +20,7 @@
 #include <stdio.h>
 #include <string.h>
 #include "dist.h"
+#include "merge.h"
 #include "tree.h"
 #include "union.h"
 #include "version.h"
@@ -29,6 +30,7 @@ static int helpMessage(FILE *out) {
 	fprintf(out, "#CCPhylo enables phylogenetic analysis of samples based on overlaps between nucleotide created by e.g. KMA.\n");
 	fprintf(out, "# %16s\t%-32s\n", "Options are:", "Desc:");
 	fprintf(out, "# %16s\t%-32s\n", "dist", "make distance matrices");
+	fprintf(out, "# %16s\t%-32s\n", "merge", "merge distance matrices");
 	fprintf(out, "# %16s\t%-32s\n", "tree", "make tree(s)");
 	fprintf(out, "# %16s\t%-32s\n", "union", "Find union of templates between samples");
 	fprintf(out, "# %16s\t%-32s\n", "-v", "Version");
@@ -48,6 +50,8 @@ int main(int argc, char *argv[]) {
 		return main_dist(argc, argv);
 	} else if(strcmp(arg, "tree") == 0) {
 		return main_tree(argc, argv);
+	} else if(strcmp(arg, "merge") == 0) {
+		return main_merge(argc, argv);
 	} else if(strcmp(arg, "union") == 0) {
 		return main_union(argc, argv);
 	} else if(strcmp(arg, "-v") == 0) {

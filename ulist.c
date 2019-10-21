@@ -17,18 +17,41 @@
  * limitations under the License.
 */
 
-#ifndef MATRIX
-typedef struct matrix Matrix;
-struct matrix {
-	int n;
-	int size;
-	double **mat;
-};
-#define MATRIX 1
-#endif
+#include <stdlib.h>
+#include "pherror.h"
+#include "ulist.h"
 
-Matrix * ltdMatrix_init(unsigned size);
-void ltdMatrix_realloc(Matrix *src, unsigned size);
-void Matrix_destroy(Matrix *src);
-void ltdMatrix_popArrange(Matrix *mat, unsigned pos);
-int ltdMatrix_add(Matrix *src);
+uList * uList_init(unsigned size) {
+	
+	uList *dest;
+	
+	dest = smalloc(sizeof(uList));
+	dest->n = 0;
+	dest->size = size;
+	dest->list = smalloc(size * sizeof(unsigned));
+	
+	return dest;
+}
+
+void uList_realloc(uList *src, unsigned newsize) {
+	
+	if(!(src->list = realloc(src->list, newsize * sizeof(unsigned)))) {
+		ERROR();
+	}
+	src->size = newsize;
+}
+
+void uList_destroy(uList *src) {
+	
+	free(src->list);
+	free(src);
+}
+
+void uList_push(uList *src, unsigned num) {
+	
+	if(++src->n == src->size) {
+		uList_realloc(src, src->size << 1);
+	}
+	
+	src->list[src->n - 1] = num;
+}

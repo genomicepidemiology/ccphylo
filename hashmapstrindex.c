@@ -17,18 +17,35 @@
  * limitations under the License.
 */
 
-#ifndef MATRIX
-typedef struct matrix Matrix;
-struct matrix {
-	int n;
-	int size;
-	double **mat;
-};
-#define MATRIX 1
-#endif
+#include "hashmapstr.h"
+#include "hashmapstrindex.h"
+#include "pherror.h"
 
-Matrix * ltdMatrix_init(unsigned size);
-void ltdMatrix_realloc(Matrix *src, unsigned size);
-void Matrix_destroy(Matrix *src);
-void ltdMatrix_popArrange(Matrix *mat, unsigned pos);
-int ltdMatrix_add(Matrix *src);
+int HashMapStrindex_add(HashMapStr *src, unsigned char *str) {
+	
+	unsigned hash, pos;
+	BucketStr *node;
+	
+	hash = djb2(str);
+	pos = hash & src->size;
+	
+	/* search hashmap */
+	for(node = src->table[pos]; node; node = node->next) {
+		if(hash == node->hash && strcmp((char *) str, (char *) node->str) == 0) {
+			return node->num;
+		}
+	}
+	
+	if(++src->n == src->size) {
+		HashMapStr_grow(src);
+	}
+	node = smalloc(sizeof(BucketStr));
+	node->str = ustrdup(str);
+	node->hash = hash;
+	node->num = src->n - 1;
+	node->uList = 0;
+	node->next = src->table[pos];
+	src->table[pos] = node;
+	
+	return -1;
+}

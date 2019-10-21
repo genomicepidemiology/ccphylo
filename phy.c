@@ -50,7 +50,7 @@ void printphy(FILE *outfile, Matrix *src, char **names, unsigned char *include, 
 	ptr = *(src->mat);
 	jStart = 0;
 	for(i = 0; jStart != src->n; ++i) {
-		if(include[i]) {
+		if(include == 0 || include[i]) {
 			if(format & 1) {
 				fprintf(outfile, "%s", names[i]);
 			} else {
@@ -113,8 +113,8 @@ Qseqs ** loadPhy(Matrix *src, Qseqs **names, FileBuff *infile) {
 		if(src->size < n) {
 			ltdMatrix_realloc(src, n);
 		}
-		names = smalloc(n * sizeof(Qseqs *));
-		i = n;
+		names = smalloc(src->size * sizeof(Qseqs *));
+		i = src->size;
 		while(i--) {
 			names[i] = setQseqs(32);
 		}
