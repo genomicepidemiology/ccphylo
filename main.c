@@ -21,6 +21,8 @@
 #include <string.h>
 #include "dist.h"
 #include "merge.h"
+#include "nwck2phy.h"
+#include "rarify.h"
 #include "tree.h"
 #include "union.h"
 #include "version.h"
@@ -33,6 +35,8 @@ static int helpMessage(FILE *out) {
 	fprintf(out, "# %16s\t%-32s\n", "merge", "merge distance matrices");
 	fprintf(out, "# %16s\t%-32s\n", "tree", "make tree(s)");
 	fprintf(out, "# %16s\t%-32s\n", "union", "Find union of templates between samples");
+	fprintf(out, "# %16s\t%-32s\n", "nwck2phy", "Convert newick file to phylip distance file");
+	fprintf(out, "# %16s\t%-32s\n", "rarify", "Rarify a KMA matrix");
 	fprintf(out, "# %16s\t%-32s\n", "-v", "Version");
 	fprintf(out, "# %16s\t%-32s\n", "-h", "Shows this helpmessage");
 	return (out == stderr);
@@ -54,6 +58,10 @@ int main(int argc, char *argv[]) {
 		return main_merge(argc, argv);
 	} else if(strcmp(arg, "union") == 0) {
 		return main_union(argc, argv);
+	} else if(strcmp(arg, "nwck2phy") == 0) {
+		return main_nwck2phy(argc, argv);
+	} else if(strcmp(arg, "rarify") == 0) {
+		return main_rarify(argc, argv);
 	} else if(strcmp(arg, "-v") == 0) {
 		fprintf(stdout, "CCPhylo-%s\n", CCPHYLO_VERSION);
 	} else if(strcmp(arg, "-h") == 0) {

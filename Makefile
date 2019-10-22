@@ -1,6 +1,6 @@
 CFLAGS ?= -Wall -O3
 CFLAGS += -std=c99
-LIBS = dbparse.o dist.o fbseek.o filebuff.o hashmapstr.o hashmapstrindex.o ltdmatrix.o matcmp.o matparse.o matrix.o merge.o nj.o nwck.o pherror.o phy.o qseqs.o resparse.o stdstat.o str.o tree.o ulist.o union.o unionparse.o vector.o
+LIBS = dbparse.o dist.o fbseek.o filebuff.o hashmapstr.o hashmapstrindex.o ltdmatrix.o matcmp.o matparse.o matrix.o merge.o nj.o nwck.o nwck2phy.o pherror.o phy.o qseqs.o rarify.o resparse.o stdstat.o str.o tree.o ulist.o union.o unionparse.o vector.o
 PROGS = ccphylo
 
 .c .o:
@@ -30,9 +30,11 @@ matrix.o: matrix.h pherror.h
 merge.o: merge.h filebuff.h hashmapstr.h hashmapstrindex.h matrix.h phy.h qseqs.h ulist.h
 nj.o: nj.h matrix.h pherror.h vector.h
 nwck.o: nwck.h qseqs.h pherror.h
+nwck2phy.o: nwck2phy.h
 pherror.o: pherror.h
 phy.o: phy.h matrix.h
 qseqs.o: qseqs.h pherror.h
+rarify.o: rarify.h
 resparse.o: resparse.h filebuff.h qseqs.h pherror.h
 stdstat.o: stdstat.h
 str.o: str.h
@@ -41,4 +43,4 @@ ulist.o: ulist.h pherror.h
 union.o: union.h filebuff.h hashmapstr.h pherror.h resparse.h
 unionparse.o: unionparse.h filebuff.h pherror.h
 vector.o: vector.h pherror.h
-unionparse.o: unionparse.h filebuff.h pherror.h
+

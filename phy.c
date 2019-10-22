@@ -52,9 +52,9 @@ void printphy(FILE *outfile, Matrix *src, char **names, unsigned char *include, 
 	for(i = 0; jStart != src->n; ++i) {
 		if(include == 0 || include[i]) {
 			if(format & 1) {
-				fprintf(outfile, "%s", names[i]);
+				fprintf(outfile, "%s", stripDir(names[i]));
 			} else {
-				fprintf(outfile, "%10s", stripDir(names[i]));
+				fprintf(outfile, "%-10.10s", stripDir(names[i]));
 			}
 			
 			j = jStart++;
