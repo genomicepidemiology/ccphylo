@@ -23,5 +23,7 @@
 #include "qseqs.h"
 
 void printphy(FILE *outfile, Matrix *src, char **names, unsigned char *include, unsigned format);
+void printphyUpdate(FILE *outfile, int n, char *name, double *D, unsigned format);
 Qseqs ** loadPhy(Matrix *src, Qseqs **names, FileBuff *infile);
-int main_tree(int argc, char *argv[]);
+int getSizePhy(FileBuff *infile);
+Qseqs ** getFilenamesPhy(char *path, int n, FileBuff *infile);

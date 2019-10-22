@@ -17,10 +17,82 @@
  * limitations under the License.
 */
 
+#include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
+#include "filebuff.h"
+#include "matparse.h"
+#include "pherror.h"
 #include "rarify.h"
 #define missArg(opt) fprintf(stderr, "Missing argument at %s.\n", opt); exit(1);
 #define invaArg(opt) fprintf(stderr, "Invalid value parsed at %s.\n", opt); exit(1);
+
+int rarify(char *inputfilename, char *outputfilename, long unsigned nf, long unsigned rf) {
+	
+	unsigned i, pos, max;
+	long unsigned count, remainder;
+	short unsigned *counts;
+	FILE *outfile;
+	FileBuff *infile;
+	NucCount *mat;
+	
+	/* init */
+	mat = initNucCount(128);
+	infile = setFileBuff(1048576);
+	
+	/* open files */
+	openAndDetermine(infile, inputfilename);
+	if(*outputfilename == '-' && outputfilename[1] == '-' && outputfilename[2] == 0) {
+		outfile = stdout;
+	} else {
+		outfile = sfopen(outputfilename, "wb");
+	}
+	
+	/* rarify matrix */
+	remainder = 0;
+	while(FileBuffGetRow(infile, mat)) {
+		if(mat->ref) {
+			/* rarify counts */
+			counts = mat->counts + 6;
+			pos = 0;
+			i = 7;
+			max = 0;
+			while(--i) {
+				/* get max */
+				count = *--counts;
+				if(max < count) {
+					max = *counts;
+					pos = i - 1;
+				}
+				
+				/* rarify */
+				count *= rf;
+				remainder += count % nf;
+				count /= nf;
+				
+				/* update */
+				*counts = count;
+			}
+			
+			/* update max with excess */
+			if(max && rf <= remainder) {
+				counts[pos] += remainder / rf;
+				remainder %= rf;
+			}
+			
+			/* output new counts */
+			fprintf(outfile, "%c\t%hu\t%hu\t%hu\t%hu\t%hu\t%hu\n", mat->ref, *counts, counts[1], counts[2], counts[3], counts[4], counts[5]);	
+		} else if(*(mat->name)) {
+			fprintf(outfile, "#%s\n", mat->name);
+		} else {
+			fprintf(outfile, "\n");	
+		}
+	}
+	closeFileBuff(infile);
+	destroyFileBuff(infile);
+	
+	return 0;
+}
 
 static int helpMessage(FILE *out) {
 	
@@ -28,16 +100,78 @@ static int helpMessage(FILE *out) {
 	fprintf(out, "# %16s\t%-32s\t%s\n", "Options are:", "Desc:", "Default:");
 	fprintf(out, "# %16s\t%-32s\t%s\n", "-i", "Input file", "stdin");
 	fprintf(out, "# %16s\t%-32s\t%s\n", "-o", "Output file", "stdout");
-	fprintf(out, "# %16s\t%-32s\t%s\n", "-nf", "Total number of fragments for sample", "0");
-	fprintf(out, "# %16s\t%-32s\t%s\n", "-rf", "Rarification factor", "1000000");
+	fprintf(out, "# %16s\t%-32s\t%s\n", "-nf", "Total number of fragments in sample", "0");
+	fprintf(out, "# %16s\t%-32s\t%s\n", "-rf", "Rarification factor", "10000000");
 	fprintf(out, "# %16s\t%-32s\t%s\n", "-h", "Shows this helpmessage", "");
 	return (out == stderr);
 }
 
 int main_rarify(int argc, char *argv[]) {
 	
-	fprintf(stderr, "Under construction.\n");
-	helpMessage(stderr);
+	int args;
+	long unsigned nf, rf;
+	char *arg, *inputfilename, *outputfilename;
+	
+	nf = 0;
+	rf = 10000000;
+	inputfilename = "--";
+	outputfilename = "--";
+	
+	args = 1;
+	while(args < argc) {
+		arg = argv[args];
+		if(*arg++ == '-') {
+			if(strcmp(arg, "i") == 0) {
+				if(++args < argc) {
+					inputfilename = argv[args];
+				} else {
+					missArg("\"-i\"");
+				}
+			} else if(strcmp(arg, "o") == 0) {
+				if(++args < argc) {
+					outputfilename = argv[args];
+				} else {
+					missArg("\"-o\"");
+				}
+			} else if(strcmp(arg, "nf") == 0) {
+				if(++args < argc) {
+					nf = strtoul(argv[args], &arg, 10);
+					if(*arg != 0) {
+						invaArg("\"-nf\"");
+					}
+				} else {
+					missArg("\"-nf\"");
+				}
+			} else if(strcmp(arg, "rf") == 0) {
+				if(++args < argc) {
+					rf = strtoul(argv[args], &arg, 10);
+					if(*arg != 0) {
+						invaArg("\"-rf\"");
+					}
+				} else {
+					missArg("\"-rf\"");
+				}
+			} else if(strcmp(arg, "h") == 0) {
+				return helpMessage(stdout);
+			} else {
+				fprintf(stderr, "Unknown option:%s\n", arg - 1);
+				return helpMessage(stderr);
+			}
+		} else {
+			fprintf(stderr, "Unknown argument:%s\n", arg - 1);
+			return helpMessage(stderr);
+		}
+		++args;
+	}
+	
+	/* insuffient input */
+	if(!nf) {
+		fprintf(stderr, "Missing argument:\t\"-nf\"\n");
+		return helpMessage(stderr);
+	}
+	
+	/* rarify */
+	rarify(inputfilename, outputfilename, nf, rf);
 	
 	return 0;
 }

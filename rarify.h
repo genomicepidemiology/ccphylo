@@ -17,4 +17,5 @@
  * limitations under the License.
 */
 
+int rarify(char *inputfilename, char *outputfilename, long unsigned nf, long unsigned rf);
 int main_rarify(int argc, char *argv[]);

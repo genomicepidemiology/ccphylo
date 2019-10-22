@@ -34,7 +34,7 @@ nwck2phy.o: nwck2phy.h
 pherror.o: pherror.h
 phy.o: phy.h matrix.h
 qseqs.o: qseqs.h pherror.h
-rarify.o: rarify.h
+rarify.o: rarify.h filebuff.h matparse.h pherror.h
 resparse.o: resparse.h filebuff.h qseqs.h pherror.h
 stdstat.o: stdstat.h
 str.o: str.h

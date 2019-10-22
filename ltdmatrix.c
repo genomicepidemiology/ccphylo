@@ -129,3 +129,65 @@ void ltdMatrix_get(Matrix *dest, Matrix *nDest, MatrixCounts *mat1, NucCount *ma
 	nDest->n = n;
 	
 }
+
+int ltdRow_get(double *D, double *N, MatrixCounts *mat1, NucCount *mat2, FileBuff *infile, char *targetTemplate, char *addfilename, Qseqs **filenames, int n, unsigned norm, unsigned minDepth, unsigned minLength, double minCov, double (*veccmp)(short unsigned*, short unsigned*, int, int)) {
+	
+	char *filename;
+	double dist, *mat, *nMat;
+	
+	/* load new sample matrix into memory */
+	/* open matrix file, and find target */
+	openAndDetermine(infile, addfilename);
+	while(FileBuffSkipTemplate(infile, mat2) && !(strcmp2(targetTemplate, (char *) mat2->name)));
+	
+	/* initialize mat1 */
+	setMatName(mat1, mat2);
+	if(FileBuffLoadMat(mat1, infile, minDepth) == 0) {
+		fprintf(stderr, "Malformed matrix in:\t%s\n", addfilename);
+		exit(1);
+	}
+	closeFileBuff(infile);
+	
+	/* validate matrix */
+	if(mat1->nNucs < minLength || mat1->nNucs < minCov * mat1->len) {
+		fprintf(stderr, "Template did exceed threshold for inclusion:\t%s\n", addfilename);
+		return 1;
+	}
+	
+	/* strip matrix for insersions */
+	stripMat(mat1);
+	
+	/* calculate distances */
+	mat = D;
+	nMat = N;
+	--filenames;
+	++n;
+	while(--n) {
+		filename = (char *) (*++filenames)->seq;
+		/* open matrix file, and find target */
+		openAndDetermine(infile, filename);
+		while(FileBuffSkipTemplate(infile, mat2) && !(strcmp2(targetTemplate, (char *) mat2->name)));
+		
+		/* get distance between the matrices */
+		dist = cmpMats(mat1, mat2, infile, norm, minDepth, minLength, minCov, veccmp);
+		if(dist < 0) {
+			if(dist == -1.0) {
+				fprintf(stderr, "No sufficient overlap between samples:\t%s, %s\n", filename, addfilename);
+			} else if(dist == -2.0) {
+				fprintf(stderr, "Template did exceed threshold for inclusion:\t%s\n", filename);
+				return 1;
+			} else {
+				fprintf(stderr, "Failed to produce a distance metric between samples:\t%s, %s\n", filename, addfilename);
+				return 1;
+			}
+		}
+		
+		*mat++ = dist;
+		*nMat++ = mat2->total;
+		
+		/* close mtrix file */
+		closeFileBuff(infile);
+	}
+	
+	return 0;
+}

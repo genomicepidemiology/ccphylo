@@ -34,6 +34,7 @@ Qseqs * setQseqs(int size) {
 }
 
 void destroyQseqs(Qseqs *dest) {
+	
 	free(dest->seq);
 	free(dest);
 }

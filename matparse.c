@@ -74,6 +74,7 @@ int FileBuffGetRow(FileBuff *src, NucCount *dest) {
 		/* end of entry */
 		src->bytes = avail;
 		src->next = buff;
+		*(dest->name) = 0;
 		dest->ref = 0;
 		return 1;
 	} else if(dest->ref == '#') {

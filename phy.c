@@ -20,6 +20,7 @@
 #include <ctype.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
 #include "filebuff.h"
 #include "matrix.h"
 #include "pherror.h"
@@ -64,6 +65,24 @@ void printphy(FILE *outfile, Matrix *src, char **names, unsigned char *include, 
 			fprintf(outfile, "\n");
 		}
 	}
+}
+
+void printphyUpdate(FILE *outfile, int n, char *name, double *D, unsigned format) {
+	
+	/* print updated matrix */
+	fprintf(outfile, "%10d\n", n);
+	fseek(outfile, 0, SEEK_END);
+	if(format & 1) {
+		fprintf(outfile, "%s", stripDir(name));
+	} else {
+		fprintf(outfile, "%-10.10s", stripDir(name));
+	}
+	
+	--D;
+	while(--n) {
+		fprintf(outfile, "\t%.4f", *++D);
+	}
+	fprintf(outfile, "\n");
 }
 
 Qseqs ** loadPhy(Matrix *src, Qseqs **names, FileBuff *infile) {
@@ -221,6 +240,130 @@ Qseqs ** loadPhy(Matrix *src, Qseqs **names, FileBuff *infile) {
 					errno |= 1;
 					src->n = 0;
 					return names;
+				}
+				buff = infile->buffer;
+			}
+		}
+	}
+	
+	infile->bytes = avail;
+	infile->next = buff;
+	
+	return names;
+}
+
+int getSizePhy(FileBuff *infile) {
+	
+	int n, avail, (*buffFileBuff)(FileBuff *);
+	unsigned char c, *buff;
+	
+	/* init */
+	avail = infile->bytes;
+	buff = infile->next;
+	buffFileBuff = infile->buffFileBuff;
+	if(avail == 0) {
+		if((avail = buffFileBuff(infile)) == 0) {
+			return 0;
+		}
+		buff = infile->buffer;
+	}
+	
+	/* get matrix size */
+	n = 0;
+	while((c = *buff++) != '\n') {
+		if(--avail == 0) {
+			if((avail = buffFileBuff(infile)) == 0) {
+				return 0;
+			}
+			buff = infile->buffer;
+		}
+		if('0' <= c && c <= '9') {
+			n = 10 * n + (c - '0');
+		}
+	}
+	
+	/* set infile */
+	infile->bytes = avail - 1;
+	infile->next = buff;
+	
+	return n;
+}
+
+Qseqs ** getFilenamesPhy(char *path, int n, FileBuff *infile) {
+	
+	int i, avail, size, len, (*buffFileBuff)(FileBuff *);
+	unsigned char c, *buff, *seq;
+	Qseqs *name, **names;
+	
+	/* init */
+	avail = infile->bytes;
+	buff = infile->next;
+	buffFileBuff = infile->buffFileBuff;
+	if(avail == 0) {
+		if((avail = buffFileBuff(infile)) == 0) {
+			return 0;
+		}
+		buff = infile->buffer;
+	}
+	
+	/* alloc and init names */
+	len = strlen(path);
+	names = smalloc(n * sizeof(Qseqs *));
+	i = n;
+	while(i--) {
+		names[i] = setQseqs(len + 32);
+		names[i]->len = len;
+		memcpy(names[i]->seq, path, len);
+	}
+	
+	/* load names */
+	for(i = 0; i < n; ++i) {
+		/* get name */
+		name = names[i];
+		seq = name->seq + len;
+		size = name->size - len;
+		while((c = (*seq++ = *buff++)) != '\t' && c != '\n') {
+			if(--avail == 0) {
+				if((avail = buffFileBuff(infile)) == 0) {
+					fprintf(stderr, "Malformatted phylip file, name on row: %d\n", ++i);
+					errno |= 1;
+					return 0;
+				}
+				buff = infile->buffer;
+			}
+			if(--size == 0) {
+				size = name->size;
+				name->size <<= 1;
+				name->seq = realloc(name->seq, name->size);
+				if(!name->seq) {
+					ERROR();
+				}
+				seq = name->seq + len + size;
+			}
+		}
+		/* chomp seq */
+		*seq = 0;
+		while(isspace(*--seq)) {
+			*seq = 0;
+			++size;
+		}
+		name->len = name->size - size + 1;
+		if(--avail == 0) {
+			if((avail = buffFileBuff(infile)) == 0) {
+				fprintf(stderr, "Malformatted phylip file, name on row: %d\n", ++i);
+				errno |= 1;
+				return 0;
+			}
+			buff = infile->buffer;
+		}
+		
+		while(c != '\n') {
+			c = *buff++;
+			if(--avail == 0) {
+				if((avail = buffFileBuff(infile)) == 0 && i != n - 1) {
+					fprintf(stderr, "Malformatted phylip file, missing newline at row:\t%d\n", ++i);
+					errno |= 1;
+					return 0;
 				}
 				buff = infile->buffer;
 			}
