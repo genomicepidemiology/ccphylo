@@ -17,8 +17,13 @@
  * limitations under the License.
 */
 
+#include "filebuff.h"
 #include "qseqs.h"
 
 void formNode(Qseqs *node1, Qseqs *node2, double L1, double L2);
 void formLastNode(Qseqs *node1, Qseqs *node2, double L);
-
+int getNwck(FileBuff *infile, Qseqs *dest);
+int getSizeNwck(Qseqs *src);
+double getLimbNwck(Qseqs *node);
+int stripNwck(Qseqs *node);
+int splitNwck(Qseqs *node0, Qseqs *nodei, double *L0, double *Lj);

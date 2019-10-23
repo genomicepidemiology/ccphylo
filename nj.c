@@ -322,7 +322,7 @@ unsigned * nj(Matrix *D, Matrix *Q, Vector *sD, unsigned *N, Qseqs **names) {
 		/* form remaining nodes with undefined distance */
 		while(D->n != 1) {
 			/* form leaf */
-			formNode(names[0], names[--D->n], -1.0, -1.0);
+			formLastNode(names[0], names[--D->n], -1.0);
 		}
 	}
 	return N;

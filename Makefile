@@ -29,8 +29,8 @@ matparse.o: matparse.h filebuff.h pherror.h qseqs.h
 matrix.o: matrix.h pherror.h
 merge.o: merge.h filebuff.h hashmapstr.h hashmapstrindex.h matrix.h phy.h qseqs.h ulist.h
 nj.o: nj.h matrix.h pherror.h vector.h
-nwck.o: nwck.h qseqs.h pherror.h
-nwck2phy.o: nwck2phy.h
+nwck.o: nwck.h filebuff.h qseqs.h pherror.h
+nwck2phy.o: nwck2phy.h filebuff.h matrix.h nwck.h pherror.h phy.h qseqs.h
 pherror.o: pherror.h
 phy.o: phy.h matrix.h
 qseqs.o: qseqs.h pherror.h
@@ -43,4 +43,3 @@ ulist.o: ulist.h pherror.h
 union.o: union.h filebuff.h hashmapstr.h pherror.h resparse.h
 unionparse.o: unionparse.h filebuff.h pherror.h
 vector.o: vector.h pherror.h
-

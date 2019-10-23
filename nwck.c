@@ -17,6 +17,8 @@
  * limitations under the License.
 */
 
+#include <stdlib.h>
+#include "filebuff.h"
 #include "nwck.h"
 #include "qseqs.h"
 #include "pherror.h"
@@ -85,4 +87,190 @@ void formLastNode(Qseqs *node1, Qseqs *node2, double L) {
 	} else {
 		node1->len += sprintf((char *) node1->seq + node1->len, ",%s:%.2f)", (char *) node2->seq, L);
 	}
+}
+
+int getNwck(FileBuff *infile, Qseqs *dest) {
+	
+	int avail, size, len, (*buffFileBuff)(FileBuff *);
+	unsigned char *buff, *seq;
+	
+	/* init */
+	avail = infile->bytes;
+	size = dest->size;
+	buff = infile->next;
+	seq = dest->seq;
+	buffFileBuff = infile->buffFileBuff;
+	if(avail == 0) {
+		if((avail = buffFileBuff(infile)) == 0) {
+			return 0;
+		}
+		buff = infile->buffer;
+	}
+	
+	/* skip name of entry */
+	while(*buff++ != '(') {
+		if(--avail == 0) {
+			if((avail = buffFileBuff(infile)) == 0) {
+				return 0;
+			}
+			buff = infile->buffer;
+		}
+	}
+	if(--avail == 0) {
+		if((avail = buffFileBuff(infile)) == 0) {
+			return 0;
+		}
+		buff = infile->buffer;
+	}
+	
+	/* get entry */
+	--seq;
+	while((*++seq = *buff++) != '\n') {
+		if(--avail == 0) {
+			if((avail = buffFileBuff(infile)) == 0) {
+				return 0;
+			}
+			buff = infile->buffer;
+		}
+		if(--size == 0) {
+			size = dest->size;
+			dest->size <<= 1;
+			if(!(dest->seq = realloc(dest->seq, dest->size))) {
+				ERROR();
+			}
+			seq = dest->seq + size;
+		}
+	}
+	len = dest->size - size;
+	while(--len && *--seq != ')');
+	*seq = 0;
+	dest->len = len;
+	
+	infile->bytes = avail - 1;
+	infile->next = buff;
+	
+	return 1;
+}
+
+int getSizeNwck(Qseqs *src) {
+	
+	int n, len;
+	unsigned char *ptr;
+	
+	n = 1;
+	ptr = src->seq - 1;
+	len = src->len + 1;
+	while(--len) {
+		if(*++ptr == ',') {
+			++n;
+		}
+	}
+	
+	return n;
+}
+
+double getLimbNwck(Qseqs *node) {
+	
+	int len;
+	double L;
+	char *errorMsg;
+	unsigned char *seq;
+	
+	len = node->len;
+	seq = node->seq + len;
+	if(len-- == 0 || *--seq == ')') {
+		return -1.0;
+	}
+	
+	/* find start of limb length */
+	while(--len && *--seq != ':');
+	
+	
+	if(len) {
+		/* truncate name */
+		*seq = 0;
+		node->len = len;
+		
+		/* get limb length */
+		L = strtod((char *) ++seq, &errorMsg);
+		if(*errorMsg) {
+			fprintf(stderr, "Invalid limb length at node:\t%s\n", node->seq);
+			exit(1);
+		}
+	} else {
+		L = -1.0;
+	}
+	
+	return L;
+}
+
+int stripNwck(Qseqs *node) {
+	
+	if(*(node->seq) == '(' && node->seq[node->len - 1] == ')') {
+		node->len -= 2;
+		++node->seq;
+		node->seq[node->len] = 0;
+		return node->len;
+	}
+	
+	return 0;
+}
+
+int splitNwck(Qseqs *node_i, Qseqs *node_j, double *Li, double *Lj) {
+	
+	int stop, len;
+	unsigned char *seq;
+	
+	/* init */
+	len = node_i->len;
+	seq = node_i->seq + len;
+	
+	/* check if split is possible */
+	if(!len--) {
+		return 0;
+	}
+	
+	/* find start of last sub-node in node */
+	stop = 0;
+	while(stop <= 0 && --len) {
+		if(*--seq == ')') {
+			--stop;
+		} else if(*seq == ',') {
+			++stop;
+		}
+	}
+	
+	/* possible singleton */
+	if(stop == 0) {
+		return stripNwck(node_i) && splitNwck(node_i, node_j, Li, Lj);
+	}
+	
+	/* truncate org node and move last sub-node to new node */
+	*seq = 0;
+	node_j->len = node_i->len - len - 2;
+	node_j->seq = seq + 1;
+	node_i->len = len;
+	
+	/* check if node is not bifurcating */
+	stop = 0;
+	while(stop <= 0 && --len) {
+		if(*--seq == ')') {
+			--stop;
+		} else if(*seq == ',') {
+			++stop;
+		}
+	}
+	if(stop != 0) {
+		/* not bifurcating */
+		*Li = 0;
+		*Lj = getLimbNwck(node_j);
+	} else {
+		/* get limblengths */
+		*Li = getLimbNwck(node_i);
+		*Lj = getLimbNwck(node_j);
+		if(*Lj < 0 && 0 <= *Li) {
+			*Lj = 0;
+		}
+	}
+	return 1;
 }
