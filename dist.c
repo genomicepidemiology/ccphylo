@@ -21,6 +21,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "dist.h"
+#include "fbseek.h"
 #include "ltdmatrix.h"
 #include "matcmp.h"
 #include "matrix.h"
@@ -264,8 +265,7 @@ static int helpMessage(FILE *out) {
 	fprintf(out, "# %16s\t%-32s\t%s\n", "-o", "Output file", "stdout");
 	fprintf(out, "# %16s\t%-32s\t%s\n", "-n", "Output number of nucleotides included", "False");
 	fprintf(out, "# %16s\t%-32s\t%s\n", "-r", "Target reference", "None");
-	/* here */
-	//fprintf(out, "# %16s\t%-32s\t%s\n", "-a", "Add file to existing matrix", "stdin");
+	fprintf(out, "# %16s\t%-32s\t%s\n", "-a", "Add file to existing matrix", "stdin");
 	fprintf(out, "# %16s\t%-32s\t%s\n", "-md", "Minimum depth", "15");
 	fprintf(out, "# %16s\t%-32s\t%s\n", "-mc", "Minimum coverage", "50.0%");
 	fprintf(out, "# %16s\t%-32s\t%s\n", "-ml", "Minimum overlapping length", "1");
