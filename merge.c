@@ -100,8 +100,8 @@ char ** merge(Matrix *dist, Matrix *num, FileBuff *phyfile, FileBuff *numfile) {
 	names_index = HashMapStr_init(128);
 	dist_index = uList_init(32);
 	names = smalloc(dist->size * sizeof(char *));
-	names = loadPhy(dist, 0, phyfile);
-	loadPhy(num, names, numfile);
+	names = loadPhy(dist, 0, 0, phyfile);
+	loadPhy(num, names, 0, numfile);
 	if(dist->n != num->n) {
 		fprintf(stderr, "Distance and included nucleotides does not concur!\n");
 		exit(1);
@@ -121,8 +121,8 @@ char ** merge(Matrix *dist, Matrix *num, FileBuff *phyfile, FileBuff *numfile) {
 	}
 	
 	/* iterate input */
-	while((names = loadPhy(D, names, phyfile)) && D->n) {
-		if(!loadPhy(N, names, numfile) || N->n != D->n) {
+	while((names = loadPhy(D, names, 0, phyfile)) && D->n) {
+		if(!loadPhy(N, names, 0, numfile) || N->n != D->n) {
 			fprintf(stderr, "Distance and included nucleotides does not concur!\n");
 			exit(1);
 		}
@@ -184,7 +184,7 @@ char ** jl_merge(Matrix *dist, Matrix *num, FileBuff *phyfile) {
 	D = ltdMatrix_init(dist->size);
 	names_index = HashMapStr_init(128);
 	dist_index = uList_init(32);
-	names = loadPhy(dist, 0, phyfile);
+	names = loadPhy(dist, 0, 0, phyfile);
 	if(num->size < dist->size) {
 		ltdMatrix_realloc(num, dist->size);
 	}
@@ -202,7 +202,7 @@ char ** jl_merge(Matrix *dist, Matrix *num, FileBuff *phyfile) {
 	}
 	
 	/* iterate input */
-	while((names = loadPhy(D, names, phyfile)) && D->n) {
+	while((names = loadPhy(D, names, 0, phyfile)) && D->n) {
 		/* get index of row w.r.t. merged distance matrix */
 		syncMatrices(names_index, dist_index, names, D->n, dist, num);
 		
@@ -274,14 +274,14 @@ int merger(char *phyfilename, char *numfilename, char *outphyfilename, char *out
 	} else {
 		outphy = sfopen(outphyfilename, "wb");
 	}
-	printphy(outphy, dist, names, 0, format);
+	printphy(outphy, dist, names, 0, "Merged", format);
 	if(numfilename) {
 		if(*outnumfilename == '-' && outnumfilename[1] == '-' && outnumfilename[2] == 0) {
 			outnum = stdout;
 		} else {
 			outnum = sfopen(outnumfilename, "wb");
 		}
-		printphy(outnum, num, names, 0, format);
+		printphy(outnum, num, names, 0, "Merged", format);
 		if(outnum != outphy) {
 			fclose(outnum);
 		}

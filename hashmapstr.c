@@ -65,7 +65,7 @@ unsigned char * ustrdup(unsigned char *src) {
 	int len;
 	
 	len = strlen((char *) src);
-	dest = smalloc(len);
+	dest = smalloc(len + 1);
 	
 	if((*dest = *src) == 0) {
 		return dest;

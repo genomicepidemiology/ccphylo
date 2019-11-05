@@ -17,7 +17,9 @@
  * limitations under the License.
 */
 
+#include <limits.h>
 #include "fsacmp.h"
+#include "matrix.h"
 #include "pherror.h"
 #include "qseqs.h"
 
@@ -42,7 +44,7 @@ unsigned char * get2BitTable(unsigned flag) {
 	to2Bit['N'] = 4;
 	to2Bit['-'] = 4;
 	/* include insignificant bases */
-	if(flag & 1) {
+	if(flag & 8) {
 		to2Bit['a'] = 0;
 		to2Bit['c'] = 1;
 		to2Bit['g'] = 2;
@@ -83,114 +85,93 @@ unsigned char * get2BitTable(unsigned flag) {
 	return to2Bit;
 }
 
-void getMethPos(short unsigned *include, Qseqs *ref) {
+void getMethPos(unsigned *include, Qseqs *ref) {
 	
 	/* here */
 	
-	/* ask Malte how he did it */
+	/* ask Malte how he did it, and what the format is */
 	
 	
 	
+}
+
+void initIncPos(unsigned *include, int len) {
+	
+	int complen;
+	
+	--include;
+	/* convert length to compressed length */
+	if(len & 31) {
+		complen = (len >> 5) + 2;
+	} else {
+		complen = (len >> 5) + 1;
+	}
+	while(--complen) {
+		*++include = UINT_MAX;
+	}
+	*include <<= (32 - (len & 31));
 }
 
 void getIncPos(unsigned *include, Qseqs *seq, Qseqs *ref, unsigned proxi) {
 	
-	int i, lastSNP;
-	short unsigned *iPtr, inc;
+	int lastSNP;
+	unsigned i, end, len, mask, topBit, *includePtr;
 	unsigned char *cPtr, *rPtr, c, r;
 	
+	topBit = UINT_MAX ^ (UINT_MAX >> 1);
+	len = seq->len;
 	lastSNP = -1;
 	cPtr = seq->seq - 1;
 	rPtr = ref->seq - 1;
 	for(i = 0; i < len; ++i) {
-		c = ++*cPtr;
-		r = ++*rPtr;
-		
-		/* here */
-		/* incorporate proxi */
+		c = *++cPtr;
+		r = *++rPtr;
 		
 		/* mask position */
 		if(c != r || c == 4) {
-			include[i >> 5] |= 1 << i & 31;
-		}
-	}
-	
-	
-	
-	
-	
-}
-
-void getIncPos_old(unsigned *include, Qseqs *seq, Qseqs *ref, unsigned proxi) {
-	
-	int i, inc, n, lastSNP, nProxi, pos;
-	unsigned char *ptr, *refPtr, *proxiPtr, c, r;
-	
-	/* fill in proximity exclusions */
-	lastSNP = -1;
-	n = 0;
-	--include;
-	ptr = seq->seq - 1;
-	refPtr = ref->seq - 1;
-	i = seq->len + 1;
-	while(--i) {
-		if((c = *++ptr) == 4) {
-			inc = 0;
-		}
-		r = *++refPtr;
-		if(c != r) {
+			/* unknown base */
+			if(c == 4) {
+				/* mask position */
+				include[i >> 5] &= (UINT_MAX ^ (1 << (31 - (i & 31))));
+			}
+			
 			/* check proximity */
-			if(proxiPtr) {
-				/* already in proximity */
-				pos = seq->len - i;
-				if(proxi < i) { /* check proxy exceeds end of seq */
-					nProxi += (pos - lastSNP);
-				} else {
-					/* break the loop */
-					nProxi = i + 1;
-					i = 1;
+			if(i - lastSNP < proxi) {
+				lastSNP -= proxi;
+				if(lastSNP < 0) {
+					lastSNP = 0;
 				}
-				lastSNP = pos;
-			} else if(seq->len - i - lastSNP < proxi) {
-				/* new proximity */
-				pos = lastSNP - proxi;
-				if(pos < 0) {
-					nProxi = proxi + pos;
-					pos = 0;
-				} else {
-					nProxi = proxi;
+				end = i + proxi;
+				mask = UINT_MAX ^ (1 << (31 - (lastSNP & 31)));
+				includePtr = include + (lastSNP >> 5);
+				while(lastSNP < end) {
+					if((*includePtr &= mask)) {
+						if(mask & 1) {
+							mask = (mask >> 1) | topBit;
+						} else {
+							++includePtr;
+							mask = UINT_MAX >> 1;
+						}
+						++lastSNP;
+					} else {
+						lastSNP = ((lastSNP >> 5) + 1) << 5;
+						++includePtr;
+						mask = UINT_MAX >> 1;
+					}
 				}
-				proxiPtr = seq->seq + pos;
-				*proxiPtr = 0;
-				lastSNP = seq->len - i;
-				if(proxi < i) { /* check proxy exceeds end of seq */
-					nProxi += proxi + 1;
-				} else {
-					/* break the loop */
-					nProxi = i + 1;
-					i = 1;
+				/*
+				this implementation does not scale well
+				while(lastSNP < end) {
+					if(include[lastSNP >> 5] & (1 << (31 - (lastSNP & 31)))) {
+						include[lastSNP >> 5] ^= (1 << (31 - (lastSNP & 31)));
+					}
+					++lastSNP;
 				}
+				*/
 			}
-			lastSNP = seq->len - i;
-		}
-		if() {
-			*++include = inc;
-			inc = 0;
-		}
-		/* clear proximity */
-		if(proxiPtr) {
-			if(--nProxi == 0) {
-				proxiPtr = 0;
-			} else {
-				*++proxiPtr = 0;
-			}
-		}
-	}
-	
-	/* clear remaining proxi */
-	if(proxiPtr) {
-		while(--nProxi) {
-			*++proxiPtr = 0;
+			
+			/* mark position as the last seen SNP */
+			lastSNP = i;
 		}
 	}
 }
@@ -200,17 +181,15 @@ int getNpos(unsigned *include, int len) {
 	unsigned n, inc;
 	
 	n = 0;
-	--inlcude;
-	len = (len >> 5) + 2; /* convert length to compressed length */
+	--include;
+	len = (len >> 5) + ((len & 31) ? 2 : 1);
 	while(--len) {
-		if((inc = *++include)) {
-			while(inc) {
-				n += inc & 1;
-				inc >>= 1;
-			}
+		inc = *++include;
+		while(inc) {
+			++n;
+			inc <<= 1;
 		}
 	}
-	
 	return n;
 }
 
@@ -223,13 +202,18 @@ unsigned fsacmp(long unsigned *seq1, long unsigned *seq2, unsigned *include, int
 	--include;
 	--seq1;
 	--seq2;
-	len = (len >> 5) + 2; /* convert length to compressed length */
+	/* convert length to compressed length */
+	if(len & 31) {
+		len = (len >> 5) + 2;
+	} else {
+		len = (len >> 5) + 1;
+	}
 	while(--len) {
 		kmer1 = *++seq1;
 		kmer2 = *++seq2;
+		inc = *++include;
 		/* at least one difference */
-		if(*++include && kmer1 != kmer2) {
-			inc = *include;
+		if(inc && kmer1 != kmer2) {
 			while(inc) {
 				if((inc & 1) && (kmer1 & 3) != (kmer2 & 3)) {
 					++dist;
@@ -238,10 +222,173 @@ unsigned fsacmp(long unsigned *seq1, long unsigned *seq2, unsigned *include, int
 				kmer2 >>= 2;
 				inc >>= 1;
 			}
-		} else {
-			++include;
 		}
 	}
 	
 	return dist;
+}
+
+long unsigned fsacmpair(long unsigned *seq1, long unsigned *seq2, unsigned *include1, unsigned *include2, int len) {
+	
+	unsigned dist, n, inc;
+	long unsigned kmer1, kmer2;
+	
+	n = 0;
+	dist = 0;
+	--include1;
+	--include2;
+	--seq1;
+	--seq2;
+	/* convert length to compressed length */
+	if(len & 31) {
+		len = (len >> 5) + 2;
+	} else {
+		len = (len >> 5) + 1;
+	}
+	while(--len) {
+		kmer1 = *++seq1;
+		kmer2 = *++seq2;
+		inc = *++include1 & *++include2;
+		/* possiblity for difference(s) */
+		if(inc && kmer1 != kmer2) {
+			while(inc) {
+				if((inc & 1)) {
+					++n;
+					dist += ((kmer1 & 3) != (kmer2 & 3));
+				}
+				kmer1 >>= 2;
+				kmer2 >>= 2;
+				inc >>= 1;
+			}
+		} else {
+			while(inc) {
+				n += inc & 1;
+				inc >>= 1;
+			}
+		}
+	}
+	
+	/* return distance in upper 4 bytes, and n in the lower */
+	kmer1 = dist;
+	kmer1 <<= 32;
+	kmer1 |= n;
+	
+	return kmer1;
+}
+
+unsigned cmpFsa(Matrix *D, int n, int len, long unsigned **seqs, unsigned char *include, unsigned *includes, unsigned norm) {
+	
+	unsigned i, j, inc;
+	long unsigned **seqi, **seqj, dist;
+	unsigned char *includei, *includej;
+	double *Dptr, nFactor;
+	
+	/* init */
+	inc = getNpos(includes, len);
+	if(norm) {
+		nFactor = norm;
+		nFactor /= inc;
+	} else {
+		nFactor = 1.0;
+	}
+	/* here */
+	/* seek first incuded sample */
+	while(*include == 0) {
+		++seqs;
+		++include;
+		if(!--n) {
+			return 0;
+		}
+	}
+	seqi = seqs;
+	Dptr = *(D->mat) - 1;
+	includei = include;
+	
+	/* get distances */
+	i = n;
+	n = 1;
+	while(--i) {
+		++seqi;
+		if(*++includei) {
+			seqj = seqs - 1;
+			includej = include - 1;
+			j = ++n;
+			while(--j) {
+				if(*++includej) {
+					dist = fsacmp(*seqi, *++seqj, includes, len);
+					*++Dptr = nFactor * dist;
+				} else {
+					++j;
+					++seqj;
+				}
+			}
+		}
+	}
+	D->n = n;
+	
+	return inc;
+}
+
+void cmpairFsa(Matrix *D, Matrix *N, int n, int len, long unsigned **seqs, unsigned char *include, unsigned **includes, unsigned norm, unsigned minLength, double minCov) {
+	
+	unsigned i, j, inc, **includesi, **includesj;
+	long unsigned **seqi, **seqj, dist;
+	unsigned char *includei, *includej;
+	double *Dptr, *Nptr;
+	
+	/* init */
+	minLength = minLength < minCov * len ? minCov * len : minLength;
+	Dptr = *(D->mat) - 1;
+	Nptr = N ? *(N->mat) - 1 : 0;
+	
+	/* here */
+	/* seek first incuded sample */
+	while(n && *include == 0) {
+		++seqs;
+		++includes;
+		++include;
+		--n;
+	}
+	seqi = seqs;
+	includesi = includes;
+	includei = include;
+	
+	
+	/* get distances */
+	i = n;
+	n = 1;
+	while(--i) {
+		++seqi;
+		++includesi;
+		if(*++includei) {
+			seqj = seqs - 1;
+			includesj = includes - 1;
+			includej = include - 1;
+			j = ++n;
+			while(--j) {
+				if(*++includej) {
+					dist = fsacmpair(*seqi, *++seqj, *includesi, *++includesj, len);
+					/* separate distance and included bases */
+					if(minLength <= (inc = dist & UINT_MAX)) {
+						*++Dptr = (dist >> 32) * norm;
+						*Dptr /= inc;
+					} else {
+						*++Dptr = -1.0;
+					}
+					if(N) {
+						*++Nptr = inc;
+					}
+				} else {
+					++seqj;
+					++includesj;
+					++j;
+				}
+			}
+		}
+	}
+	
+	D->n = n;
+	if(N) {
+		N->n = n;
+	}
 }

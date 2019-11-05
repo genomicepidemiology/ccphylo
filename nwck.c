@@ -89,16 +89,14 @@ void formLastNode(Qseqs *node1, Qseqs *node2, double L) {
 	}
 }
 
-int getNwck(FileBuff *infile, Qseqs *dest) {
+int getNwck(FileBuff *infile, Qseqs *dest, Qseqs *header) {
 	
 	int avail, size, len, (*buffFileBuff)(FileBuff *);
 	unsigned char *buff, *seq;
 	
 	/* init */
 	avail = infile->bytes;
-	size = dest->size;
 	buff = infile->next;
-	seq = dest->seq;
 	buffFileBuff = infile->buffFileBuff;
 	if(avail == 0) {
 		if((avail = buffFileBuff(infile)) == 0) {
@@ -107,15 +105,28 @@ int getNwck(FileBuff *infile, Qseqs *dest) {
 		buff = infile->buffer;
 	}
 	
-	/* skip name of entry */
-	while(*buff++ != '(') {
+	/* get name of entry */
+	size = header->size;
+	seq = header->seq - 1;
+	while((*++seq = *buff++) != '(') {
 		if(--avail == 0) {
 			if((avail = buffFileBuff(infile)) == 0) {
 				return 0;
 			}
 			buff = infile->buffer;
 		}
+		if(--size == 0) {
+			size = header->size;
+			header->size <<= 1;
+			if(!(header->seq = realloc(header->seq, header->size))) {
+				ERROR();
+			}
+			seq = header->seq + size;
+		}
 	}
+	*seq = 0;
+	header->len = header->size - size;
+	
 	if(--avail == 0) {
 		if((avail = buffFileBuff(infile)) == 0) {
 			return 0;
@@ -124,7 +135,8 @@ int getNwck(FileBuff *infile, Qseqs *dest) {
 	}
 	
 	/* get entry */
-	--seq;
+	size = dest->size;
+	seq = dest->seq - 1;
 	while((*++seq = *buff++) != '\n') {
 		if(--avail == 0) {
 			if((avail = buffFileBuff(infile)) == 0) {

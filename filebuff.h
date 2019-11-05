@@ -39,8 +39,8 @@ struct fileBuff {
 #define ENABLE_ZLIB_GZIP 32
 #endif
 
-int fileExist(char *filename);
-void openAndDetermine(FileBuff *inputfile, char *filename);
+int fileExist(FileBuff *inputfile, char *filename);
+unsigned char openAndDetermine(FileBuff *inputfile, char *filename);
 int BuffgzFileBuff(FileBuff *dest);
 void init_gzFile(FileBuff *inputfile);
 FileBuff * setFileBuff(int buffSize);

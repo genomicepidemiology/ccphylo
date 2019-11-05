@@ -35,12 +35,13 @@ void formTree(char *inputfilename, char *outputfilename) {
 	FILE *outfile;
 	FileBuff *infile;
 	Matrix *D, *Q;
-	Qseqs **names;
+	Qseqs **names, *header;
 	Vector *sD;
 	
 	/* init */
 	outfile = (*outputfilename == '-' && outputfilename[1] == '-' && outputfilename[2] == 0) ? stdout : sfopen(outputfilename, "wb");
 	infile = setFileBuff(1048576);
+	header = setQseqs(64);
 	names = smalloc(32 * sizeof(Qseqs *));
 	i = 33;
 	names += 32;
@@ -56,16 +57,16 @@ void formTree(char *inputfilename, char *outputfilename) {
 	openAndDetermine(infile, inputfilename);
 	
 	/* generate trees */
-	while((names = loadPhy(D, names, infile)) && D->n) {
+	while((names = loadPhy(D, names, header, infile)) && D->n) {
 		if(2 < D->n) {
 			/* make tree */
 			N = nj(D, Q, sD, N, names);
 			
 			/* output tree */
-			fprintf(outfile, ">%s%s;\n", "nj", (*names)->seq);
+			fprintf(outfile, ">%s%s;\n", header->seq, (*names)->seq);
 		} else if(D->n == 2) {
 			/* output tree */
-			fprintf(outfile, "(%s,%s:%.2f);\n", (*names)->seq, names[1]->seq, **(D->mat));
+			fprintf(outfile, ">%s(%s,%s:%.2f);\n", header->seq, (*names)->seq, names[1]->seq, **(D->mat));
 		}
 	}
 	

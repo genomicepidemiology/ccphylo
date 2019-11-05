@@ -23,19 +23,33 @@
 #include "filebuff.h"
 #include "pherror.h"
 
-int fileExist(char *filename) {
+int fileExist(FileBuff *inputfile, char *filename) {
 	
-	FILE *exist;
+	unsigned buffSize;
+	short unsigned *check;
 	
-	if((exist = fopen(filename, "rb"))) {
-		fclose(exist);
-		return 1;
+	openFileBuff(inputfile, filename, "rb");
+	buffSize = inputfile->buffSize;
+	inputfile->buffSize = 1024;
+	if(buff_FileBuff(inputfile)) {
+		check = (short unsigned *) inputfile->buffer;
+		if(*check == 35615) {
+			init_gzFile(inputfile);
+			inputfile->buffFileBuff = &BuffgzFileBuff;
+		} else {
+			inputfile->buffFileBuff = &buff_FileBuff;
+		}
+	} else {
+		fprintf(stderr, "Cannot determine format of file:\t%s\n", filename);
+		exit(errno | 1);
 	}
+	inputfile->buffSize = buffSize;
+	closeFileBuff(inputfile);
 	
-	return 0;
+	return *(inputfile->buffer);
 }
 
-void openAndDetermine(FileBuff *inputfile, char *filename) {
+unsigned char openAndDetermine(FileBuff *inputfile, char *filename) {
 	
 	short unsigned *check;
 	
@@ -53,6 +67,7 @@ void openAndDetermine(FileBuff *inputfile, char *filename) {
 		exit(errno | 1);
 	}
 	
+	return *(inputfile->buffer);
 }
 
 int BuffgzFileBuff(FileBuff *dest) {

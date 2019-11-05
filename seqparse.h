@@ -20,10 +20,6 @@
 #include "filebuff.h"
 #include "qseqs.h"
 
-void formNode(Qseqs *node1, Qseqs *node2, double L1, double L2);
-void formLastNode(Qseqs *node1, Qseqs *node2, double L);
-int getNwck(FileBuff *infile, Qseqs *dest, Qseqs *header);
-int getSizeNwck(Qseqs *src);
-double getLimbNwck(Qseqs *node);
-int stripNwck(Qseqs *node);
-int splitNwck(Qseqs *node0, Qseqs *nodei, double *L0, double *Lj);
+/* get entry from fastafile */
+int FileBuffgetFsaHeader(FileBuff *src, Qseqs *header);
+int FileBuffgetFsaSeq(FileBuff *src, Qseqs *qseq, unsigned char *trans);

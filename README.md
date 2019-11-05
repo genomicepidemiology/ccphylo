@@ -42,7 +42,7 @@ ccphylo tree -i path/to/ccphylo/results/result.phy -o path/to/ccphylo/results/re
 
 This can also be done without saving the intermediate results of CCPhylo, with:
 ```
-ccphylo union -i path/to/kma/alignments/*.res -t_db path/to/kma/db | ccphylo dist -md 1 | ccphylo tree
+ccphylo union -i path/to/kma/alignments/*.res -t_db path/to/kma/db | ccphylo dist | ccphylo tree
 ```
 
 

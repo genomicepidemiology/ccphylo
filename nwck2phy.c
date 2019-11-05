@@ -37,7 +37,7 @@ int newick2phy(char *inputfilename, char *outputfilename, unsigned format) {
 	FILE *outfile;
 	FileBuff *infile;
 	Matrix *D;
-	Qseqs *name, **names;
+	Qseqs *name, **names, *header;
 	
 	/* init */
 	infile = setFileBuff(1048576);
@@ -49,6 +49,7 @@ int newick2phy(char *inputfilename, char *outputfilename, unsigned format) {
 	}
 	D = ltdMatrix_init(128);
 	name = setQseqs(1024);
+	header = setQseqs(64);
 	names = smalloc(128 * sizeof(Qseqs *));
 	i = 128;
 	while(i--) {
@@ -57,10 +58,8 @@ int newick2phy(char *inputfilename, char *outputfilename, unsigned format) {
 	namesize = 128;
 	sNames = smalloc(128 * sizeof(char *));
 	
-	//>nj((((test1.mat.gz:133.53,test4.mat.gz:15906.85):348.47,test2.mat.gz:808.70):970.23,test7.mat.gz:0.00):100.64,(test5.mat.gz:5.17,test6.mat.gz:14.94):2620.03,test3.mat.gz);
-	
 	Dmat = D->mat;
-	while(getNwck(infile, name)) {
+	while(getNwck(infile, name, header)) {
 		n = getSizeNwck(name);
 		
 		/* alloc */
@@ -156,7 +155,7 @@ int newick2phy(char *inputfilename, char *outputfilename, unsigned format) {
 		}
 		
 		/* print new phylip matrix */
-		printphy(outfile, D, (char **) sNames, 0, format);
+		printphy(outfile, D, (char **) sNames, 0, (char *) header->seq, format);
 		
 	}
 	

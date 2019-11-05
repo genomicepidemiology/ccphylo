@@ -17,4 +17,15 @@
  * limitations under the License.
 */
 
+#include "matrix.h"
 #include "qseqs.h"
+
+unsigned char * get2BitTable(unsigned flag);
+void getMethPos(unsigned *include, Qseqs *ref);
+void initIncPos(unsigned *include, int len);
+void getIncPos(unsigned *include, Qseqs *seq, Qseqs *ref, unsigned proxi);
+int getNpos(unsigned *include, int len);
+unsigned fsacmp(long unsigned *seq1, long unsigned *seq2, unsigned *include, int len);
+long unsigned fsacmpair(long unsigned *seq1, long unsigned *seq2, unsigned *include1, unsigned *include2, int len);
+unsigned cmpFsa(Matrix *D, int n, int len, long unsigned **seqs, unsigned char *include, unsigned *includes, unsigned norm);	
+void cmpairFsa(Matrix *D, Matrix *N, int n, int len, long unsigned **seqs, unsigned char *include, unsigned **includes, unsigned norm, unsigned minLength, double minCov);

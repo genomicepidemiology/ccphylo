@@ -42,11 +42,15 @@ static char * stripDir(char *str) {
 	return str;
 }
 
-void printphy(FILE *outfile, Matrix *src, char **names, unsigned char *include, unsigned format) {
+void printphy(FILE *outfile, Matrix *src, char **names, unsigned char *include, char *comment, unsigned format) {
 	
 	int i, j, jStart;
 	double *ptr;
 	
+	/* printf comment */
+	if(format & 4) {
+		fprintf(outfile, "#%s\n", comment);
+	}
 	fprintf(outfile, "%10d\n", src->n);
 	ptr = *(src->mat);
 	jStart = 0;
@@ -69,6 +73,15 @@ void printphy(FILE *outfile, Matrix *src, char **names, unsigned char *include, 
 
 void printphyUpdate(FILE *outfile, int n, char *name, double *D, unsigned format) {
 	
+	int c;
+	
+	/* skip comment */
+	if((c = getc(outfile)) == '#') {
+		while((c = getc(outfile)) != '\n' && c != EOF);
+	} else {
+		ungetc(c, outfile);
+	}
+	
 	/* print updated matrix */
 	fprintf(outfile, "%10d\n", n);
 	fseek(outfile, 0, SEEK_END);
@@ -85,7 +98,7 @@ void printphyUpdate(FILE *outfile, int n, char *name, double *D, unsigned format
 	fprintf(outfile, "\n");
 }
 
-Qseqs ** loadPhy(Matrix *src, Qseqs **names, FileBuff *infile) {
+Qseqs ** loadPhy(Matrix *src, Qseqs **names, Qseqs *header, FileBuff *infile) {
 	
 	int i, j, n, avail, size, (*buffFileBuff)(FileBuff *);
 	char *msg, strbuff[32];
@@ -103,6 +116,70 @@ Qseqs ** loadPhy(Matrix *src, Qseqs **names, FileBuff *infile) {
 			return names;
 		}
 		buff = infile->buffer;
+	}
+	
+	/* get comment */
+	if(*buff == '#') {
+		if(header) {
+			size = header->size;
+			seq = header->seq - 1;
+			++buff;
+			if(--avail == 0) {
+				if((avail = buffFileBuff(infile)) == 0) {
+					src->n = 0;
+					return names;
+				}
+				buff = infile->buffer;
+			}
+			while((*++seq = *buff++) != '\n') {
+				if(--avail == 0) {
+					if((avail = buffFileBuff(infile)) == 0) {
+						src->n = 0;
+						return names;
+					}
+					buff = infile->buffer;
+				}
+				if(--size == 0) {
+					size = header->size;
+					header->size <<= 1;
+					if(!(header->seq = realloc(header->seq, header->size))) {
+						ERROR();
+					}
+					seq = header->seq + size;
+				}
+			}
+			*seq = 0;
+			header->len = header->size - size;
+			
+			if(--avail == 0) {
+				if((avail = buffFileBuff(infile)) == 0) {
+					src->n = 0;
+					return names;
+				}
+				buff = infile->buffer;
+			}
+		} else {
+			while(*buff++ != '\n') {
+				if(--avail == 0) {
+					if((avail = buffFileBuff(infile)) == 0) {
+						src->n = 0;
+						return names;
+					}
+					buff = infile->buffer;
+				}
+			}
+			if(--avail == 0) {
+				if((avail = buffFileBuff(infile)) == 0) {
+					src->n = 0;
+					return names;
+				}
+				buff = infile->buffer;
+			}
+		}
+	} else if(header) {
+		header->len = 0;
+		*(header->seq) = 0;
+		
 	}
 	
 	/* get matrix size */
@@ -266,6 +343,24 @@ int getSizePhy(FileBuff *infile) {
 			return 0;
 		}
 		buff = infile->buffer;
+	}
+	
+	/* skip comment */
+	if(*buff == '#') {
+		while(*buff++ != '\n') {
+			if(--avail == 0) {
+				if((avail = buffFileBuff(infile)) == 0) {
+					return 0;
+				}
+				buff = infile->buffer;
+			}
+		}
+		if(--avail == 0) {
+			if((avail = buffFileBuff(infile)) == 0) {
+				return 0;
+			}
+			buff = infile->buffer;
+		}
 	}
 	
 	/* get matrix size */

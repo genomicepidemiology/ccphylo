@@ -62,7 +62,7 @@ void ltdMatrix_get(Matrix *dest, Matrix *nDest, MatrixCounts *mat1, NucCount *ma
 				
 				/* validate matrix */
 				if(mat1->nNucs < minLength || mat1->nNucs < minCov * mat1->len) {
-					fprintf(stderr, "Template (\"%s\") did exceed threshold for inclusion:\t%s\n", targetTemplate, filenames[i]);
+					fprintf(stderr, "Template (\"%s\") did not exceed threshold for inclusion:\t%s\n", targetTemplate, filenames[i]);
 					include[i] = 0;
 				}
 				
@@ -92,7 +92,7 @@ void ltdMatrix_get(Matrix *dest, Matrix *nDest, MatrixCounts *mat1, NucCount *ma
 							if(dist == -1.0) {
 								fprintf(stderr, "No sufficient overlap between samples:\t%s, %s\n", filenames[i], *filename);
 							} else if(dist == -2.0) {
-								fprintf(stderr, "Template (\"%s\") did exceed threshold for inclusion:\t%s\n", targetTemplate, *filename);
+								fprintf(stderr, "Template (\"%s\") did not exceed threshold for inclusion:\t%s\n", targetTemplate, *filename);
 							} else {
 								fprintf(stderr, "Failed to produce a distance metric between samples:\t%s, %s\n", filenames[i], *filename);
 							}
@@ -150,7 +150,7 @@ int ltdRow_get(double *D, double *N, MatrixCounts *mat1, NucCount *mat2, FileBuf
 	
 	/* validate matrix */
 	if(mat1->nNucs < minLength || mat1->nNucs < minCov * mat1->len) {
-		fprintf(stderr, "Template (\"%s\") did exceed threshold for inclusion:\t%s\n", targetTemplate, addfilename);
+		fprintf(stderr, "Template (\"%s\") did not exceed threshold for inclusion:\t%s\n", targetTemplate, addfilename);
 		return 1;
 	}
 	
@@ -174,7 +174,7 @@ int ltdRow_get(double *D, double *N, MatrixCounts *mat1, NucCount *mat2, FileBuf
 			if(dist == -1.0) {
 				fprintf(stderr, "No sufficient overlap between samples:\t%s, %s\n", filename, addfilename);
 			} else if(dist == -2.0) {
-				fprintf(stderr, "Template (\"%s\") did exceed threshold for inclusion:\t%s\n", targetTemplate, filename);
+				fprintf(stderr, "Template (\"%s\") did not exceed threshold for inclusion:\t%s\n", targetTemplate, filename);
 				return 1;
 			} else {
 				fprintf(stderr, "Failed to produce a distance metric between samples:\t%s, %s\n", filename, addfilename);
