@@ -24,6 +24,7 @@
 #include "dist.h"
 #include "fbseek.h"
 #include "fsacmp.h"
+#include "fsacmpthrd.h"
 #include "ltdmatrix.h"
 #include "matcmp.h"
 #include "matrix.h"
@@ -34,13 +35,13 @@
 #define missArg(opt) fprintf(stderr, "Missing argument at %s.\n", opt); exit(1);
 #define invaArg(opt) fprintf(stderr, "Invalid value parsed at %s.\n", opt); exit(1);
 
-static void makeMatrix(unsigned numFile, char **filenames, char *outputfilename, char *noutputfilename, char *targetTemplate, double minCov, double alpha, unsigned norm, unsigned minDepth, unsigned minLength, unsigned proxi, unsigned flag, double (*veccmp)(short unsigned*, short unsigned*, int, int)) {
+static void makeMatrix(unsigned numFile, char **filenames, char *outputfilename, char *noutputfilename, char *diffilename, char *targetTemplate, double minCov, double alpha, unsigned norm, unsigned minDepth, unsigned minLength, unsigned proxi, unsigned flag, double (*veccmp)(short unsigned*, short unsigned*, int, int), int tnum) {
 	
 	int i, informat, cSize;
 	unsigned n, pos, len, **includes;
 	long unsigned **seqs;
 	unsigned char *include, *trans;
-	FILE *outfile, *noutfile, *tmp;
+	FILE *outfile, *noutfile, *tmp, *diffile;
 	FileBuff *infile, *unionfile;
 	Matrix *distMat, *nDest;
 	MatrixCounts *mat1;
@@ -66,12 +67,23 @@ static void makeMatrix(unsigned numFile, char **filenames, char *outputfilename,
 	} else {
 		noutfile = 0;
 	}
+	if(diffilename) {
+		if(strcmp(diffilename, outputfilename) == 0) {
+			diffile = outfile;
+		} else if(*diffilename == '-' && diffilename[1] == '-' && diffilename[2] == 0) {
+			diffile = stdout;
+		} else {
+			diffile = sfopen(diffilename, "wb");
+		}
+	} else {
+		diffile = 0;
+	}
 	
 	/* determine format of input */
 	infile = setFileBuff(1048576);
 	if(flag & 32) {
 		informat = '>';
-	} else if(numFile) {
+	} else if(numFile && numFile != 1) {
 		informat = fileExist(infile, *filenames);
 	} else {
 		informat = '#';
@@ -91,7 +103,7 @@ static void makeMatrix(unsigned numFile, char **filenames, char *outputfilename,
 		seq = setQseqs(1048576);
 		header = setQseqs(64);
 	} else {
-		fprintf(stderr, "Format of inputfiles are unsupported. %c\n", informat);
+		fprintf(stderr, "Format of inputfiles are unsupported.\n");
 		exit(1);
 	}
 	
@@ -127,7 +139,7 @@ static void makeMatrix(unsigned numFile, char **filenames, char *outputfilename,
 		if(informat == '#') {
 			ltdMatrix_get(distMat, nDest, mat1, mat2, infile, targetStamps, include, targetTemplate, filenames, numFile, norm, minDepth, minLength, minCov, veccmp);
 		} else if(informat == '>') {
-			cSize = ltdFsaMatrix_get(distMat, nDest, numFile, seqs, cSize, infile, include, includes, targetTemplate, filenames, trans, ref, seq, header, norm, minLength, minCov, flag, proxi);
+			cSize = ltdFsaMatrix_get(distMat, nDest, numFile, seqs, cSize, infile, targetStamps, include, includes, targetTemplate, filenames, trans, ref, seq, header, norm, minLength, minCov, flag, proxi, diffile, tnum);
 		}
 		
 		/* print ltd matrix */
@@ -137,7 +149,7 @@ static void makeMatrix(unsigned numFile, char **filenames, char *outputfilename,
 				printphy(noutfile, nDest, filenames, include, targetTemplate, flag);
 			}
 		}
-	} else {
+	} else if(numFile < 2) {
 		/* create many matrices */
 		/* requires *.union */
 		unionfile = setFileBuff(524288);
@@ -146,6 +158,7 @@ static void makeMatrix(unsigned numFile, char **filenames, char *outputfilename,
 		} else {
 			openAndDetermine(unionfile, "--");
 		}
+		
 		/* get samplenames */
 		if(!(filenames = UnionEntry_getHeader(unionfile, &numFile))) {
 			fprintf(stderr, "Malformed union input.\n");
@@ -176,6 +189,7 @@ static void makeMatrix(unsigned numFile, char **filenames, char *outputfilename,
 			seqs = 0;
 			includes = 0;
 		}
+		
 		/* get filenames */
 		n = numFile;
 		while(n--) {
@@ -219,7 +233,7 @@ static void makeMatrix(unsigned numFile, char **filenames, char *outputfilename,
 			if(informat == '#') {
 				ltdMatrix_get(distMat, nDest, mat1, mat2, infile, targetStamps, include, entry->target, filenames, numFile, norm, minDepth, minLength, minCov, veccmp);
 			} else if(informat == '>') {
-				cSize = ltdFsaMatrix_get(distMat, nDest, numFile, seqs, cSize, infile, include, includes, entry->target, filenames, trans, ref, seq, header, norm, minLength, minCov, flag, proxi);
+				cSize = ltdFsaMatrix_get(distMat, nDest, numFile, seqs, cSize, infile, targetStamps, include, includes, entry->target, filenames, trans, ref, seq, header, norm, minLength, minCov, flag, proxi, diffile, tnum);
 			}
 			
 			/* print ltd matrix */
@@ -233,8 +247,14 @@ static void makeMatrix(unsigned numFile, char **filenames, char *outputfilename,
 		closeFileBuff(unionfile);
 		destroyFileBuff(unionfile);
 		UnionEntry_destroy(entry);
+	} else {
+		fprintf(stderr, "Invalid argument combination.\n");
+		exit(1);
 	}
 	
+	if(diffile) {
+		fclose(diffile);
+	}
 	if(informat == '#') {
 		destroyMat(mat1);
 		destroyNucCount(mat2);
@@ -267,7 +287,7 @@ static void makeMatrix(unsigned numFile, char **filenames, char *outputfilename,
 	}
 }
 
-static int add2Matrix(char *path, char *addfilename, char *outputfilename, char *noutputfilename, char *targetTemplate, double minCov, double alpha, unsigned norm, unsigned minDepth, unsigned minLength, unsigned proxi, unsigned flag, double (*veccmp)(short unsigned*, short unsigned*, int, int)) {
+static int add2Matrix(char *path, char *addfilename, char *outputfilename, char *noutputfilename, char *diffilename, char *targetTemplate, double minCov, double alpha, unsigned norm, unsigned minDepth, unsigned minLength, unsigned proxi, unsigned flag, double (*veccmp)(short unsigned*, short unsigned*, int, int), int tnum) {
 	
 	int n, pos, informat;
 	double *D, *N;
@@ -316,7 +336,8 @@ static int add2Matrix(char *path, char *addfilename, char *outputfilename, char 
 	informat = openAndDetermine(infile, addfilename);
 	closeFileBuff(infile);
 	if(informat == '>') {
-		if(ltdFsaRow_get(D, N, infile, targetTemplate, addfilename, names, n, norm, minLength, minCov, flag, proxi)) {
+		//if(ltdFsaRow_get(D, N, infile, targetTemplate, addfilename, diffilename, names, n, norm, minLength, minCov, flag, proxi)) {
+		if(ltdFsaRowThrd(D, N, infile, targetTemplate, addfilename, diffilename, names, n, norm, minLength, minCov, flag, proxi, tnum)) {
 			fprintf(stderr, "Distance measures failed and thus the matrix was not updated.\n");
 			return 1;
 		}
@@ -361,7 +382,8 @@ static int helpMessage(FILE *out) {
 	fprintf(out, "# %16s\t%-32s\t%s\n", "Options are:", "Desc:", "Default:");
 	fprintf(out, "# %16s\t%-32s\t%s\n", "-i", "Input file(s)", "stdin");
 	fprintf(out, "# %16s\t%-32s\t%s\n", "-o", "Output file", "stdout");
-	fprintf(out, "# %16s\t%-32s\t%s\n", "-n", "Output number of nucleotides included", "False");
+	fprintf(out, "# %16s\t%-32s\t%s\n", "-n", "Output number of nucleotides included", "False/None");
+	fprintf(out, "# %16s\t%-32s\t%s\n", "-dff", "Output nucleotide differences", "False/None");
 	fprintf(out, "# %16s\t%-32s\t%s\n", "-r", "Target reference", "None");
 	fprintf(out, "# %16s\t%-32s\t%s\n", "-a", "Add file to existing matrix", "stdin");
 	fprintf(out, "# %16s\t%-32s\t%s\n", "-md", "Minimum depth", "15");
@@ -374,15 +396,16 @@ static int helpMessage(FILE *out) {
 	fprintf(out, "# %16s\t%-32s\t%s\n", "-d", "Distance method", "cos");
 	fprintf(out, "# %16s\t%-32s\t%s\n", "-dh", "Help on option \"-d\"", "");
 	fprintf(out, "# %16s\t%-32s\t%s\n", "-p", "Minimum lvl. of signifiacnce", "0.05");
+	fprintf(out, "# %16s\t%-32s\t%s\n", "-t", "Number of threads", "1");
 	fprintf(out, "# %16s\t%-32s\t%s\n", "-h", "Shows this helpmessage", "");
 	return (out == stderr);
 }
 
 int main_dist(int argc, char *argv[]) {
 	
-	unsigned args, numFile, flag, norm, minDepth, minLength, proxi, n;
+	unsigned args, numFile, flag, norm, minDepth, minLength, proxi, n, t;
 	char *arg, *targetTemplate, **filenames, *addfilename, *errorMsg;
-	char *outputfilename, *noutputfilename;
+	char *outputfilename, *noutputfilename, *diffilename;
 	double minCov, alpha;
 	double (*veccmp)(short unsigned*, short unsigned*, int, int);
 	
@@ -393,11 +416,13 @@ int main_dist(int argc, char *argv[]) {
 	minDepth = 15;
 	minLength = 1;
 	proxi = 0;
+	t = 1;
 	targetTemplate = 0;
 	filenames = 0;
 	addfilename = 0;
 	outputfilename = "--";
 	noutputfilename = 0;
+	diffilename = 0;
 	minCov = 0.5;
 	alpha = 0.05;
 	veccmp = &coscmp;
@@ -427,6 +452,12 @@ int main_dist(int argc, char *argv[]) {
 					noutputfilename = argv[args];
 				} else {
 					noutputfilename = "--";
+				}
+			} else if(strcmp(arg, "dff") == 0) {
+				if(++args < argc) {
+					diffilename = argv[args];
+				} else {
+					diffilename = "--";
 				}
 			} else if(strcmp(arg, "r") == 0) {
 				if(++args < argc) {
@@ -500,14 +531,14 @@ int main_dist(int argc, char *argv[]) {
 					missArg("\"-f\"");
 				}
 			} else if(strcmp(arg, "fh") == 0) {
-				fprintf(stdout, "Format flags output, add them to combine them.\n");
+				fprintf(stdout, "# Format flags output, add them to combine them.\n");
 				fprintf(stdout, "#\n");
-				fprintf(stdout, "#  1:\tRelaxed Phylip\n");
-				fprintf(stdout, "#  2:\tDistances are pairwise, always true on *.mat files\n");
-				fprintf(stdout, "#  4:\tInclude template name in phylip file\n");
-				fprintf(stdout, "#  8:\tInclude insignificant bases in distance calculation, only affects fasta input\n");
-				fprintf(stdout, "# 16:\tInclude reference, only affects fasta input\n");
-				fprintf(stdout, "# 32:\tDistances based on fasta input\n");
+				fprintf(stdout, "#   1:\tRelaxed Phylip\n");
+				fprintf(stdout, "#   2:\tDistances are pairwise, always true on *.mat files\n");
+				fprintf(stdout, "#   4:\tInclude template name in phylip file\n");
+				fprintf(stdout, "#   8:\tInclude insignificant bases in distance calculation, only affects fasta input\n");
+				fprintf(stdout, "#  16:\tInclude reference, only affects fasta input\n");
+				fprintf(stdout, "#  32:\tDistances based on fasta input\n");
 				fprintf(stdout, "#\n");
 				return 0;
 			} else if(strcmp(arg, "d") == 0) {
@@ -554,7 +585,7 @@ int main_dist(int argc, char *argv[]) {
 					missArg("\"-d\"");
 				}
 			} else if(strcmp(arg, "dh") == 0) {
-				fprintf(stdout, "Distance calculation methods:\n");
+				fprintf(stdout, "# Distance calculation methods:\n");
 				fprintf(stdout, "#\n");
 				fprintf(stdout, "# cos:\tCalculate distance between positions as the angle between the count vectors.\n");
 				fprintf(stdout, "# z:\tMake consensus comparison if vectors passes a McNemar test\n");
@@ -566,6 +597,15 @@ int main_dist(int argc, char *argv[]) {
 				fprintf(stdout, "# linf:\tCalculate distance between positions as the l_infinity distance between the count vectors.\n");
 				fprintf(stdout, "#\n");
 				return 0;
+			} else if(strcmp(arg, "t") == 0) {
+				if(++args < argc) {
+					t = strtoul(argv[args], &errorMsg, 10);
+					if(*errorMsg != 0) {
+						invaArg("\"-t\"");
+					}
+				} else {
+					missArg("\"-t\"");
+				}
 			} else if(strcmp(arg, "p") == 0) {
 				if(++args < argc) {
 					alpha = strtod(argv[args], &errorMsg);
@@ -597,9 +637,9 @@ int main_dist(int argc, char *argv[]) {
 	}
 	
 	if(addfilename && filenames) {
-		return add2Matrix(*filenames, addfilename, outputfilename, noutputfilename, targetTemplate, minCov, alpha, norm, minDepth, minLength, proxi, flag, veccmp);
+		return add2Matrix(*filenames, addfilename, outputfilename, noutputfilename, diffilename, targetTemplate, minCov, alpha, norm, minDepth, minLength, proxi, flag, veccmp, t);
 	} else {
-		makeMatrix(numFile, filenames, outputfilename, noutputfilename, targetTemplate, minCov, alpha, norm, minDepth, minLength, proxi, flag, veccmp);
+		makeMatrix(numFile, filenames, outputfilename, noutputfilename, diffilename, targetTemplate, minCov, alpha, norm, minDepth, minLength, proxi, flag, veccmp, t);
 	}
 	
 	return 0;

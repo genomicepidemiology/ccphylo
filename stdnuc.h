@@ -17,7 +17,14 @@
  * limitations under the License.
 */
 
-#include <stdio.h>
-#include "qseqs.h"
-#define nameSkip(infile, c) while((c = fgetc(infile)) != '\n' && c != EOF)
-char * nameLoad(Qseqs *name, FILE *infile);
+#define getNuc(Comp,pos) ((Comp[pos >> 5] << ((pos & 31) << 1)) >> 62)
+#define setEx(src, pos)(src[pos >> 3] |= (1 << (pos & 7)))
+#define unsetEx(src, pos)(src[pos >> 3] ^= (1 << (pos & 7)))
+#define getEx(src, pos)((src[pos >> 3] >> (pos & 7)) & 1)
+
+long unsigned getKmer(long unsigned *compressor, unsigned cPos, const unsigned shifter);
+long unsigned makeKmer(const unsigned char *qseq, unsigned pos, unsigned size);
+int charpos(const unsigned char *src, unsigned char target, int start, int len);
+void strrc(unsigned char *qseq, int q_len);
+void strtranslate(unsigned char *strp, char *trans);
+void nibble2base(unsigned char *seq, int len);

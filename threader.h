@@ -17,7 +17,13 @@
  * limitations under the License.
 */
 
-#include <stdio.h>
-#include "qseqs.h"
-#define nameSkip(infile, c) while((c = fgetc(infile)) != '\n' && c != EOF)
-char * nameLoad(Qseqs *name, FILE *infile);
+#define _XOPEN_SOURCE 600
+#include <pthread.h>
+#include <unistd.h>
+
+int usleep(unsigned usec);
+
+#define lock(exclude) while(__sync_lock_test_and_set(exclude, 1)) {while(*exclude) {usleep(100);}}
+#define lockTime(exclude, spin) while(__sync_lock_test_and_set(exclude, 1)) {while(*exclude) {usleep(spin);}}
+#define unlock(exclude) (__sync_lock_release(exclude))
+#define wait_atomic(src) while(src) {usleep(100);}

@@ -21,5 +21,5 @@
 
 HashMapStr * unionRes(char **filenames, int numFile, char *outputfilename, double minCov, double minDepth, unsigned minLength);
 int unionResPrint(char **filenames, int numFile, char *outputfilename, double minCov, double minDepth, unsigned minLength);
-int unionResOrderPrint(char **filenames, int numFile, char *outputfilename, char *dbfilename, double minCov, double minDepth, unsigned minLength);
+int unionResOrderPrint(char **filenames, int numFile, char *outputfilename, char *dbfilename, char *reffilename, double minCov, double minDepth, unsigned minLength);
 int main_union(int argc, char *argv[]);

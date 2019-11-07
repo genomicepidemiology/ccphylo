@@ -17,7 +17,9 @@
  * limitations under the License.
 */
 
-#include <stdio.h>
-#include "qseqs.h"
-#define nameSkip(infile, c) while((c = fgetc(infile)) != '\n' && c != EOF)
-char * nameLoad(Qseqs *name, FILE *infile);
+int * getLengths(char *filename);
+void printFastas(char *filename, int *template_lengths);
+int intCmpAscend(const void * a, const void * b);
+void printFastaList(FILE *outfile, char *filename, int *template_lengths, int *seqlist);
+int * intSplit(char sep, const char *src);
+int seq2fasta_main(int argc, char *argv[]) ;

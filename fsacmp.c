@@ -18,10 +18,12 @@
 */
 
 #include <limits.h>
+#include <stdio.h>
 #include "fsacmp.h"
 #include "matrix.h"
 #include "pherror.h"
 #include "qseqs.h"
+#include "threader.h"
 
 unsigned char * get2BitTable(unsigned flag) {
 	
@@ -89,7 +91,7 @@ void getMethPos(unsigned *include, Qseqs *ref) {
 	
 	/* here */
 	
-	/* ask Malte how he did it, and what the format is */
+	/* ask Malte how he did it, and agree on what the format is */
 	
 	
 	
@@ -276,23 +278,128 @@ long unsigned fsacmpair(long unsigned *seq1, long unsigned *seq2, unsigned *incl
 	return kmer1;
 }
 
-unsigned cmpFsa(Matrix *D, int n, int len, long unsigned **seqs, unsigned char *include, unsigned *includes, unsigned norm) {
+void printDiff(FILE *outfile, int samplei, int samplej, int nuci, int pos, int nucj) {
 	
-	unsigned i, j, inc;
+	static volatile int lock[1] = {0};
+	char bases[4] = "ACGT";
+	
+	lock(lock);
+	fprintf(outfile, "(%d, %d)\t%c%d%c\n", samplei, samplej, bases[nuci], pos, bases[nucj]);
+	unlock(lock);
+}
+
+unsigned fsacmprint(FILE *outfile, int samplei, int samplej, long unsigned *seq1, long unsigned *seq2, unsigned *include, int len) {
+	
+	unsigned dist, inc, pos;
+	long unsigned kmer1, kmer2;
+	
+	dist = 0;
+	--include;
+	--seq1;
+	--seq2;
+	/* convert length to compressed length */
+	if(len & 31) {
+		len = (len >> 5) + 2;
+	} else {
+		len = (len >> 5) + 1;
+	}
+	pos = 1;
+	while(--len) {
+		kmer1 = *++seq1;
+		kmer2 = *++seq2;
+		inc = *++include;
+		/* at least one difference */
+		if(inc && kmer1 != kmer2) {
+			while(inc) {
+				if((inc & 1) && (kmer1 & 3) != (kmer2 & 3)) {
+					printDiff(outfile, samplei, samplej, (kmer1 & 3), pos, (kmer2 & 3));
+					++dist;
+				}
+				kmer1 >>= 2;
+				kmer2 >>= 2;
+				inc >>= 1;
+				++pos;
+			}
+		} else {
+			pos += 32;
+		}
+	}
+	
+	return dist;
+}
+
+long unsigned fsacmpairint(FILE *outfile, int samplei, int samplej, long unsigned *seq1, long unsigned *seq2, unsigned *include1, unsigned *include2, int len) {
+	
+	unsigned dist, n, inc, pos;
+	long unsigned kmer1, kmer2;
+	
+	n = 0;
+	dist = 0;
+	--include1;
+	--include2;
+	--seq1;
+	--seq2;
+	/* convert length to compressed length */
+	if(len & 31) {
+		len = (len >> 5) + 2;
+	} else {
+		len = (len >> 5) + 1;
+	}
+	pos = 1;
+	while(--len) {
+		kmer1 = *++seq1;
+		kmer2 = *++seq2;
+		inc = *++include1 & *++include2;
+		/* possiblity for difference(s) */
+		if(inc && kmer1 != kmer2) {
+			while(inc) {
+				if((inc & 1)) {
+					++n;
+					if(((kmer1 & 3) != (kmer2 & 3))) {
+						printDiff(outfile, samplei, samplej, (kmer1 & 3), pos, (kmer2 & 3));
+						++dist;
+					}
+				}
+				kmer1 >>= 2;
+				kmer2 >>= 2;
+				inc >>= 1;
+				++pos;
+			}
+		} else {
+			while(inc) {
+				n += inc & 1;
+				inc >>= 1;
+			}
+			pos += 32;
+		}
+	}
+	
+	/* return distance in upper 4 bytes, and n in the lower */
+	kmer1 = dist;
+	kmer1 <<= 32;
+	kmer1 |= n;
+	
+	return kmer1;
+}
+
+unsigned cmpFsa(Matrix *D, int n, int len, long unsigned **seqs, unsigned char *include, unsigned **includes, unsigned norm, FILE *diffile) {
+	
+	unsigned i, j, inc, *includesPtr;
 	long unsigned **seqi, **seqj, dist;
 	unsigned char *includei, *includej;
 	double *Dptr, nFactor;
 	
 	/* init */
-	inc = getNpos(includes, len);
+	includesPtr = *includes;
+	inc = getNpos(includesPtr, len);
 	if(norm) {
 		nFactor = norm;
 		nFactor /= inc;
 	} else {
 		nFactor = 1.0;
 	}
-	/* here */
-	/* seek first incuded sample */
+	
+	/* seek first included sample */
 	while(*include == 0) {
 		++seqs;
 		++include;
@@ -305,31 +412,51 @@ unsigned cmpFsa(Matrix *D, int n, int len, long unsigned **seqs, unsigned char *
 	includei = include;
 	
 	/* get distances */
-	i = n;
-	n = 1;
-	while(--i) {
-		++seqi;
-		if(*++includei) {
-			seqj = seqs - 1;
-			includej = include - 1;
-			j = ++n;
-			while(--j) {
-				if(*++includej) {
-					dist = fsacmp(*seqi, *++seqj, includes, len);
-					*++Dptr = nFactor * dist;
-				} else {
-					++j;
-					++seqj;
+	if(diffile) {
+		D->n = 1;
+		for(i = 0; i < n; ++i) {
+			++seqi;
+			if(*++includei) {
+				++D->n;
+				seqj = seqs - 1;
+				includej = include - 1;
+				for(j = 0; j < i; ++j) {
+					if(*++includej) {
+						dist = fsacmprint(diffile, i, j, *seqi, *++seqj, includesPtr, len);
+						*++Dptr = nFactor * dist;
+					} else {
+						++seqj;
+					}
 				}
 			}
 		}
+	} else {
+		i = n;
+		n = 1;
+		while(--i) {
+			++seqi;
+			if(*++includei) {
+				seqj = seqs - 1;
+				includej = include - 1;
+				j = ++n;
+				while(--j) {
+					if(*++includej) {
+						dist = fsacmp(*seqi, *++seqj, includesPtr, len);
+						*++Dptr = nFactor * dist;
+					} else {
+						++j;
+						++seqj;
+					}
+				}
+			}
+		}
+		D->n = n;
 	}
-	D->n = n;
 	
 	return inc;
 }
 
-void cmpairFsa(Matrix *D, Matrix *N, int n, int len, long unsigned **seqs, unsigned char *include, unsigned **includes, unsigned norm, unsigned minLength, double minCov) {
+void cmpairFsa(Matrix *D, Matrix *N, int n, int len, long unsigned **seqs, unsigned char *include, unsigned **includes, unsigned norm, unsigned minLength, double minCov, FILE *diffile) {
 	
 	unsigned i, j, inc, **includesi, **includesj;
 	long unsigned **seqi, **seqj, dist;
@@ -341,7 +468,6 @@ void cmpairFsa(Matrix *D, Matrix *N, int n, int len, long unsigned **seqs, unsig
 	Dptr = *(D->mat) - 1;
 	Nptr = N ? *(N->mat) - 1 : 0;
 	
-	/* here */
 	/* seek first incuded sample */
 	while(n && *include == 0) {
 		++seqs;
@@ -353,42 +479,75 @@ void cmpairFsa(Matrix *D, Matrix *N, int n, int len, long unsigned **seqs, unsig
 	includesi = includes;
 	includei = include;
 	
-	
 	/* get distances */
-	i = n;
-	n = 1;
-	while(--i) {
-		++seqi;
-		++includesi;
-		if(*++includei) {
-			seqj = seqs - 1;
-			includesj = includes - 1;
-			includej = include - 1;
-			j = ++n;
-			while(--j) {
-				if(*++includej) {
-					dist = fsacmpair(*seqi, *++seqj, *includesi, *++includesj, len);
-					/* separate distance and included bases */
-					if(minLength <= (inc = dist & UINT_MAX)) {
-						*++Dptr = (dist >> 32) * norm;
-						*Dptr /= inc;
+	if(diffile) {
+		D->n = 1;
+		for(i = 0; i < n; ++i) {
+			++seqi;
+			++includesi;
+			if(*++includei) {
+				++D->n;
+				seqj = seqs - 1;
+				includesj = includes - 1;
+				includej = include - 1;
+				for(j = 0; j < i; ++j) {
+					if(*++includej) {
+						dist = fsacmpairint(diffile, i, j, *seqi, *++seqj, *includesi, *++includesj, len);
+						
+						/* separate distance and included bases */
+						if(minLength <= (inc = dist & UINT_MAX)) {
+							*++Dptr = (dist >> 32) * norm;
+							*Dptr /= inc;
+						} else {
+							*++Dptr = -1.0;
+						}
+						if(N) {
+							*++Nptr = inc;
+						}
 					} else {
-						*++Dptr = -1.0;
+						++seqj;
+						++includesj;
 					}
-					if(N) {
-						*++Nptr = inc;
-					}
-				} else {
-					++seqj;
-					++includesj;
-					++j;
 				}
 			}
 		}
+	} else {
+		i = n;
+		n = 1;
+		while(--i) {
+			++seqi;
+			++includesi;
+			if(*++includei) {
+				seqj = seqs - 1;
+				includesj = includes - 1;
+				includej = include - 1;
+				j = ++n;
+				while(--j) {
+					if(*++includej) {
+						dist = fsacmpair(*seqi, *++seqj, *includesi, *++includesj, len);
+						
+						/* separate distance and included bases */
+						if(minLength <= (inc = dist & UINT_MAX)) {
+							*++Dptr = (dist >> 32) * norm;
+							*Dptr /= inc;
+						} else {
+							*++Dptr = -1.0;
+						}
+						if(N) {
+							*++Nptr = inc;
+						}
+					} else {
+						++seqj;
+						++includesj;
+						++j;
+					}
+				}
+			}
+		}
+		D->n = n;
 	}
 	
-	D->n = n;
 	if(N) {
-		N->n = n;
+		N->n = D->n;
 	}
 }

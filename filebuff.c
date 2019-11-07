@@ -48,7 +48,7 @@ int fileExist(FileBuff *inputfile, char *filename) {
 	
 	return *(inputfile->buffer);
 }
-
+#include "threader.h"
 unsigned char openAndDetermine(FileBuff *inputfile, char *filename) {
 	
 	short unsigned *check;

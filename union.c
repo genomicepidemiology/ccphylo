@@ -25,6 +25,7 @@
 #include "hashmapstr.h"
 #include "pherror.h"
 #include "resparse.h"
+#include "seq2fasta.h"
 #include "union.h"
 #define missArg(opt) fprintf(stderr, "Missing argument at %s.", opt); exit(1);
 #define invaArg(opt) fprintf(stderr, "Invalid value parsed at %s.\n", opt); exit(1);
@@ -97,11 +98,12 @@ int unionResPrint(char **filenames, int numFile, char *outputfilename, double mi
 	return nc;
 }
 
-int unionResOrderPrint(char **filenames, int numFile, char *outputfilename, char *dbfilename, double minCov, double minDepth, unsigned minLength) {
+int unionResOrderPrint(char **filenames, int numFile, char *outputfilename, char *dbfilename, char *reffilename, double minCov, double minDepth, unsigned minLength) {
 	
-	int nc, num;
+	int nc, num, tnum, *template_lengths, seqlist[2];
 	unsigned *ptr;
-	FILE *outfile, *templatefile;
+	char *templatefilename;
+	FILE *outfile, *templatefile, *reffile;
 	BucketStr *node;
 	HashMapStr *entries;
 	Qseqs *templatename;
@@ -112,15 +114,28 @@ int unionResOrderPrint(char **filenames, int numFile, char *outputfilename, char
 	} else {
 		outfile = sfopen(outputfilename, "wb");
 	}
-	templatename = setQseqs(strlen(dbfilename) + 64);
-	templatename->len = sprintf((char *) templatename->seq, "%s.name", dbfilename);
-	templatefile = sfopen((char *) templatename->seq, "rb");
+	templatename = setQseqs(64);
+	tnum = strlen(dbfilename);
+	templatefilename = smalloc(tnum + 64);
+	sprintf(templatefilename, "%s.name", dbfilename);
+	templatefile = sfopen(templatefilename, "rb");
+	templatefilename[tnum] = 0;
+	reffile = sfopen(reffilename, "wb");
+	tnum = 1;
 	
 	/* get union */
 	entries = unionRes(filenames, numFile, outputfilename, minCov, minDepth, minLength);
 	
 	/* print tested filenames */
-	fprintf(outfile, "%d", numFile);
+	if(reffile) {
+		fprintf(outfile, "%d\t%s", numFile + 1, reffilename);
+		seqlist[0] = 1;
+		template_lengths = getLengths(templatefilename);
+	} else {
+		fprintf(outfile, "%d", numFile);
+		seqlist[0] = 0;
+		template_lengths = 0;
+	}
 	nc = numFile + 1;
 	while(--nc) {
 		fprintf(outfile, "\t%s", *filenames++);
@@ -131,11 +146,22 @@ int unionResOrderPrint(char **filenames, int numFile, char *outputfilename, char
 	nc = 0;
 	while(entries->n && nameLoad(templatename, templatefile)) {
 		if((node = HashMapStr_get(entries, templatename->seq)) && 0 < (num = node->num)) {
-			nc += fprintf(outfile, "%s\t%d", templatename->seq, ++num);
-			++num;
-			ptr = node->uList - 1;
-			while(--num) {
-				nc += fprintf(outfile, "\t%d", *++ptr);
+			if(reffile) {
+				seqlist[1] = tnum;
+				printFastaList(reffile, templatefilename, template_lengths, seqlist);
+				
+				nc += fprintf(outfile, "%s\t%d\t%d", templatename->seq, (num += 2), 0);
+				ptr = node->uList - 1;
+				while(--num) {
+					nc += fprintf(outfile, "\t%d", *++ptr + 1);
+				}
+			} else {
+				nc += fprintf(outfile, "%s\t%d", templatename->seq, ++num);
+				++num;
+				ptr = node->uList - 1;
+				while(--num) {
+					nc += fprintf(outfile, "\t%d", *++ptr);
+				}
 			}
 			nc += fprintf(outfile, "\n");
 			/* destroy node */
@@ -143,13 +169,19 @@ int unionResOrderPrint(char **filenames, int numFile, char *outputfilename, char
 			free(node->uList);
 			free(node);
 		}
+		++tnum;
 	}
-	
 	/* clean */
 	fclose(outfile);
 	fclose(templatefile);
 	HashMapStr_destroy(entries);
 	destroyQseqs(templatename);
+	
+	/* get references */
+	if(reffile) {
+		fclose(reffile);
+		free(template_lengths);
+	}
 	
 	return nc;
 }
@@ -161,6 +193,7 @@ static int helpMessage(FILE *out) {
 	fprintf(out, "# %16s\t%-32s\t%s\n", "-i", "Input file(s).", "None");
 	fprintf(out, "# %16s\t%-32s\t%s\n", "-o", "Output file", "stdout");
 	fprintf(out, "# %16s\t%-32s\t%s\n", "-t_db", "Print ordered wrt. template DB filename", "none");
+	fprintf(out, "# %16s\t%-32s\t%s\n", "-r", "Create reference fasta", "None");
 	fprintf(out, "# %16s\t%-32s\t%s\n", "-md", "Minimum depth", "1.0");
 	fprintf(out, "# %16s\t%-32s\t%s\n", "-mc", "Minimum coverage", "50.0");
 	fprintf(out, "# %16s\t%-32s\t%s\n", "-ml", "Minimum consensus length", "1");
@@ -172,12 +205,13 @@ int main_union(int argc, char *argv[]) {
 	
 	unsigned args, numFile, minLength;
 	double minCov, minDepth;
-	char *arg, **filenames, *outputfilename, *templatefilename, *errorMsg;
+	char *arg, **filenames, *outputfilename, *templatefilename, *reffilename;
 	
 	numFile = 0;
 	filenames = 0;
 	outputfilename = "--";
 	templatefilename = 0;
+	reffilename = 0;
 	minDepth = 1;
 	minCov = 50.0;
 	minLength = 1;
@@ -208,10 +242,16 @@ int main_union(int argc, char *argv[]) {
 				} else {
 					missArg("\"-t_db\"");
 				}
+			} else if(strcmp(arg, "r") == 0) {
+				if(++args < argc) {
+					reffilename = argv[args];
+				} else {
+					missArg("\"-r\"");
+				}
 			} else if(strcmp(arg, "md") == 0) {
 				if(++args < argc) {
-					minDepth = strtod(argv[args], &errorMsg);
-					if(*errorMsg != 0) {
+					minDepth = strtod(argv[args], &arg);
+					if(*arg != 0) {
 						invaArg("\"-md\"");
 					}
 				} else {
@@ -219,8 +259,8 @@ int main_union(int argc, char *argv[]) {
 				}
 			} else if(strcmp(arg, "mc") == 0) {
 				if(++args < argc) {
-					minCov = strtod(argv[args], &errorMsg);
-					if(*errorMsg != 0) {
+					minCov = strtod(argv[args], &arg);
+					if(*arg != 0) {
 						invaArg("\"-mc\"");
 					}
 				} else {
@@ -228,8 +268,8 @@ int main_union(int argc, char *argv[]) {
 				}
 			} else if(strcmp(arg, "ml") == 0) {
 				if(++args < argc) {
-					minLength = strtoul(argv[args], &errorMsg, 10);
-					if(*errorMsg != 0) {
+					minLength = strtoul(argv[args], &arg, 10);
+					if(*arg != 0) {
 						invaArg("\"-mc\"");
 					}
 				} else {
@@ -255,7 +295,10 @@ int main_union(int argc, char *argv[]) {
 	}
 	
 	if(templatefilename) {
-		unionResOrderPrint(filenames, numFile, outputfilename, templatefilename, minCov, minDepth, minLength);
+		unionResOrderPrint(filenames, numFile, outputfilename, templatefilename, reffilename, minCov, minDepth, minLength);
+	} else if(reffilename) {
+		fprintf(stderr, "Database is needed in order to reconstruct the reference(s).\n");
+		exit(1);
 	} else {
 		unionResPrint(filenames, numFile, outputfilename, minCov, minDepth, minLength);
 	}

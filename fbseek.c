@@ -51,7 +51,7 @@ TimeStamp * timeStampFileBuff(FileBuff *src, TimeStamp *dest) {
 			dest->strm = (strm = smalloc(sizeof(z_stream)));
 		}
 		
-		/* cope stream state */
+		/* copy stream state */
 		status = deflateCopy(strm, src->strm);
 		strm->avail_in = 0;
 		if(status != Z_OK) {
