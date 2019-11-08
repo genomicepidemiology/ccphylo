@@ -36,7 +36,7 @@ unsigned char * get2BitTable(unsigned flag) {
 	while(--i) {
 		*++to2Bit = 8;
 	}
-	to2Bit -= 256;
+	to2Bit -= 255;
 	to2Bit['\n'] = 16;
 	to2Bit['A'] = 0;
 	to2Bit['C'] = 1;

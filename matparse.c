@@ -231,7 +231,8 @@ int FileBuffLoadMat(MatrixCounts *dest, FileBuff *src, unsigned minDepth) {
 	counts = dest->counts - 1;
 	len = 0;
 	nNucs = 0;
-	total = (num = 0);
+	num = 0;
+	total = 0;
 	*refs++ = *buff++;
 	if(--avail == 0) {
 		if((avail = buffFileBuff(src)) == 0) {
@@ -250,31 +251,16 @@ int FileBuffLoadMat(MatrixCounts *dest, FileBuff *src, unsigned minDepth) {
 		if(c == '\n') {
 			/* finalize row */
 			total += num;
-			*counts++ = num;
-			*counts = total;
+			*counts = num;
+			*++counts = total;	
 			++len;
 			if(minDepth <= total) {
 				++nNucs;
 			}
 			num = 0;
 			total = 0;
-			/* get ref */
-			if((*refs++ = *buff++) == '\n') {
-				*--refs = 0;
-				dest->len = len;
-				dest->nNucs = nNucs;
-				src->bytes = avail - 1;
-				src->next = buff;
-				return 1;
-			}
-			if(--avail == 0) {
-				if((avail = buffFileBuff(src)) == 0) {
-					dest->len = len;
-					dest->nNucs = nNucs;
-					return 0;
-				}
-				buff = src->buffer;
-			}
+			
+			/* check size */
 			if(--size == 0) {
 				size = dest->size;
 				dest->size <<= 1;
@@ -285,6 +271,26 @@ int FileBuffLoadMat(MatrixCounts *dest, FileBuff *src, unsigned minDepth) {
 				}
 				refs = dest->refs + size;
 				counts = dest->counts + 7 * size - 1;
+			}
+			
+			/* get ref */
+			if((*refs++ = *buff++) == '\n') {
+				*--refs = 0;
+				dest->len = len;
+				dest->nNucs = nNucs;
+				src->bytes = avail - 1;
+				src->next = buff;
+				return 1;
+			}
+			
+			/* check buffer */
+			if(--avail == 0) {
+				if((avail = buffFileBuff(src)) == 0) {
+					dest->len = len;
+					dest->nNucs = nNucs;
+					return 0;
+				}
+				buff = src->buffer;
 			}
 		} else if(c == '\t') {
 			if(num) {

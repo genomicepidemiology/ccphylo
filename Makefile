@@ -1,6 +1,6 @@
 CFLAGS ?= -Wall -O3
 CFLAGS += -std=c99
-LIBS = cdist.o dbparse.o dist.o fbseek.o filebuff.o fsacmp.o fsacmpthrd.o hashmapstr.o hashmapstrindex.o ltdmatrix.o matcmp.o matparse.o matrix.o merge.o nj.o nwck.o nwck2phy.o pherror.o phy.o qseqs.o rarify.o resparse.o seqparse.o seq2fasta.o stdnuc.o stdstat.o str.o tree.o ulist.o union.o unionparse.o vector.o
+LIBS = cdist.o dbparse.o dist.o fbseek.o filebuff.o fsacmp.o fsacmpthrd.o hashmapstr.o hashmapstrindex.o ltdmatrix.o ltdmatrixthrd.o matcmp.o matparse.o matrix.o merge.o nj.o nwck.o nwck2phy.o pherror.o phy.o qseqs.o rarify.o resparse.o seqparse.o seq2fasta.o stdnuc.o stdstat.o str.o tree.o ulist.o union.o unionparse.o vector.o
 PROGS = ccphylo
 
 .c .o:
@@ -27,6 +27,7 @@ fsacmpthrd.o: fsacmpthrd.h fsacmp.h matrix.h pherror.h threader.h
 hashmapstr.o: hashmapstr.h pherror.h
 hashmapstrindex.o: hashmapstrindex.h hashmapstr.h pherror.h
 ltdmatrix.o: ltdmatrix.h filebuff.h ltdmatrix.h matcmp.h matparse.h pherror.h
+ltdmatrixthrd.o: ltdmatrixthrd.h filebuff.h matcmp.h matparse.h matrix.h pherror.h threader.h
 matcmp.o: matcmp.h filebuff.h matparse.h stdstat.h
 matparse.o: matparse.h filebuff.h pherror.h qseqs.h
 matrix.o: matrix.h pherror.h

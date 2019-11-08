@@ -26,6 +26,7 @@
 #include "fsacmp.h"
 #include "fsacmpthrd.h"
 #include "ltdmatrix.h"
+#include "ltdmatrixthrd.h"
 #include "matcmp.h"
 #include "matrix.h"
 #include "pherror.h"
@@ -107,7 +108,7 @@ static void makeMatrix(unsigned numFile, char **filenames, char *outputfilename,
 		exit(1);
 	}
 	
-	if(targetTemplate) {
+	if(targetTemplate && 1 < numFile) {
 		/* init */
 		distMat = ltdMatrix_init(numFile);
 		nDest = ltdMatrix_init(numFile);
@@ -287,15 +288,13 @@ static void makeMatrix(unsigned numFile, char **filenames, char *outputfilename,
 	}
 }
 
-static int add2Matrix(char *path, char *addfilename, char *outputfilename, char *noutputfilename, char *diffilename, char *targetTemplate, double minCov, double alpha, unsigned norm, unsigned minDepth, unsigned minLength, unsigned proxi, unsigned flag, double (*veccmp)(short unsigned*, short unsigned*, int, int), int tnum) {
+static int add2Matrix(char *path, char *addfilename, char *outputfilename, char *noutputfilename, char *diffilename, char *targetTemplate, double minCov, unsigned norm, unsigned minDepth, unsigned minLength, unsigned proxi, unsigned flag, double (*veccmp)(short unsigned*, short unsigned*, int, int), int tnum) {
 	
 	int n, pos, informat;
 	double *D, *N;
 	char *ptr;
 	FILE *outfile, *noutfile;
 	FileBuff *infile;
-	MatrixCounts *mat1;
-	NucCount *mat2;
 	Qseqs **names;
 	
 	/* determine input format */
@@ -333,24 +332,22 @@ static int add2Matrix(char *path, char *addfilename, char *outputfilename, char 
 	closeFileBuff(infile);
 	
 	/* add final row */
-	informat = openAndDetermine(infile, addfilename);
-	closeFileBuff(infile);
+	informat = fileExist(infile, addfilename);
+	destroyFileBuff(infile);
+	
 	if(informat == '>') {
 		//if(ltdFsaRow_get(D, N, infile, targetTemplate, addfilename, diffilename, names, n, norm, minLength, minCov, flag, proxi)) {
-		if(ltdFsaRowThrd(D, N, infile, targetTemplate, addfilename, diffilename, names, n, norm, minLength, minCov, flag, proxi, tnum)) {
+		if(ltdFsaRowThrd(D, N, targetTemplate, addfilename, diffilename, names, n, norm, minLength, minCov, flag, proxi, tnum)) {
 			fprintf(stderr, "Distance measures failed and thus the matrix was not updated.\n");
 			return 1;
 		}
 	} else {
 		/* calculate new row */
-		mat1 = initMat(1048576, 128);
-		mat2 = initNucCount(128);
-		if(ltdRow_get(D, N, mat1, mat2, infile, targetTemplate, addfilename, names, n, norm, minDepth, minLength, minCov, veccmp)) {
+		//if(ltdRow_get(D, N, targetTemplate, addfilename, names, n, norm, minDepth, minLength, minCov, veccmp)) {
+		if(ltdRowThrd(D, N, targetTemplate, addfilename, names, n, norm, minDepth, minLength, minCov, veccmp, tnum)) {
 			fprintf(stderr, "Distance measures failed and thus the matrix was not updated.\n");
 			return 1;
 		}
-		destroyMat(mat1);
-		destroyNucCount(mat2);
 	}
 	
 	/* open output and init new row(s) */
@@ -371,7 +368,6 @@ static int add2Matrix(char *path, char *addfilename, char *outputfilename, char 
 	free(names);
 	free(D);
 	free(N);
-	destroyFileBuff(infile);
 	
 	return 0;
 }
@@ -548,6 +544,10 @@ int main_dist(int argc, char *argv[]) {
 						veccmp = &coscmp;
 					} else if(strcmp(arg, "z") == 0) {
 						veccmp = &zcmp;
+					} else if(strcmp(arg, "chi2") == 0) {
+						veccmp = &chi2cmp;
+					} else if(strcmp(arg, "nchi2") == 0) {
+						veccmp = &nchi2cmp;
 					} else if(strcmp(arg, "nbc") == 0) {
 						veccmp = &nbccmp;
 					} else if(strcmp(arg, "bc") == 0) {
@@ -589,6 +589,8 @@ int main_dist(int argc, char *argv[]) {
 				fprintf(stdout, "#\n");
 				fprintf(stdout, "# cos:\tCalculate distance between positions as the angle between the count vectors.\n");
 				fprintf(stdout, "# z:\tMake consensus comparison if vectors passes a McNemar test\n");
+				fprintf(stdout, "# chi2:\tCalculate the chi square distance\n");
+				fprintf(stdout, "# nchi2:\tCalculate the normalized chi square distance\n");
 				fprintf(stdout, "# nbc:\tCalculate the normalized Bray-Curtis dissimilarity between the count vectors.\n");
 				fprintf(stdout, "# bc:\tCalculate the Bray-Curtis dissimilarity between the count vectors.\n");
 				fprintf(stdout, "# nln:\tCalculate distance between positions as the normalized n-norm distance between the count vectors. Replace last \"n\" with the waned norm\n");
@@ -637,7 +639,7 @@ int main_dist(int argc, char *argv[]) {
 	}
 	
 	if(addfilename && filenames) {
-		return add2Matrix(*filenames, addfilename, outputfilename, noutputfilename, diffilename, targetTemplate, minCov, alpha, norm, minDepth, minLength, proxi, flag, veccmp, t);
+		return add2Matrix(*filenames, addfilename, outputfilename, noutputfilename, diffilename, targetTemplate, minCov, norm, minDepth, minLength, proxi, flag, veccmp, t);
 	} else {
 		makeMatrix(numFile, filenames, outputfilename, noutputfilename, diffilename, targetTemplate, minCov, alpha, norm, minDepth, minLength, proxi, flag, veccmp, t);
 	}

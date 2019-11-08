@@ -32,5 +32,7 @@ double linfcmp(short unsigned *counts1, short unsigned *counts2, int tot1, int t
 double nbccmp(short unsigned *counts1, short unsigned *counts2, int tot1, int tot2);
 double bccmp(short unsigned *counts1, short unsigned *counts2, int tot1, int tot2);
 double zcmp(short unsigned *counts1, short unsigned *counts2, int tot1, int tot2);
+double chi2cmp(short unsigned *counts1, short unsigned *counts2, int tot1, int tot2);
+double nchi2cmp(short unsigned *counts1, short unsigned *counts2, int tot1, int tot2);
 double coscmp(short unsigned *counts1, short unsigned *counts2, int tot1, int tot2);
 double cmpMats(MatrixCounts *mat1, NucCount *mat2, FileBuff *infile, unsigned norm, unsigned minDepth, unsigned minLength, double minCov, double (*veccmp)(short unsigned*, short unsigned*, int, int));

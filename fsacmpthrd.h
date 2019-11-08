@@ -46,10 +46,8 @@ struct cmpFsaArg {
 #define FSACMPTHRD 1
 #endif
 
-CmpFsaArg * formThread(CmpFsaArg *thread, Matrix *D, Matrix *N, int n, int len, long unsigned **seqs, unsigned char *include, unsigned **includes, unsigned norm, unsigned minLength, double minCov, FILE *diffile, char *targetTemplate, Qseqs *ref, Qseqs **filenames, unsigned proxi);
-void joinThreads(CmpFsaArg *src);
 void fsaCmpThreadOut(int tnum, void * (*func)(void*), Matrix *D, Matrix *N, int n, int len, long unsigned **seqs, unsigned char *include, unsigned **includes, unsigned norm, unsigned minLength, double minCov, FILE *diffile, char *targetTemplate, Qseqs *ref, Qseqs **filenames, unsigned proxi);
 void * cmpFsaThrd(void *arg);
 void * cmpairFsaThrd(void *arg);
 void * cmpFsaRowThrd(void *arg);
-int ltdFsaRowThrd(double *D, double *N, FileBuff *infile, char *targetTemplate, char *addfilename, char *diffilename, Qseqs **filenames, int n, unsigned norm, unsigned minLength, double minCov, unsigned flag, unsigned proxi, int tnum);
+int ltdFsaRowThrd(double *D, double *N, char *targetTemplate, char *addfilename, char *diffilename, Qseqs **filenames, int n, unsigned norm, unsigned minLength, double minCov, unsigned flag, unsigned proxi, int tnum);

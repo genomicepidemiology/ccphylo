@@ -170,6 +170,10 @@ int ltdFsaMatrix_get(Matrix *D, Matrix *N, int numFile, long unsigned **seqs, in
 		}
 	}
 	
+	/* adjust number of threads */
+	if(numFile * (numFile - 1) / 2 < tnum) {
+		fprintf(stderr, "Adjustning number of nodes to %d, to conform with the matrix size.\n", (tnum = numFile * (numFile - 1) / 2));
+	}
 	/* make ltd matrix */
 	if(pair) {
 		fsaCmpThreadOut(tnum, &cmpairFsaThrd, D, N, numFile, len, seqs, include, includes, norm, minLength, minCov, diffile, targetTemplate, ref, 0, proxi);

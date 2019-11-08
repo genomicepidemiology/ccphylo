@@ -81,21 +81,24 @@ void printphyUpdate(FILE *outfile, int n, char *name, double *D, unsigned format
 	} else {
 		ungetc(c, outfile);
 	}
+	/* print new size */
+	fseek(outfile, 0, SEEK_SET);
+	fprintf(outfile, "%10d", n);
+	fflush(outfile);
 	
-	/* print updated matrix */
-	fprintf(outfile, "%10d\n", n);
+	/* print new row */
 	fseek(outfile, 0, SEEK_END);
 	if(format & 1) {
 		fprintf(outfile, "%s", stripDir(name));
 	} else {
 		fprintf(outfile, "%-10.10s", stripDir(name));
 	}
-	
 	--D;
 	while(--n) {
 		fprintf(outfile, "\t%.4f", *++D);
 	}
 	fprintf(outfile, "\n");
+	fflush(outfile);
 }
 
 Qseqs ** loadPhy(Matrix *src, Qseqs **names, Qseqs *header, FileBuff *infile) {

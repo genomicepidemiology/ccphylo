@@ -269,6 +269,41 @@ double zcmp(short unsigned *counts1, short unsigned *counts2, int tot1, int tot2
 	return -1;
 }
 
+double chi2cmp(short unsigned *counts1, short unsigned *counts2, int tot1, int tot2) {
+	
+	double d;
+	
+	d = (tot1 = *counts1 - *counts2) ? (tot1 * tot1 / ((double) (*counts1 + *counts2))) : 0;
+	tot2 = 6;
+	while(--tot2) {
+		if((tot1 = *++counts1 - *++counts2)) {
+			d += tot1 * tot1 / ((double) (*counts1 + *counts2));
+		}
+	}
+	
+	return sqrt(d);
+}
+
+double nchi2cmp(short unsigned *counts1, short unsigned *counts2, int tot1, int tot2) {
+	
+	int n;
+	double d, diff, t1, t2;
+	
+	t1 = (double) *counts1 / tot1;
+	t2 = (double) *counts2 / tot2;
+	d = (diff = t1 - t2) != 0 ? (diff * diff / (t1 + t2)) : 0;
+	n = 6;
+	while(--n) {
+		t1 = (double) *++counts1 / tot1;
+		t2 = (double) *++counts2 / tot2;
+		if((diff = t1 - t2)) {
+			d += diff * diff / (t1 + t2);
+		}
+	}
+	
+	return sqrt(d);
+}
+
 double coscmp(short unsigned *counts1, short unsigned *counts2, int tot1, int tot2) {
 	
 	int i;

@@ -149,6 +149,7 @@ int unionResOrderPrint(char **filenames, int numFile, char *outputfilename, char
 			if(reffile) {
 				seqlist[1] = tnum;
 				printFastaList(reffile, templatefilename, template_lengths, seqlist);
+				fflush(reffile);
 				
 				nc += fprintf(outfile, "%s\t%d\t%d", templatename->seq, (num += 2), 0);
 				ptr = node->uList - 1;

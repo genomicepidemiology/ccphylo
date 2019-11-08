@@ -32,9 +32,9 @@ static int helpMessage(FILE *out) {
 	fprintf(out, "#CCPhylo enables phylogenetic analysis of samples based on overlaps between nucleotide created by e.g. KMA.\n");
 	fprintf(out, "# %16s\t%-32s\n", "Options are:", "Desc:");
 	fprintf(out, "# %16s\t%-32s\n", "dist", "make distance matrices");
-	fprintf(out, "# %16s\t%-32s\n", "merge", "merge distance matrices");
 	fprintf(out, "# %16s\t%-32s\n", "tree", "make tree(s)");
 	fprintf(out, "# %16s\t%-32s\n", "union", "Find union of templates between samples");
+	fprintf(out, "# %16s\t%-32s\n", "merge", "merge distance matrices");
 	fprintf(out, "# %16s\t%-32s\n", "nwck2phy", "Convert newick file to phylip distance file");
 	fprintf(out, "# %16s\t%-32s\n", "rarify", "Rarify a KMA matrix");
 	fprintf(out, "# %16s\t%-32s\n", "-v", "Version");

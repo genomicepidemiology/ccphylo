@@ -29,7 +29,7 @@
 #include "threader.h"
 #include "seqparse.h"
 
-CmpFsaArg * formThread(CmpFsaArg *thread, Matrix *D, Matrix *N, int n, int len, long unsigned **seqs, unsigned char *include, unsigned **includes, unsigned norm, unsigned minLength, double minCov, FILE *diffile, char *targetTemplate, Qseqs *ref, Qseqs **filenames, unsigned proxi) {
+static CmpFsaArg * formThread(CmpFsaArg *thread, Matrix *D, Matrix *N, int n, int len, long unsigned **seqs, unsigned char *include, unsigned **includes, unsigned norm, unsigned minLength, double minCov, FILE *diffile, char *targetTemplate, Qseqs *ref, Qseqs **filenames, unsigned proxi) {
 	
 	CmpFsaArg *node;
 	
@@ -57,7 +57,7 @@ CmpFsaArg * formThread(CmpFsaArg *thread, Matrix *D, Matrix *N, int n, int len, 
 	return node;
 }
 
-void joinThreads(CmpFsaArg *src) {
+static void joinThreads(CmpFsaArg *src) {
 	
 	CmpFsaArg *src_next;
 	
@@ -98,6 +98,9 @@ void fsaCmpThreadOut(int tnum, void * (*func)(void*), Matrix *D, Matrix *N, int 
 	/* join threads */
 	joinThreads(thread->next);
 	free(thread);
+	
+	/* reset function */
+	func(0);
 }
 
 void * cmpFsaThrd(void *arg) {
@@ -115,14 +118,24 @@ void * cmpFsaThrd(void *arg) {
 	Matrix *D;
 	
 	/* get input */
-	D = thread->D;
-	n = thread->n;
-	len = thread->len;
-	seqs = thread->seqs;
-	include = thread->include;
-	includes = *(thread->includes);
-	norm = thread->norm;
-	diffile = thread->diffile;
+	if(thread) {
+		D = thread->D;
+		n = thread->n;
+		len = thread->len;
+		seqs = thread->seqs;
+		include = thread->include;
+		includes = *(thread->includes);
+		norm = thread->norm;
+		diffile = thread->diffile;
+	} else {
+		/* reset function */
+		si = 1;
+		sj = 0;
+		pi = 0;
+		pj = 0;
+		inc = 0;
+		return NULL;
+	}
 	
 	/* set stuff that only needs to be set once */
 	lock(lock);
@@ -234,19 +247,28 @@ void * cmpairFsaThrd(void *arg) {
 	Matrix *D, *N;
 	
 	/* get input */
-	D = thread->D;
-	N = thread->N;
-	n = thread->n;
-	len = thread->len;
-	seqs = thread->seqs;
-	include = thread->include;
-	includes = thread->includes;
-	norm = thread->norm;
-	minLength = thread->minLength;
-	minCov = thread->minCov;
-	diffile = thread->diffile;
-	minLength = minLength < minCov * len ? minCov * len : minLength;
-	
+	if(thread) {
+		D = thread->D;
+		N = thread->N;
+		n = thread->n;
+		len = thread->len;
+		seqs = thread->seqs;
+		include = thread->include;
+		includes = thread->includes;
+		norm = thread->norm;
+		minLength = thread->minLength;
+		minCov = thread->minCov;
+		diffile = thread->diffile;
+		minLength = minLength < minCov * len ? minCov * len : minLength;
+	} else {
+		/* reset function */
+		si = 1;
+		sj = 0;
+		pi = 0;
+		pj = 0;
+		base = 0;
+		return NULL;
+	}
 	/* set stuff that only needs to be set once */
 	lock(lock);
 	if(!pi) {
@@ -331,7 +353,7 @@ void * cmpairFsaThrd(void *arg) {
 		}
 		unlock(lock);
 		
-		/* here */
+		/* calculate distance of pair */
 		if(diffile) {
 			dist = fsacmpairint(diffile, i, j, seqi, seqj, includesi, includesj, len);
 		} else {
@@ -369,26 +391,29 @@ void * cmpFsaRowThrd(void *arg) {
 	Qseqs *ref, *header, *seq, **filenames;
 	
 	/* get input */
-	D = (double *) thread->D;
-	N = (double *) thread->N;
-	n = thread->n;
-	len = thread->len;
-	addL = *(thread->seqs);
-	trans = thread->include;
-	
-	/* here */
-	includeadd = thread->includes[0];
-	includeref = thread->includes[1];
-	
-	norm = thread->norm;
-	minLength = thread->minLength;
-	minCov = thread->minCov;
-	diffile = thread->diffile;
-	minLength = minLength < minCov * len ? minCov * len : minLength;
-	targetTemplate = thread->targetTemplate;
-	ref = thread->ref;
-	filenames = thread->filenames;
-	proxi = thread->proxi;
+	if(thread) {
+		D = (double *) thread->D;
+		N = (double *) thread->N;
+		n = thread->n;
+		len = thread->len;
+		addL = *(thread->seqs);
+		trans = thread->include;
+		includeadd = thread->includes[0];
+		includeref = thread->includes[1];
+		norm = thread->norm;
+		minLength = thread->minLength;
+		minCov = thread->minCov;
+		diffile = thread->diffile;
+		minLength = minLength < minCov * len ? minCov * len : minLength;
+		targetTemplate = thread->targetTemplate;
+		ref = thread->ref;
+		filenames = thread->filenames;
+		proxi = thread->proxi;
+	} else {
+		/* reset function */
+		pj = 0;
+		return NULL;
+	}
 	
 	/* init */
 	infile = setFileBuff(1048576);
@@ -397,6 +422,7 @@ void * cmpFsaRowThrd(void *arg) {
 	includeseq = smalloc(((seq->size >> 5) + 1) * sizeof(unsigned));
 	seqL = smalloc(((seq->size >> 5) + 1) * sizeof(long unsigned));
 	
+	/* calculate distances */
 	while(pj < n) {
 		lock(lock);
 		j = pj++;
@@ -447,19 +473,21 @@ void * cmpFsaRowThrd(void *arg) {
 	return NULL;
 }
 
-int ltdFsaRowThrd(double *D, double *N, FileBuff *infile, char *targetTemplate, char *addfilename, char *diffilename, Qseqs **filenames, int n, unsigned norm, unsigned minLength, double minCov, unsigned flag, unsigned proxi, int tnum) {
+int ltdFsaRowThrd(double *D, double *N, char *targetTemplate, char *addfilename, char *diffilename, Qseqs **filenames, int n, unsigned norm, unsigned minLength, double minCov, unsigned flag, unsigned proxi, int tnum) {
 	
 	/* this is the threaded version of ltdFsaRow_get */
 	unsigned char *trans;
 	unsigned *includeref, *includeadd, *includes[2], len;
 	long unsigned *addL;
 	FILE *diffile;
+	FileBuff *infile;
 	Qseqs *header, *seq, *ref;
 	
 	/* init  */
 	len = 0;
 	minLength = minLength < minCov * len ? minCov * len : minLength;
 	trans = get2BitTable(flag);
+	infile = setFileBuff(1048576);
 	header = setQseqs(32);
 	ref = setQseqs(1048576);
 	
@@ -547,7 +575,7 @@ int ltdFsaRowThrd(double *D, double *N, FileBuff *infile, char *targetTemplate, 
 	fclose(diffile);
 	
 	/* clean */
-	free(trans);
+	free(trans - 128);
 	destroyQseqs(ref);
 	free(includeref);
 	free(includeadd);
