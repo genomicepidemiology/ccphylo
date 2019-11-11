@@ -145,15 +145,19 @@ char ** merge(Matrix *dist, Matrix *num, FileBuff *phyfile, FileBuff *numfile) {
 			while(--j) {
 				n = *++distIndexN;
 				/* update cell */
-				distMat[m][n] += *++Dptr * *++Nptr;
-				numMat[m][n] += *Nptr;
+				if(m < n) {
+					distMat[n][m] += *++Dptr * *++Nptr;
+					numMat[n][m] += *Nptr;
+				} else {
+					distMat[m][n] += *++Dptr * *++Nptr;
+					numMat[m][n] += *Nptr;
+				}
 			}
 		}
 	}
 	
 	/* normalize new distance matrix */
 	normalize_ltdMatrix(dist, num);
-	fprintf(stderr, "YO\n");
 	
 	/* clean up */
 	i = D->size;
@@ -161,7 +165,6 @@ char ** merge(Matrix *dist, Matrix *num, FileBuff *phyfile, FileBuff *numfile) {
 		destroyQseqs(names[i]);
 	}
 	free(names);
-	fprintf(stderr, "NO\n");
 	Matrix_destroy(D);
 	Matrix_destroy(N);
 	uList_destroy(dist_index);
@@ -210,9 +213,9 @@ char ** jl_merge(Matrix *dist, Matrix *num, FileBuff *phyfile) {
 		distMat = dist->mat;
 		numMat = num->mat;
 		Dptr = *(D->mat) - 1;
-		distIndex = dist_index->list - 1;
-		distIndexM = distIndex;
-		i = 0;
+		distIndexM = dist_index->list;
+		distIndex = distIndexM - 1;
+		i = 1;
 		while(i != D->n) {
 			m = *++distIndexM;
 			distIndexN = distIndex;
@@ -220,8 +223,13 @@ char ** jl_merge(Matrix *dist, Matrix *num, FileBuff *phyfile) {
 			while(--j) {
 				n = *++distIndexN;
 				/* update cell */
-				distMat[m][n] += *++Dptr;
-				++numMat[m][n];
+				if(m < n) {
+					distMat[n][m] += *++Dptr;
+					++numMat[n][m];
+				} else {
+					distMat[m][n] += *++Dptr;
+					++numMat[m][n];
+				}
 			}
 		}
 	}
@@ -299,11 +307,11 @@ static int helpMessage(FILE *out) {
 	
 	fprintf(out, "#CCPhylo merges matrices from a multi Phylip file into one matrix\n");
 	fprintf(out, "# %16s\t%-32s\t%s\n", "Options are:", "Desc:", "Default:");
-	fprintf(out, "# %16s\t%-32s\t%s\n", "-i", "Input file(s)", "stdin");
+	fprintf(out, "# %16s\t%-32s\t%s\n", "-i", "Input multi phylip distance file", "stdin");
 	fprintf(out, "# %16s\t%-32s\t%s\n", "-o", "Output file", "stdout");
 	fprintf(out, "# %16s\t%-32s\t%s\n", "-n", "Weigh distance with this Phylip file", "None");
 	fprintf(out, "# %16s\t%-32s\t%s\n", "-no", "Output number of nucleotides included", "stdout");
-	fprintf(out, "# %16s\t%-32s\t%s\n", "-f", "Output format", "0");
+	fprintf(out, "# %16s\t%-32s\t%s\n", "-f", "Output format", "1");
 	fprintf(out, "# %16s\t%-32s\t%s\n", "-fh", "Help on option \"-f\"", "");
 	fprintf(out, "# %16s\t%-32s\t%s\n", "-h", "Shows this helpmessage", "");
 	return (out == stderr);
@@ -314,7 +322,7 @@ int main_merge(int argc, char *argv[]) {
 	unsigned args, format;
 	char *arg, *phyfilename, *numfilename, *outphyfilename, *outnumfilename;
 	
-	format = 0;
+	format = 1;
 	phyfilename = "--";
 	numfilename = 0;
 	outphyfilename = "--";
@@ -358,9 +366,14 @@ int main_merge(int argc, char *argv[]) {
 					missArg("\"-f\"");
 				}
 			} else if(strcmp(arg, "fh") == 0) {
-				fprintf(stdout, "Format flags output format, add them to combine them.\n");
+				fprintf(stdout, "# Format flags output, add them to combine them.\n");
 				fprintf(stdout, "#\n");
-				fprintf(stdout, "# 1:\tRelaxed Phylip\n");
+				fprintf(stdout, "#   1:\tRelaxed Phylip\n");
+				fprintf(stdout, "#   2:\tDistances are pairwise, always true on *.mat files\n");
+				fprintf(stdout, "#   4:\tInclude template name in phylip file\n");
+				fprintf(stdout, "#   8:\tInclude insignificant bases in distance calculation, only affects fasta input\n");
+				fprintf(stdout, "#  16:\tInclude reference, only affects fasta input\n");
+				fprintf(stdout, "#  32:\tDistances based on fasta input\n");
 				fprintf(stdout, "#\n");
 				return 0;
 			} else if(strcmp(arg, "h") == 0) {

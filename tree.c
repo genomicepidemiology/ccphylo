@@ -131,7 +131,7 @@ int main_tree(int argc, char *argv[]) {
 					missArg("\"-m\"");
 				}
 			} else if(strcmp(arg, "mh") == 0) {
-				fprintf(stdout, "Tree construction methods:\n");
+				fprintf(stdout, "# Tree construction methods:\n");
 				fprintf(stdout, "#\n");
 				fprintf(stdout, "# nj:\tNeighbour-Joining.\n");
 				fprintf(stdout, "#\n");
