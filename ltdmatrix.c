@@ -98,8 +98,13 @@ void ltdMatrix_get(Matrix *dest, Matrix *nDest, MatrixCounts *mat1, NucCount *ma
 					openAndDetermine(infile, *filename);
 					if(*targetStamp && srtd) {
 						seekFileBiff(infile, *targetStamp);
-						if(include[i] == 1) {
+						if(include[n] == 1) {
 							while(FileBuffSkipTemplate(infile, mat2) && !(strcmp2(targetTemplate, (char *) mat2->name)));
+							if(!(strcmp2(targetTemplate, (char *) mat2->name))) {
+								srtd = 0;
+								fseek(infile->file, 0, SEEK_SET);
+								while(FileBuffSkipTemplate(infile, mat2) && !(strcmp2(targetTemplate, (char *) mat2->name)));
+							}
 						} else {
 							/* set name */
 							memcpy(mat2->name, mat1->name->seq, mat1->name->len);
@@ -109,9 +114,9 @@ void ltdMatrix_get(Matrix *dest, Matrix *nDest, MatrixCounts *mat1, NucCount *ma
 					}
 					
 					/* make timestamp */
-					if(include[i] == 1) {
+					if(include[n] == 1) {
 						*targetStamp = timeStampFileBuff(infile, *targetStamp);
-						include[i] = 2;
+						include[n] = 2;
 					}
 					
 					/* get distance between the matrices */

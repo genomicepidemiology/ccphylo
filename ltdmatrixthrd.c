@@ -31,7 +31,7 @@
 #include "threader.h"
 #define strcmp2(str1, str2) (*(str1) == *(str2) && strcmp(str1 + 1, str2 + 1) == 0)
 
-static CmpMatArg * formThread(CmpMatArg *thread, Matrix *D, Matrix *N, MatrixCounts *mat1, Qseqs **filenames, unsigned n, unsigned norm, unsigned minDepth, unsigned minLength, double minCov, double (*veccmp)(short unsigned*, short unsigned*, int, int)) {
+static CmpMatArg * formThread(CmpMatArg *thread, Matrix *D, Matrix *N, MatrixCounts *mat1, Qseqs **filenames, unsigned n, unsigned norm, unsigned minDepth, unsigned minLength, double minCov, double (*veccmp)(short unsigned*, short unsigned*, int, int), unsigned char *include, TimeStamp **targetStamps, int srtd) {
 	
 	CmpMatArg *node;
 	
@@ -47,6 +47,11 @@ static CmpMatArg * formThread(CmpMatArg *thread, Matrix *D, Matrix *N, MatrixCou
 	node->minLength = minLength;
 	node->minCov = minCov;
 	node->veccmp = veccmp;
+	node->infile = setFileBuff(1048576);
+	node->mat2 = initNucCount(128);
+	node->include = include;
+	node->targetStamps = targetStamps;
+	node->srtd = srtd;
 	
 	/* link to remaining threads */
 	node->next = thread;
@@ -63,6 +68,8 @@ static void joinThreads(CmpMatArg *src) {
 		if((errno = pthread_join(src->id, NULL))) {
 			ERROR();
 		}
+		destroyFileBuff(src->infile);
+		destroyNucCount(src->mat2);
 		free(src);
 		src = src_next;
 	}
@@ -78,7 +85,7 @@ void matCmpThreadOut(int tnum, void * (*func)(void*), Matrix *D, Matrix *N, Matr
 	thread = 0;
 	do {
 		/* make thread */
-		thread = formThread(thread, D, N, mat1, filenames, n, norm, minDepth, minLength, minCov, veccmp);
+		thread = formThread(thread, D, N, mat1, filenames, n, norm, minDepth, minLength, minCov, veccmp, 0, 0, 1);
 		
 		/* start thread */
 	} while(--i && !(errno = pthread_create(&thread->id, NULL, func, thread)));
@@ -94,6 +101,8 @@ void matCmpThreadOut(int tnum, void * (*func)(void*), Matrix *D, Matrix *N, Matr
 	
 	/* join threads */
 	joinThreads(thread->next);
+	destroyFileBuff(thread->infile);
+	destroyNucCount(thread->mat2);
 	free(thread);
 }
 
@@ -122,11 +131,11 @@ void * cmpMatRowThrd(void *arg) {
 	minLength = thread->minLength;
 	minCov = thread->minCov;
 	veccmp = thread->veccmp;
+	infile = thread->infile;
+	mat2 = thread->mat2;
 	
 	/* init */
 	targetTemplate = (char *) mat1->name->seq;
-	infile = setFileBuff(1048576);
-	mat2 = initNucCount(128);
 	
 	/* calculate distances */
 	while(pj < n) {
@@ -164,11 +173,271 @@ void * cmpMatRowThrd(void *arg) {
 		}
 	}
 	
-	/* clean */
-	destroyFileBuff(infile);
-	destroyNucCount(mat2);
+	return NULL;
+}
+
+void * cmpMatThrd(void *arg) {
+	
+	static volatile int pi = 0, cellFinish = 0, lock[1] = {0};
+	static int pj = 0, sj = 0, srtd = 1; /* sample, position in matrix */
+	CmpMatArg *thread = arg;
+	char *targetTemplate, *filename, **filenames;
+	unsigned char *include;
+	unsigned i, j, n, s, norm, minDepth, minLength;
+	double *Dptr, *Nptr, minCov, dist;
+	double (*veccmp)(short unsigned*, short unsigned*, int, int);
+	FileBuff *infile;
+	Matrix *D, *N;
+	MatrixCounts *mat1;
+	NucCount *mat2;
+	TimeStamp **targetStamps, **targetStamp;
+	
+	if(!thread) {
+		pi = 0;
+		cellFinish = 0;
+		pj = 0;
+		sj = 0;
+		srtd = 1;
+		return NULL;
+	}
+	
+	/* get input */
+	D = thread->D;
+	N = thread->N;
+	mat1 = thread->mat1;
+	filenames = (char **) thread->filenames;
+	n = thread->n;
+	norm = thread->norm;
+	minDepth = thread->minDepth;
+	minLength = thread->minLength;
+	minCov = thread->minCov;
+	veccmp = thread->veccmp;
+	infile = thread->infile;
+	mat2 = thread->mat2;
+	include = thread->include;
+	targetStamps = thread->targetStamps;
+	
+	/* master */
+	if(!n) {
+		lock(lock);
+		pj = 0;
+		sj = 0;
+		n = ++pi;
+		cellFinish = n;
+		srtd = thread->srtd;
+		unlock(lock);
+	}
+	
+	do {
+		/* wait for next row to be ready */
+		while(pi <= pj) {
+			usleep(256);
+		}
+		
+		/* get next cell position */
+		lock(lock);
+		i = pi;
+		j = pj++;
+		s = sj++;
+		if(!include[s]) {
+			while(!include[++s]);
+			sj = s + 1;
+		}
+		unlock(lock);
+		
+		/* init */
+		Dptr = D->mat[i];
+		Nptr = N ? N->mat[i] : 0;
+		targetStamp = targetStamps + s;
+		targetTemplate = (char *) mat1->name->seq;
+		
+		/* calculate distances */
+		while(j < i) {
+			filename = (char *) filenames[s];
+			/* open matrix file, and find target */
+			openAndDetermine(infile, filename);
+			if(*targetStamp && srtd) {
+				seekFileBiff(infile, *targetStamp);
+				if(include[j] == 1) {
+					while(FileBuffSkipTemplate(infile, mat2) && !(strcmp2(targetTemplate, (char *) mat2->name)));
+				} else {
+					/* set name */
+					memcpy(mat2->name, mat1->name->seq, mat1->name->len);
+				}
+			} else {
+				while(FileBuffSkipTemplate(infile, mat2) && !(strcmp2(targetTemplate, (char *) mat2->name)));
+			}
+			
+			/* make timestamp */
+			if(include[j] == 1) {
+				*targetStamp = timeStampFileBuff(infile, *targetStamp);
+				include[j] = 2;
+			}
+			
+			/* get distance between the matrices */
+			dist = cmpMats(mat1, mat2, infile, norm, minDepth, minLength, minCov, veccmp);
+			if(dist < 0) {
+				if(dist == -1.0) {
+					fprintf(stderr, "No sufficient overlap with sample:\t%s\n", filename);
+				} else if(dist == -2.0) {
+					fprintf(stderr, "Template (\"%s\") did not exceed threshold for inclusion:\t%s\n", targetTemplate, filename);
+					exit(1);
+				} else {
+					fprintf(stderr, "Failed to produce a distance metric for sample:\t%s\n", filename);
+					exit(1);
+				}
+			}
+			
+			Dptr[j] = dist;
+			if(N) {
+				Nptr[j] = mat2->total;
+			}
+			
+			/* close mtrix file */
+			closeFileBuff(infile);
+			
+			/* signal that cell is done */
+			lock(lock);
+			--cellFinish;
+			j = pj++;
+			s = sj++;
+			if(!include[s]) {
+				while(!include[++s]);
+				sj = s + 1;
+			}
+			unlock(lock);
+		}
+	} while(i != n);
+	
+	/* wait for remaining cells to complete */
+	while(cellFinish) {
+		usleep(256);
+	}
 	
 	return NULL;
+}
+
+void ltdMatrixThrd(Matrix *D, Matrix *N, MatrixCounts *mat1, TimeStamp **targetStamps, unsigned char *include, char *targetTemplate, char **filenames, int numFile, unsigned norm, unsigned minDepth, unsigned minLength, double minCov, double (*veccmp)(short unsigned*, short unsigned*, int, int), int tnum) {
+	
+	int i, n, srtd;
+	CmpMatArg *thread;
+	FileBuff *infile;
+	NucCount *mat2;
+	TimeStamp **targetStamp;
+	
+	/* thread out */
+	n = -1;
+	include += numFile;
+	i = numFile + 1;
+	while(--i) {
+		n += *--include;
+	}
+	if(n < tnum) {
+		tnum = n;
+		if(n <= 0) {
+			return;
+		}
+	}
+	i = tnum;
+	thread = 0;
+	do {
+		/* make thread */
+		thread = formThread(thread, D, N, mat1, (Qseqs **) filenames, n, norm, minDepth, minLength, minCov, veccmp, include, targetStamps, 1);
+		
+		/* start thread */
+	} while(--i && !(errno = pthread_create(&thread->id, NULL, &cmpMatThrd, thread)));
+	
+	/* check if total number if threads were created */
+	if(i) {
+		fprintf(stderr, "Error: %d (%s)\n", errno, strerror(errno));
+		fprintf(stderr, "Will continue with %d threads.\n", tnum - i);
+	}
+	thread->n = 0;
+	infile = thread->infile;
+	mat2 = thread->mat2;
+	
+	/* get distances */
+	srtd = 1;
+	D->n = 0;
+	for(i = 1; i < numFile; ++i) {
+		if(include[i]) {
+			/* open matrix file, and find target */
+			openAndDetermine(infile, filenames[i]);
+			if(*(targetStamp = targetStamps + i) && srtd) {
+				seekFileBiff(infile, *targetStamp);
+				/* first time template -> seek to new template */
+				while(FileBuffSkipTemplate(infile, mat2) && !(strcmp2(targetTemplate, (char *) mat2->name)));
+			} else {
+				while(FileBuffSkipTemplate(infile, mat2) && !(strcmp2(targetTemplate, (char *) mat2->name)));
+			}
+			
+			if((strcmp2(targetTemplate, (char *) mat2->name))) {
+				/* make timestamp */
+				*targetStamp = timeStampFileBuff(infile, *targetStamp);
+				include[i] = 2;
+				
+				/* initialize mat1 */
+				setMatName(mat1, mat2);
+				if(FileBuffLoadMat(mat1, infile, minDepth) == 0) {
+					fprintf(stderr, "Input is not DB sorted.\n");
+					/* reset strm */
+					fseek(infile->file, 0, SEEK_SET);
+					while(FileBuffSkipTemplate(infile, mat2) && !(strcmp2(targetTemplate, (char *) mat2->name)));
+					
+					/* try load again */
+					setMatName(mat1, mat2);
+					if(FileBuffLoadMat(mat1, infile, minDepth) == 0) {
+						fprintf(stderr, "Malformed matrix in:\t%s\n", filenames[i]);
+						exit(1);
+					}
+					
+					/* mark run as unsorted */
+					srtd = 0;
+				}
+			} else {
+				fprintf(stderr, "Template (\"%s\") is not included in:\t%s\n", targetTemplate, filenames[i]);
+				include[i] = 0;
+			}
+			closeFileBuff(infile);
+			
+			/* validate matrix */
+			if(mat1->nNucs < minLength || mat1->nNucs < minCov * mat1->len) {
+				fprintf(stderr, "Template (\"%s\") did not exceed threshold for inclusion:\t%s\n", targetTemplate, filenames[i]);
+				include[i] = 0;
+			}
+			
+			/* strip matrix for insersions */
+			stripMat(mat1);
+		}
+		
+		if(include[i]) {
+			thread->srtd = srtd;
+			cmpMatThrd(thread);
+		}
+	}
+	
+	/* get number of include templates */
+	++numFile;
+	--include;
+	n = 0;
+	while(--numFile) {
+		if(*++include) {
+			++n;
+		}
+	}
+	D->n = n;
+	if(N) {
+		N->n = n;
+	}
+	
+	/* reset function */
+	cmpMatThrd(0);
+	
+	/* join threads */
+	joinThreads(thread->next);
+	destroyFileBuff(thread->infile);
+	destroyNucCount(thread->mat2);
+	free(thread);
 }
 
 int ltdRowThrd(double *D, double *N, char *targetTemplate, char *addfilename, Qseqs **filenames, int n, unsigned norm, unsigned minDepth, unsigned minLength, double minCov, double (*veccmp)(short unsigned*, short unsigned*, int, int), int tnum) {

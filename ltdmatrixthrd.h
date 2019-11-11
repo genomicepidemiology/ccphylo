@@ -35,6 +35,11 @@ struct cmpMatArg {
 	unsigned minLength;
 	double minCov;
 	double (*veccmp)(short unsigned*, short unsigned*, int, int);
+	FileBuff *infile;
+	NucCount *mat2;
+	unsigned char *include;
+	TimeStamp **targetStamps;
+	int srtd;
 	pthread_t id;
 	struct cmpMatArg *next;
 };
@@ -43,4 +48,6 @@ struct cmpMatArg {
 
 void matCmpThreadOut(int tnum, void * (*func)(void*), Matrix *D, Matrix *N, MatrixCounts *mat1, Qseqs **filenames, unsigned n, unsigned norm, unsigned minDepth, unsigned minLength, double minCov, double (*veccmp)(short unsigned*, short unsigned*, int, int));
 void * cmpMatRowThrd(void *arg);
+void * cmpMatThrd(void *arg);
+void ltdMatrixThrd(Matrix *D, Matrix *N, MatrixCounts *mat1, TimeStamp **targetStamps, unsigned char *include, char *targetTemplate, char **filenames, int numFile, unsigned norm, unsigned minDepth, unsigned minLength, double minCov, double (*veccmp)(short unsigned*, short unsigned*, int, int), int tnum);
 int ltdRowThrd(double *D, double *N, char *targetTemplate, char *addfilename, Qseqs **filenames, int n, unsigned norm, unsigned minDepth, unsigned minLength, double minCov, double (*veccmp)(short unsigned*, short unsigned*, int, int), int tnum);

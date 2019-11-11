@@ -138,7 +138,8 @@ static void makeMatrix(unsigned numFile, char **filenames, char *outputfilename,
 		
 		/* make ltd matrix */
 		if(informat == '#') {
-			ltdMatrix_get(distMat, nDest, mat1, mat2, infile, targetStamps, include, targetTemplate, filenames, numFile, norm, minDepth, minLength, minCov, veccmp);
+			ltdMatrixThrd(distMat, nDest, mat1, targetStamps, include, targetTemplate, filenames, numFile, norm, minDepth, minLength, minCov, veccmp, tnum);
+			//ltdMatrix_get(distMat, nDest, mat1, mat2, infile, targetStamps, include, targetTemplate, filenames, numFile, norm, minDepth, minLength, minCov, veccmp);
 		} else if(informat == '>') {
 			cSize = ltdFsaMatrix_get(distMat, nDest, numFile, seqs, cSize, infile, targetStamps, include, includes, targetTemplate, filenames, trans, ref, seq, header, norm, minLength, minCov, flag, proxi, diffile, tnum);
 		}
@@ -232,6 +233,7 @@ static void makeMatrix(unsigned numFile, char **filenames, char *outputfilename,
 			
 			/* get matrix */
 			if(informat == '#') {
+				//ltdMatrixThrd(distMat, nDest, mat1, targetStamps, include, entry->target, filenames, numFile, norm, minDepth, minLength, minCov, veccmp, tnum);
 				ltdMatrix_get(distMat, nDest, mat1, mat2, infile, targetStamps, include, entry->target, filenames, numFile, norm, minDepth, minLength, minCov, veccmp);
 			} else if(informat == '>') {
 				cSize = ltdFsaMatrix_get(distMat, nDest, numFile, seqs, cSize, infile, targetStamps, include, includes, entry->target, filenames, trans, ref, seq, header, norm, minLength, minCov, flag, proxi, diffile, tnum);
