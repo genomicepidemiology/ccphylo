@@ -42,16 +42,17 @@ void formTree(char *inputfilename, char *outputfilename) {
 	outfile = (*outputfilename == '-' && outputfilename[1] == '-' && outputfilename[2] == 0) ? stdout : sfopen(outputfilename, "wb");
 	infile = setFileBuff(1048576);
 	header = setQseqs(64);
-	names = smalloc(32 * sizeof(Qseqs *));
-	i = 33;
-	names += 32;
+	i = 32;
+	D = ltdMatrix_init(i);
+	Q = ltdMatrix_init(i);
+	sD = vector_init(i);
+	N = smalloc(i * sizeof(unsigned));
+	names = smalloc(i * sizeof(Qseqs *));
+	names += i;
+	++i;
 	while(--i) {
-		*--names = setQseqs(32);
+		*--names = setQseqs(64);
 	}
-	D = ltdMatrix_init(32);
-	Q = ltdMatrix_init(32);
-	sD = vector_init(32);
-	N = smalloc(32 * sizeof(unsigned));
 	
 	/* set */
 	openAndDetermine(infile, inputfilename);

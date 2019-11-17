@@ -17,6 +17,7 @@
  * limitations under the License.
 */
 
+#define _XOPEN_SOURCE 600
 #include <limits.h>
 #include <stdio.h>
 #include "fsacmp.h"

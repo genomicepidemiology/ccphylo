@@ -26,7 +26,7 @@
 
 void formNode(Qseqs *node1, Qseqs *node2, double L1, double L2) {
 	
-	unsigned char *seq;
+	unsigned char *seq, *seq2;
 	unsigned newsize;
 	double L;
 	
@@ -47,14 +47,22 @@ void formNode(Qseqs *node1, Qseqs *node2, double L1, double L2) {
 		node1->size = newsize;
 	}
 	
-	/* form node */
-	node1->seq[node1->len] = 0;
-	if(L1 < 0 && L2 < 0) {
-		node1->len = sprintf((char *) node1->seq, "%c%s,%s)", *node1->seq, (char *) node1->seq, (char *) node2->seq);
-	} else {
-		node1->len = sprintf((char *) node1->seq, "%c%s:%.2f,%s:%.2f)", *node1->seq, (char *) node1->seq, L1, (char *) node2->seq, L2);
+	/* shift one byte */
+	newsize = ++node1->len;
+	seq = node1->seq + newsize;
+	seq2 = seq - 1;
+	*seq = 0;
+	while(--newsize) {
+		*--seq = *--seq2;
 	}
-	*node1->seq = '(';
+	*seq2 = '(';
+	
+	/* form node */
+	if(L1 < 0 && L2 < 0) {
+		node1->len += sprintf((char *) node1->seq + node1->len, ",%s)", (char *) node2->seq);
+	} else {
+		node1->len += sprintf((char *) node1->seq + node1->len, ":%.2f,%s:%.2f)", L1, (char *) node2->seq, L2);
+	}
 }
 
 void formLastNode(Qseqs *node1, Qseqs *node2, double L) {

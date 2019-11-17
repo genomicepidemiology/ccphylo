@@ -251,7 +251,8 @@ void updateD(Matrix *D, Vector *sD, unsigned *N, unsigned i, unsigned j, double 
 			D_kj = Dmat[k][j];
 			if(0 <= D_ik && 0 <= D_kj) {
 				dist = (D_kj + D_ik - D_ij) / 2;
-				Dmat[k][j] = dist;
+				Dmat[k][j] = dist < 0 ? 0 : dist;
+				
 				/* update N and sD */
 				sDvec[k] -= (D_kj - dist);
 				sd += dist;

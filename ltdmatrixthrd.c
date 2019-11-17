@@ -17,6 +17,7 @@
  * limitations under the License.
 */
 
+#define _XOPEN_SOURCE 600
 #include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -248,11 +249,12 @@ void * cmpMatThrd(void *arg) {
 		/* init */
 		Dptr = D->mat[i];
 		Nptr = N ? N->mat[i] : 0;
-		targetStamp = targetStamps + s;
 		targetTemplate = (char *) mat1->name->seq;
 		
 		/* calculate distances */
 		while(j < i) {
+			
+			targetStamp = targetStamps + s;
 			filename = (char *) filenames[s];
 			/* open matrix file, and find target */
 			openAndDetermine(infile, filename);
@@ -273,12 +275,15 @@ void * cmpMatThrd(void *arg) {
 				*targetStamp = timeStampFileBuff(infile, *targetStamp);
 				include[j] = 2;
 			}
-			
+			/* here */
+			/*
+			return -2 falsefully
+			*/
 			/* get distance between the matrices */
 			dist = cmpMats(mat1, mat2, infile, norm, minDepth, minLength, minCov, veccmp);
 			if(dist < 0) {
 				if(dist == -1.0) {
-					fprintf(stderr, "No sufficient overlap with sample:\t%s\n", filename);
+					fprintf(stderr, "No sufficient overlap between samples:\t%s\t%s\n", filenames[i], filename);
 				} else if(dist == -2.0) {
 					fprintf(stderr, "Template (\"%s\") did not exceed threshold for inclusion:\t%s\n", targetTemplate, filename);
 					exit(1);
@@ -307,7 +312,7 @@ void * cmpMatThrd(void *arg) {
 			}
 			unlock(lock);
 		}
-	} while(i != n);
+	} while(sj < n);
 	
 	/* wait for remaining cells to complete */
 	while(cellFinish) {
@@ -373,8 +378,9 @@ void ltdMatrixThrd(Matrix *D, Matrix *N, MatrixCounts *mat1, TimeStamp **targetS
 			
 			if((strcmp2(targetTemplate, (char *) mat2->name))) {
 				/* make timestamp */
-				*targetStamp = timeStampFileBuff(infile, *targetStamp);
-				include[i] = 2;
+				if((*targetStamp = timeStampFileBuff(infile, *targetStamp))) {
+					include[i] = 2;
+				}
 				
 				/* initialize mat1 */
 				setMatName(mat1, mat2);
@@ -384,13 +390,18 @@ void ltdMatrixThrd(Matrix *D, Matrix *N, MatrixCounts *mat1, TimeStamp **targetS
 					fseek(infile->file, 0, SEEK_SET);
 					while(FileBuffSkipTemplate(infile, mat2) && !(strcmp2(targetTemplate, (char *) mat2->name)));
 					
-					/* try load again */
-					setMatName(mat1, mat2);
-					if(FileBuffLoadMat(mat1, infile, minDepth) == 0) {
-						fprintf(stderr, "Malformed matrix in:\t%s\n", filenames[i]);
-						exit(1);
+					if(strcmp2(targetTemplate, (char *) mat2->name)) {
+						/* try load again */
+						setMatName(mat1, mat2);
+						if(FileBuffLoadMat(mat1, infile, minDepth) == 0) {
+							fprintf(stderr, "Malformed matrix in:\t%s\n", filenames[i]);
+							exit(1);
+						}
+					} else {
+						fprintf(stderr, "Template (\"%s\") was not found in sample:\t%s\n", targetTemplate, filenames[i]);
+						mat1->nNucs = 0;
+						include[i] = 0;
 					}
-					
 					/* mark run as unsorted */
 					srtd = 0;
 				}
@@ -404,10 +415,10 @@ void ltdMatrixThrd(Matrix *D, Matrix *N, MatrixCounts *mat1, TimeStamp **targetS
 			if(mat1->nNucs < minLength || mat1->nNucs < minCov * mat1->len) {
 				fprintf(stderr, "Template (\"%s\") did not exceed threshold for inclusion:\t%s\n", targetTemplate, filenames[i]);
 				include[i] = 0;
+			} else {
+				/* strip matrix for insersions */
+				stripMat(mat1);
 			}
-			
-			/* strip matrix for insersions */
-			stripMat(mat1);
 		}
 		
 		if(include[i]) {

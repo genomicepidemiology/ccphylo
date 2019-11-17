@@ -319,7 +319,7 @@ int ltdFsaRow_get(double *D, double *N, FileBuff *infile, char *targetTemplate, 
 	fclose(diffile);
 	
 	/* clean */
-	free(trans);
+	destroyTable(trans);
 	destroyQseqs(header);
 	destroyQseqs(ref);
 	destroyQseqs(seq);

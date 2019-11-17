@@ -17,4 +17,11 @@
  * limitations under the License.
 */
 
-#define CCPHYLO_VERSION "0.0.2"
+#include "filebuff.h"
+#include "meth.h"
+#include "qseqs.h"
+
+unsigned char * getMethBitTable();
+int FileBuffgetFsaMethSeq(FileBuff *src, Qseqs *qseq, unsigned char *trans);
+MethMotif * qseq2methMotif(Qseqs *qseq);
+MethMotif * getMethMotifs(FileBuff *infile, Qseqs *qseq);

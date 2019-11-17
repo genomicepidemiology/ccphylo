@@ -64,13 +64,18 @@ void ltdMatrix_get(Matrix *dest, Matrix *nDest, MatrixCounts *mat1, NucCount *ma
 				fseek(infile->file, 0, SEEK_SET);
 				while(FileBuffSkipTemplate(infile, mat2) && !(strcmp2(targetTemplate, (char *) mat2->name)));
 				
-				/* try load again */
-				setMatName(mat1, mat2);
-				if(FileBuffLoadMat(mat1, infile, minDepth) == 0) {
-					fprintf(stderr, "Malformed matrix in:\t%s\n", filenames[i]);
-					exit(1);
+				if(strcmp2(targetTemplate, (char *) mat2->name)) {
+					/* try load again */
+					setMatName(mat1, mat2);
+					if(FileBuffLoadMat(mat1, infile, minDepth) == 0) {
+						fprintf(stderr, "Malformed matrix in:\t%s\n", filenames[i]);
+						exit(1);
+					}
+				} else {
+					fprintf(stderr, "Template (\"%s\") was not found in sample:\t%s\n", targetTemplate, filenames[i]);
+					mat1->nNucs = 0;
+					include[i] = 0;
 				}
-				
 				/* mark run as unsorted */
 				srtd = 0;
 			}
@@ -80,10 +85,10 @@ void ltdMatrix_get(Matrix *dest, Matrix *nDest, MatrixCounts *mat1, NucCount *ma
 			if(mat1->nNucs < minLength || mat1->nNucs < minCov * mat1->len) {
 				fprintf(stderr, "Template (\"%s\") did not exceed threshold for inclusion:\t%s\n", targetTemplate, filenames[i]);
 				include[i] = 0;
+			} else {
+				/* strip matrix for insersions */
+				stripMat(mat1);
 			}
-			
-			/* strip matrix for insersions */
-			stripMat(mat1);
 		}
 		
 		if(include[i]) {

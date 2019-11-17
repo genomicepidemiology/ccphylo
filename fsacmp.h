@@ -17,8 +17,10 @@
  * limitations under the License.
 */
 
+#include <stdlib.h>
 #include "matrix.h"
 #include "qseqs.h"
+#define destroyTable(trans)(free(trans - 128))
 
 unsigned char * get2BitTable(unsigned flag);
 void getMethPos(unsigned *include, Qseqs *ref);

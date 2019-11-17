@@ -17,4 +17,35 @@
  * limitations under the License.
 */
 
-#define CCPHYLO_VERSION "0.0.2"
+#include "meth.h"
+#include "pherror.h"
+
+/* here */
+/* remember Makefile */
+
+MethMotif * newMethMotif(int len) {
+	
+	int size;
+	MethMotif *dest;
+	
+	size = (len << 5) + (len & 31);
+	dest = smalloc(sizeof(MethMotif) + size * (sizeof(long unsigned) + sizeof(unsigned)));
+	dest->len = len;
+	dest->size = size;
+	dest->motif = (long unsigned *)(dest + 1);
+	dest->mask = (unsigned *)(dest->motif + size);
+	dest->next = 0;
+	
+	return dest;
+}
+
+void destroyMethMotifs(MethMotif *src) {
+	
+	MethMotif *src_next;
+	
+	while(src) {
+		src_next = src->next;
+		free(src);
+		src = src_next;
+	}
+}

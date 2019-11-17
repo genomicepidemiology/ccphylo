@@ -430,15 +430,17 @@ int main_dist(int argc, char *argv[]) {
 		arg = argv[args];
 		if(*arg++ == '-') {
 			if(strcmp(arg, "i") == 0) {
-				filenames = argv + ++args;
-				numFile = 1;
-				while(++args < argc && (*argv[args] != '-' || (argv[args][1] == '-' && argv[args][2] == 0))) {
-					++numFile;
+				if(++args < argc) {
+					filenames = argv + args;
+					numFile = 1;
+					while(++args < argc && (*argv[args] != '-' || (argv[args][1] == '-' && argv[args][2] == 0))) {
+						++numFile;
+					}
+					if(numFile == 0) {
+						missArg("\"-i\"");
+					}
+					--args;
 				}
-				if(numFile == 0) {
-					missArg("\"-i\"");
-				}
-				--args;
 			} else if(strcmp(arg, "o") == 0) {
 				if(++args < argc) {
 					outputfilename = argv[args];

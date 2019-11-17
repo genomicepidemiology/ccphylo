@@ -17,6 +17,7 @@
  * limitations under the License.
 */
 
+#define _XOPEN_SOURCE 600
 #include <limits.h>
 #include <pthread.h>
 #include <stdio.h>
@@ -575,7 +576,7 @@ int ltdFsaRowThrd(double *D, double *N, char *targetTemplate, char *addfilename,
 	fclose(diffile);
 	
 	/* clean */
-	free(trans - 128);
+	destroyTable(trans);
 	destroyQseqs(ref);
 	free(includeref);
 	free(includeadd);

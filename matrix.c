@@ -46,30 +46,27 @@ Matrix * ltdMatrix_init(unsigned size) {
 	return dest;
 }
 
-void ltdMatrix_realloc(Matrix *src, unsigned newsize) {
+void ltdMatrix_realloc(Matrix *src, unsigned size) {
 	
-	int i, size;
+	int i;
 	double **ptr, *mat;
 	
-	*(src->mat) = realloc(*(src->mat), newsize * newsize * sizeof(double) / 2);
-	src->mat = realloc(src->mat, newsize * sizeof(double *));
+	*(src->mat) = realloc(*(src->mat), size * size * sizeof(double) / 2);
+	src->mat = realloc(src->mat, size * sizeof(double *));
 	if(!src->mat || !*(src->mat)) {
 		ERROR();
 	}
+	src->size = size;
 	
 	/* set matrix rows */
 	ptr = src->mat;
 	mat = *ptr;
-	size = src->size;
-	i = size * (size - 1) / 2;
-	ptr += size;
+	i = 0;
 	*ptr++ = mat;
-	size = newsize - size;
 	while(--size) {
 		*ptr++ = mat + i;
 		mat += i++;
 	}
-	src->size = newsize;
 }
 
 void Matrix_destroy(Matrix *src) {

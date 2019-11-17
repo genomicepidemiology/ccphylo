@@ -1,6 +1,6 @@
 CFLAGS ?= -Wall -O3
 CFLAGS += -std=c99
-LIBS = cdist.o dbparse.o dist.o fbseek.o filebuff.o fsacmp.o fsacmpthrd.o hashmapstr.o hashmapstrindex.o ltdmatrix.o ltdmatrixthrd.o matcmp.o matparse.o matrix.o merge.o nj.o nwck.o nwck2phy.o pherror.o phy.o qseqs.o rarify.o resparse.o seqparse.o seq2fasta.o stdnuc.o stdstat.o str.o tree.o ulist.o union.o unionparse.o vector.o
+LIBS = cdist.o dbparse.o dist.o fbseek.o filebuff.o fsacmp.o fsacmpthrd.o hashmapstr.o hashmapstrindex.o ltdmatrix.o ltdmatrixthrd.o matcmp.o matparse.o matrix.o merge.o meth.o methparse.o nj.o nwck.o nwck2phy.o pherror.o phy.o qseqs.o rarify.o resparse.o seqparse.o seq2fasta.o stdnuc.o stdstat.o str.o tree.o ulist.o union.o unionparse.o vector.o
 PROGS = ccphylo
 
 .c .o:
@@ -32,6 +32,8 @@ matcmp.o: matcmp.h filebuff.h matparse.h stdstat.h
 matparse.o: matparse.h filebuff.h pherror.h qseqs.h
 matrix.o: matrix.h pherror.h
 merge.o: merge.h filebuff.h hashmapstr.h hashmapstrindex.h matrix.h phy.h qseqs.h ulist.h
+meth.o: meth.h pherror.h
+methparse.o: methparse.h filebuff.h meth.h pherror.h qseqs.h
 nj.o: nj.h matrix.h pherror.h vector.h
 nwck.o: nwck.h filebuff.h qseqs.h pherror.h
 nwck2phy.o: nwck2phy.h filebuff.h matrix.h nwck.h pherror.h phy.h qseqs.h

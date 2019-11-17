@@ -17,4 +17,17 @@
  * limitations under the License.
 */
 
-#define CCPHYLO_VERSION "0.0.2"
+#ifndef METH
+typedef struct methMotif MethMotif;
+struct methMotif {
+	int size;
+	int len;
+	long unsigned *motif;
+	unsigned *mask;
+	struct methMotif *next;
+};
+#define METH 1
+#endif
+
+MethMotif * newMethMotif(int len);
+void destroyMethMotifs(MethMotif *src);
