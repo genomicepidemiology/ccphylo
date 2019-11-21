@@ -290,9 +290,6 @@ double chi2cmp(short unsigned *counts1, short unsigned *counts2, int tot1, int t
 			d += tot1 * tot1 / ((double) (*counts1 + *counts2));
 		}
 	}
-	if((tot1 = *(counts1 += 2) - *(counts2 += 2))) {
-		d += tot1 * tot1 / ((double) (*counts1 + *counts2));
-	}
 	
 	return sqrt(d);
 }
