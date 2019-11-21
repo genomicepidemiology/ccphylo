@@ -65,9 +65,11 @@ double nl1cmp(short unsigned *counts1, short unsigned *counts2, int tot1, int to
 	int i;
 	double d, tmp;
 	
+	tot1 -= counts1[5];
+	tot2 -= counts2[5];
 	tmp = (double)(*counts1) / tot1 - (double)(*counts2) / tot2;
 	d = tmp < 0 ? -tmp : tmp;
-	i = 6;
+	i = 5;
 	while(--i) {
 		tmp = (double)(*++counts1) / tot1 - (double)(*++counts2) / tot2;
 		d += tmp < 0 ? -tmp : tmp;
@@ -81,9 +83,11 @@ double nl2cmp(short unsigned *counts1, short unsigned *counts2, int tot1, int to
 	int i;
 	double d, tmp;
 	
+	tot1 -= counts1[5];
+	tot2 -= counts2[5];
 	tmp = (double)(*counts1) / tot1 - (double)(*counts2) / tot2;
 	d = tmp * tmp;
-	i = 6;
+	i = 5;
 	while(--i) {
 		tmp = (double)(*++counts1) / tot1 - (double)(*++counts2) / tot2;
 		d += tmp * tmp;
@@ -103,8 +107,10 @@ double nlncmp(short unsigned *counts1, short unsigned *counts2, int tot1, int to
 		return 0;
 	}
 	
+	tot1 -= counts1[5];
+	tot2 -= counts2[5];
 	d = pow((double)(*counts1) / tot1 - (double)(*counts2) / tot2, n);
-	i = 6;
+	i = 5;
 	while(--i) {
 		tmp = (double)(*++counts1) / tot1 - (double)(*++counts2) / tot2;
 		tmp = tmp < 0 ? -tmp : tmp;
@@ -120,9 +126,11 @@ double nlinfcmp(short unsigned *counts1, short unsigned *counts2, int tot1, int 
 	int i;
 	double max, tmp;
 	
+	tot1 -= counts1[5];
+	tot2 -= counts2[5];
 	tmp = (double) *counts1 / tot1 - (double) *counts2 / tot2;
 	max = tmp < 0 ? -tmp : tmp;
-	i = 6;
+	i = 5;
 	while(--i) {
 		tmp = (double) *counts1 / tot1 - (double) *counts2 / tot2;
 		tmp = tmp < 0 ? -tmp : tmp;
@@ -140,7 +148,7 @@ double l1cmp(short unsigned *counts1, short unsigned *counts2, int tot1, int tot
 	
 	tot1 = *counts1 - *counts2;
 	tot2 = tot1 < 0 ? -tot1 : tot1;
-	i = 6;
+	i = 5;
 	while(--i) {
 		tot1 = *++counts1 - *++counts2;
 		tot2 += tot1 < 0 ? -tot1 : tot1;
@@ -155,7 +163,7 @@ double l2cmp(short unsigned *counts1, short unsigned *counts2, int tot1, int tot
 	
 	tot1 = *counts1 - *counts2;
 	tot2 = tot1 * tot1;
-	i = 6;
+	i = 5;
 	while(--i) {
 		tot1 = *++counts1 - *++counts2;
 		tot2 += tot1 * tot1;
@@ -176,7 +184,7 @@ double lncmp(short unsigned *counts1, short unsigned *counts2, int tot1, int tot
 	}
 	
 	d = pow(abs(*counts1 - *counts2), n);
-	i = 6;
+	i = 5;
 	while(--i) {
 		d += pow(abs(*++counts1 - *++counts2), n);
 	}
@@ -188,7 +196,7 @@ double lncmp(short unsigned *counts1, short unsigned *counts2, int tot1, int tot
 double linfcmp(short unsigned *counts1, short unsigned *counts2, int tot1, int tot2) {
 	
 	tot1 = abs(*counts1 - *counts2);
-	tot2 = 6;
+	tot2 = 5;
 	while(--tot2) {
 		if(tot1 < abs(*++counts1 - *++counts2)) {
 			tot1 = abs(*counts1 - *counts2);
@@ -203,10 +211,12 @@ double nbccmp(short unsigned *counts1, short unsigned *counts2, int tot1, int to
 	int i;
 	double d, t1, t2;
 	
+	tot1 -= counts1[5];
+	tot2 -= counts2[5];
 	t1 = (double) *counts1 / tot1;
 	t2 = (double) *counts2 / tot2;
 	d = t1 < t2 ? t1 : t2;
-	i = 6;
+	i = 5;
 	while(--i) {
 		t1 = (double) *++counts1 / tot1;
 		t2 = (double) *++counts2 / tot2;
@@ -223,7 +233,7 @@ double bccmp(short unsigned *counts1, short unsigned *counts2, int tot1, int tot
 	double d;
 	
 	d = *counts1 < *counts2 ? *counts1 : *counts2;
-	i = 6;
+	i = 5;
 	while(--i) {
 		d += *++counts1 < *++counts2 ? *counts1 : *counts2;
 	}
@@ -243,11 +253,11 @@ double zcmp(short unsigned *counts1, short unsigned *counts2, int tot1, int tot2
 		return 0;
 	}
 	
+	i = 5;
 	x1 = 0;
 	x2 = 0;
 	max1 = *counts1;
 	max2 = *counts2;
-	i = 6;
 	while(--i) {
 		if(max1 < *++counts1) {
 			max1 = *counts1;
@@ -274,11 +284,14 @@ double chi2cmp(short unsigned *counts1, short unsigned *counts2, int tot1, int t
 	double d;
 	
 	d = (tot1 = *counts1 - *counts2) ? (tot1 * tot1 / ((double) (*counts1 + *counts2))) : 0;
-	tot2 = 6;
+	tot2 = 5;
 	while(--tot2) {
 		if((tot1 = *++counts1 - *++counts2)) {
 			d += tot1 * tot1 / ((double) (*counts1 + *counts2));
 		}
+	}
+	if((tot1 = *(counts1 += 2) - *(counts2 += 2))) {
+		d += tot1 * tot1 / ((double) (*counts1 + *counts2));
 	}
 	
 	return sqrt(d);
@@ -289,10 +302,12 @@ double nchi2cmp(short unsigned *counts1, short unsigned *counts2, int tot1, int 
 	int n;
 	double d, diff, t1, t2;
 	
+	tot1 -= counts1[5];
+	tot2 -= counts2[5];
 	t1 = (double) *counts1 / tot1;
 	t2 = (double) *counts2 / tot2;
 	d = (diff = t1 - t2) != 0 ? (diff * diff / (t1 + t2)) : 0;
-	n = 6;
+	n = 5;
 	while(--n) {
 		t1 = (double) *++counts1 / tot1;
 		t2 = (double) *++counts2 / tot2;
@@ -306,17 +321,21 @@ double nchi2cmp(short unsigned *counts1, short unsigned *counts2, int tot1, int 
 
 double coscmp(short unsigned *counts1, short unsigned *counts2, int tot1, int tot2) {
 	
-	int i;
+	unsigned i, c1, c2;
 	double d;
 	
-	tot1 = *counts1 * *counts1;
-	tot2 = *counts2 * *counts2;
-	d = *counts1 * *counts2;
-	i = 6;
+	c1 = *counts1;
+	c2 = *counts2;
+	tot1 = c1 * c1;
+	tot2 = c2 * c2;
+	d = c1 * c2;
+	i = 5;
 	while(--i) {
-		d += *++counts1 * *++counts2;
-		tot1 += *counts1 * *counts1;
-		tot2 += *counts2 * *counts2;
+		c1 = *++counts1;
+		c2 = *++counts2;
+		d += c1 * c2;
+		tot1 += c1 * c1;
+		tot2 += c2 * c2;
 	}
 	d = 1 - d / (sqrt(tot1) * sqrt(tot2));
 	
@@ -350,12 +369,13 @@ double cmpMats(MatrixCounts *mat1, NucCount *mat2, FileBuff *infile, unsigned no
 			}
 			if(minDepth <= mat2->total) {
 				++nNucs;
-				if(minDepth <= (tot1 = counts1[6]) && 0 <= (d = veccmp(counts1, mat2->counts, tot1, mat2->total))) {
+				tot1 = *((unsigned *)(counts1 + 6));
+				if(minDepth <= tot1 && 0 <= (d = veccmp(counts1, mat2->counts, tot1, mat2->total))) {
 					dist += d;
 					++rowsInc;
 				}
 			}
-			counts1 += 7;
+			counts1 += 8;
 		}
 	}
 	

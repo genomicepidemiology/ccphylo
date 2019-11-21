@@ -49,3 +49,27 @@ void destroyMethMotifs(MethMotif *src) {
 		src = src_next;
 	}
 }
+
+long unsigned matchMotif32(long unsigned seq, long unsigned *motif, unsigned num) {
+	
+	/* matches a 32 bp sequence to a 32 bp motif */
+	
+	/* num = # of alternate motifs, e.g:
+	N included -> num = 4
+	Y -> num = 2
+	*/
+	
+	long unsigned match, mer;
+	
+	/* mark unmatched parts */
+	mer = *motif ^ seq;
+	/* mirror nibbles, and mask them out */
+	match = mer | ((mer << 1) & 0xAAAAAAAAAAAAAAAA) | ((mer >> 1) & 0x5555555555555555);
+	while(--num && match) {
+		mer = *++motif ^ seq;
+		//mer |= (((mer << 1) & 0xAAAAAAAAAAAAAAAA) | ((mer >> 1) & 0x5555555555555555));
+		match &= mer | ((mer << 1) & 0xAAAAAAAAAAAAAAAA) | ((mer >> 1) & 0x5555555555555555);
+	}
+	
+	return match;
+}

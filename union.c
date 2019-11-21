@@ -120,14 +120,15 @@ int unionResOrderPrint(char **filenames, int numFile, char *outputfilename, char
 	sprintf(templatefilename, "%s.name", dbfilename);
 	templatefile = sfopen(templatefilename, "rb");
 	templatefilename[tnum] = 0;
-	reffile = sfopen(reffilename, "wb");
+	reffile = 0;
 	tnum = 1;
 	
 	/* get union */
 	entries = unionRes(filenames, numFile, outputfilename, minCov, minDepth, minLength);
 	
 	/* print tested filenames */
-	if(reffile) {
+	if(reffilename) {
+		reffile = sfopen(reffilename, "wb");
 		fprintf(outfile, "%d\t%s", numFile + 1, reffilename);
 		seqlist[0] = 1;
 		template_lengths = getLengths(templatefilename);

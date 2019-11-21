@@ -179,7 +179,7 @@ void * cmpMatRowThrd(void *arg) {
 
 void * cmpMatThrd(void *arg) {
 	
-	static volatile int pi = 0, cellFinish = 0, lock[1] = {0};
+	static volatile int pi = 0, cellFinish = 0, purge = 1, lock[1] = {0};
 	static int pj = 0, sj = 0, srtd = 1; /* sample, position in matrix */
 	CmpMatArg *thread = arg;
 	char *targetTemplate, *filename, **filenames;
@@ -199,10 +199,12 @@ void * cmpMatThrd(void *arg) {
 		pj = 0;
 		sj = 0;
 		srtd = 1;
+		purge = 1;
 		return NULL;
 	}
 	
 	/* get input */
+	purge = 0;
 	D = thread->D;
 	N = thread->N;
 	mat1 = thread->mat1;
@@ -231,6 +233,16 @@ void * cmpMatThrd(void *arg) {
 	
 	do {
 		/* wait for next row to be ready */
+		while(pi <= pj) {
+			while(pi < pj) {
+				usleep(256);
+			}
+			
+			if(purge) {
+				return NULL;
+			}
+		}
+		
 		while(pi <= pj) {
 			usleep(256);
 		}
@@ -275,10 +287,7 @@ void * cmpMatThrd(void *arg) {
 				*targetStamp = timeStampFileBuff(infile, *targetStamp);
 				include[j] = 2;
 			}
-			/* here */
-			/*
-			return -2 falsefully
-			*/
+			
 			/* get distance between the matrices */
 			dist = cmpMats(mat1, mat2, infile, norm, minDepth, minLength, minCov, veccmp);
 			if(dist < 0) {
@@ -312,7 +321,7 @@ void * cmpMatThrd(void *arg) {
 			}
 			unlock(lock);
 		}
-	} while(sj < n);
+	} while(i != n);
 	
 	/* wait for remaining cells to complete */
 	while(cellFinish) {
@@ -324,18 +333,85 @@ void * cmpMatThrd(void *arg) {
 
 void ltdMatrixThrd(Matrix *D, Matrix *N, MatrixCounts *mat1, TimeStamp **targetStamps, unsigned char *include, char *targetTemplate, char **filenames, int numFile, unsigned norm, unsigned minDepth, unsigned minLength, double minCov, double (*veccmp)(short unsigned*, short unsigned*, int, int), int tnum) {
 	
-	int i, n, srtd;
+	int i, n, srtd, len;
 	CmpMatArg *thread;
 	FileBuff *infile;
 	NucCount *mat2;
 	TimeStamp **targetStamp;
+	
+	if(0) {
+		/* find first valid sample */
+		infile = setFileBuff(1048576);
+		mat2 = initNucCount(128);
+		srtd = 1;
+		for(i = 0; i < numFile; ++i) {
+			if(include[i]) {
+				openAndDetermine(infile, filenames[i]);
+				if(*(targetStamp = targetStamps + i) && srtd) {
+					seekFileBiff(infile, *targetStamp);
+					/* first time template -> seek to new template */
+					while(FileBuffSkipTemplate(infile, mat2) && !(strcmp2(targetTemplate, (char *) mat2->name)));
+					if(!(strcmp2(targetTemplate, (char *) mat2->name))) {
+						/* reset strm */
+						fseek(infile->file, 0, SEEK_SET);
+						while(FileBuffSkipTemplate(infile, mat2) && !(strcmp2(targetTemplate, (char *) mat2->name)));
+						srtd = 0;
+					}
+				} else {
+					while(FileBuffSkipTemplate(infile, mat2) && !(strcmp2(targetTemplate, (char *) mat2->name)));
+				}
+				
+				if((strcmp2(targetTemplate, (char *) mat2->name))) {
+					/* make timestamp */
+					*targetStamp = timeStampFileBuff(infile, *targetStamp);
+					include[i] = 2;
+					
+					n = 0;
+					len = 0;
+					while(FileBuffGetRow(infile, mat2) && mat2->ref) {
+						if(mat2->ref != '-') {
+							++len;
+							/* validate position */
+							if(minDepth <= mat2->total) {
+								++n;
+							}
+						}
+					}
+					
+					if(n < minLength || n < minCov * len) {
+						fprintf(stderr, "Template (\"%s\") did not exceed threshold for inclusion:\t%s\n", targetTemplate, filenames[i]);
+						include[i] = 0;
+					}
+				} else {
+					fprintf(stderr, "Template (\"%s\") is not included in:\t%s\n", targetTemplate, filenames[i]);
+					include[i] = 0;
+				}
+				
+				closeFileBuff(infile);
+				
+				/* shift pointer if matrix meets criteria */
+				if(include[i]) {
+					include += i;
+					filenames += i;
+					targetStamps += i;
+					include += i;
+					numFile -= i;
+					i = numFile;
+				}
+			}
+		}
+		destroyFileBuff(infile);
+		destroyNucCount(mat2);
+	}
 	
 	/* thread out */
 	n = -1;
 	include += numFile;
 	i = numFile + 1;
 	while(--i) {
-		n += *--include;
+		if(*--include) {
+			++n;
+		}
 	}
 	if(n < tnum) {
 		tnum = n;
@@ -361,10 +437,9 @@ void ltdMatrixThrd(Matrix *D, Matrix *N, MatrixCounts *mat1, TimeStamp **targetS
 	infile = thread->infile;
 	mat2 = thread->mat2;
 	
-	/* get distances */
-	srtd = 1;
-	D->n = 0;
-	for(i = 1; i < numFile; ++i) {
+	/* find first valid matrix */
+	i = 0;
+	do {
 		if(include[i]) {
 			/* open matrix file, and find target */
 			openAndDetermine(infile, filenames[i]);
@@ -372,6 +447,62 @@ void ltdMatrixThrd(Matrix *D, Matrix *N, MatrixCounts *mat1, TimeStamp **targetS
 				seekFileBiff(infile, *targetStamp);
 				/* first time template -> seek to new template */
 				while(FileBuffSkipTemplate(infile, mat2) && !(strcmp2(targetTemplate, (char *) mat2->name)));
+				if(!(strcmp2(targetTemplate, (char *) mat2->name))) {
+					/* reset strm */
+					fseek(infile->file, 0, SEEK_SET);
+					while(FileBuffSkipTemplate(infile, mat2) && !(strcmp2(targetTemplate, (char *) mat2->name)));
+					srtd = 0;
+				}
+			} else {
+				while(FileBuffSkipTemplate(infile, mat2) && !(strcmp2(targetTemplate, (char *) mat2->name)));
+			}
+			
+			if((strcmp2(targetTemplate, (char *) mat2->name))) {
+				/* make timestamp */
+				*targetStamp = timeStampFileBuff(infile, *targetStamp);
+				include[i] = 2;
+				
+				n = 0;
+				len = 0;
+				while(FileBuffGetRow(infile, mat2) && mat2->ref) {
+					if(mat2->ref != '-') {
+						++len;
+						/* validate position */
+						if(minDepth <= mat2->total) {
+							++n;
+						}
+					}
+				}
+				
+				if(n < minLength || n < minCov * len) {
+					fprintf(stderr, "Template (\"%s\") did not exceed threshold for inclusion:\t%s\n", targetTemplate, filenames[i]);
+					include[i] = 0;
+				}
+			} else {
+				fprintf(stderr, "Template (\"%s\") is not included in:\t%s\n", targetTemplate, filenames[i]);
+				include[i] = 0;
+			}
+			
+			closeFileBuff(infile);
+		}
+	} while(!include[i++] && i < numFile);
+	
+	/* get distances */
+	D->n = 0;
+	while(i < numFile) {
+		if(include[i]) {
+			/* open matrix file, and find target */
+			openAndDetermine(infile, filenames[i]);
+			if(*(targetStamp = targetStamps + i) && srtd) {
+				seekFileBiff(infile, *targetStamp);
+				/* first time template -> seek to new template */
+				while(FileBuffSkipTemplate(infile, mat2) && !(strcmp2(targetTemplate, (char *) mat2->name)));
+				if(!(strcmp2(targetTemplate, (char *) mat2->name))) {
+					/* reset strm */
+					fseek(infile->file, 0, SEEK_SET);
+					while(FileBuffSkipTemplate(infile, mat2) && !(strcmp2(targetTemplate, (char *) mat2->name)));
+					srtd = 0;
+				}
 			} else {
 				while(FileBuffSkipTemplate(infile, mat2) && !(strcmp2(targetTemplate, (char *) mat2->name)));
 			}
@@ -400,6 +531,7 @@ void ltdMatrixThrd(Matrix *D, Matrix *N, MatrixCounts *mat1, TimeStamp **targetS
 					} else {
 						fprintf(stderr, "Template (\"%s\") was not found in sample:\t%s\n", targetTemplate, filenames[i]);
 						mat1->nNucs = 0;
+						mat1->len = 0;
 						include[i] = 0;
 					}
 					/* mark run as unsorted */
@@ -419,12 +551,13 @@ void ltdMatrixThrd(Matrix *D, Matrix *N, MatrixCounts *mat1, TimeStamp **targetS
 				/* strip matrix for insersions */
 				stripMat(mat1);
 			}
+			
+			if(include[i]) {
+				thread->srtd = srtd;
+				cmpMatThrd(thread);
+			}
 		}
-		
-		if(include[i]) {
-			thread->srtd = srtd;
-			cmpMatThrd(thread);
-		}
+		++i;
 	}
 	
 	/* get number of include templates */

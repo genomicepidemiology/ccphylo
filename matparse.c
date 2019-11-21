@@ -130,10 +130,10 @@ int FileBuffGetRow(FileBuff *src, NucCount *dest) {
 			num = 10 * num + (size - '0');
 		}
 	}
-	if(num) {
-		*count = num;
-		dest->total += num;
-	}
+	*count = count[-1];
+	count[-1] = num;
+	dest->total += num;
+	
 	src->bytes = avail - 1;
 	src->next = buff;
 	return 1;
@@ -183,7 +183,7 @@ MatrixCounts * initMat(unsigned matSize, unsigned nameSize) {
 	dest->len = 0;
 	dest->size = matSize;
 	dest->refs = smalloc(matSize);
-	dest->counts = smalloc(7 * matSize * sizeof(short unsigned));
+	dest->counts = smalloc(8 * matSize * sizeof(short unsigned));
 	
 	return dest;
 }
@@ -213,7 +213,7 @@ void setMatName(MatrixCounts *dest, NucCount *src) {
 int FileBuffLoadMat(MatrixCounts *dest, FileBuff *src, unsigned minDepth) {
 	
 	unsigned char *buff, *refs, c;
-	unsigned size, avail, num, total, len, nNucs;
+	unsigned *tot_ptr, size, avail, num, total, len, nNucs;
 	short unsigned *counts;
 	int (*buffFileBuff)(FileBuff *);
 	
@@ -251,8 +251,13 @@ int FileBuffLoadMat(MatrixCounts *dest, FileBuff *src, unsigned minDepth) {
 		if(c == '\n') {
 			/* finalize row */
 			total += num;
-			*counts = num;
-			*++counts = total;	
+			/* put N's last */
+			*counts = counts[-1];
+			counts[-1] = num;
+			tot_ptr = (unsigned *)(++counts);
+			*tot_ptr = total;
+			++counts;
+			
 			++len;
 			if(minDepth <= total) {
 				++nNucs;
@@ -264,13 +269,13 @@ int FileBuffLoadMat(MatrixCounts *dest, FileBuff *src, unsigned minDepth) {
 			if(--size == 0) {
 				size = dest->size;
 				dest->size <<= 1;
-				dest->counts = realloc(dest->counts, 7 * dest->size * sizeof(short unsigned));
+				dest->counts = realloc(dest->counts, 8 * dest->size * sizeof(short unsigned));
 				dest->refs = realloc(dest->refs, dest->size);
 				if(!dest->counts || !dest->refs) {
 					ERROR();
 				}
 				refs = dest->refs + size;
-				counts = dest->counts + 7 * size - 1;
+				counts = dest->counts + 8 * size - 1;
 			}
 			
 			/* get ref */
