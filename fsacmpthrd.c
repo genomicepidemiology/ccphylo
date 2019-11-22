@@ -320,7 +320,7 @@ void * cmpairFsaThrd(void *arg) {
 		/* get next valid sample combo */
 		i = si;
 		j = sj;
-		while(include[i] == 0 && include[j] == 0) {
+		while(include[i] == 0 || include[j] == 0) {
 			while(i < n && include[i] == 0) {
 				++i;
 			}
@@ -370,7 +370,8 @@ void * cmpairFsaThrd(void *arg) {
 		}
 		
 		/* separate distance and included bases */
-		if(minLength <= (inc = dist & UINT_MAX)) {
+		inc = dist & UINT_MAX;
+		if(minLength <= inc) {
 			*Dptr = (dist >> 32) * norm;
 			*Dptr /= inc;
 		} else {
@@ -534,7 +535,11 @@ int ltdFsaRowThrd(double *D, double *N, char *targetTemplate, char *addfilename,
 		fprintf(stderr, "Template (\"%s\") did not exceed threshold for inclusion:\t%s\n", targetTemplate, addfilename);
 		return 1;
 	} else if(diffilename) {
-		diffile = fopen(diffilename, "ab");
+		if(*diffilename == '-' && diffilename[1] == '-' && diffilename[2] == 0) {
+			diffile = stdout;
+		} else {
+			diffile = sfopen(diffilename, "ab");
+		}
 	} else {
 		diffile = 0;
 	}
@@ -553,7 +558,9 @@ int ltdFsaRowThrd(double *D, double *N, char *targetTemplate, char *addfilename,
 	fsaCmpThreadOut(tnum, &cmpFsaRowThrd, (Matrix *) D, (Matrix *) N, n, len, &addL, trans, &includeadd, norm, minLength, minCov, diffile, targetTemplate, seq, filenames, proxi);
 	
 	/* update size of matrix */
-	fclose(diffile);
+	if(diffile && diffile != stdout) {
+		fclose(diffile);
+	}
 	
 	/* clean */
 	destroyQseqs(seq);

@@ -133,7 +133,7 @@ void getIncPos(unsigned *include, Qseqs *seq, Qseqs *ref, unsigned proxi) {
 		/* mask position */
 		if(c != r || c == 4) {
 			/* unknown base */
-			if(c == 4) {
+			if(c == 4 || r == 4) {
 				/* mask position */
 				include[i >> 5] &= (UINT_MAX ^ (1 << (31 - (i & 31))));
 			}

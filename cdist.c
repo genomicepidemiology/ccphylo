@@ -154,7 +154,7 @@ int ltdFsaMatrix_get(Matrix *D, Matrix *N, int numFile, long unsigned **seqs, in
 	/* make ltd matrix */
 	if(pair) {
 		fsaCmpThreadOut(tnum, &cmpairFsaThrd, D, N, numFile, len, seqs, include, includes, norm, minLength, minCov, diffile, targetTemplate, ref, 0, proxi);
-		//cmpairFsa(D, N, numFile, len, seqs, include, includes, norm, minLength, minCov, diffile);
+		//cmpairFsa(D, N, numFile, len, seqs, include, includes, norm, minLength, minCov, proxi, diffile);
 	} else if(minLength <= getNpos(*includes, len)) {
 		fsaCmpThreadOut(tnum, &cmpFsaThrd, D, N, numFile, len, seqs, include, includes, norm, minLength, minCov, diffile, targetTemplate, ref, 0, proxi);
 		/* i = cmpFsa(D, numFile, len, seqs, include, includes, norm, diffile);
@@ -227,8 +227,12 @@ int ltdFsaRow_get(double *D, double *N, FileBuff *infile, char *targetTemplate, 
 		free(addL);
 		free(seqL);
 		return 1;
-	} else if(diffilename) {
-		diffile = fopen(diffilename, "ab");
+	}  else if(diffilename) {
+		if(*diffilename == '-' && diffilename[1] == '-' && diffilename[2] == 0) {
+			diffile = stdout;
+		} else {
+			diffile = sfopen(diffilename, "ab");
+		}
 	} else {
 		diffile = 0;
 	}
@@ -276,7 +280,9 @@ int ltdFsaRow_get(double *D, double *N, FileBuff *infile, char *targetTemplate, 
 			*++Nptr = inc;
 		}
 	}
-	fclose(diffile);
+	if(diffile && diffile != stdout) {
+		fclose(diffile);
+	}
 	
 	/* clean */
 	destroyTable(trans);

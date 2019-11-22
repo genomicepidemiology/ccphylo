@@ -255,7 +255,7 @@ static void makeMatrix(unsigned numFile, char **filenames, char *outputfilename,
 		exit(1);
 	}
 	
-	if(diffile) {
+	if(diffile && diffile != stdout) {
 		fclose(diffile);
 	}
 	if(informat == '#') {
