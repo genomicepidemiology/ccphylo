@@ -30,81 +30,27 @@
 #include "pherror.h"
 #include "phy.h"
 #include "seqparse.h"
+#define exchange(src1, src2, tmp) tmp = src1; src1 = src2; src2 = tmp;
 
 int ltdFsaMatrix_get(Matrix *D, Matrix *N, int numFile, long unsigned **seqs, int cSize, FileBuff *infile, TimeStamp **targetStamps, unsigned char *include, unsigned **includes, char *targetTemplate, char **filenames, unsigned char *trans, Qseqs *ref, Qseqs *seq, Qseqs *header, unsigned norm, unsigned minLength, double minCov, unsigned flag, unsigned proxi, FILE *diffile, int tnum) {
 	
-	unsigned i, pair, len, **includesPtr;
+	unsigned i, j, pair, len, **includesPtr;
 	long unsigned **seqsPtr;
-	unsigned char *includePtr;
+	unsigned char *includePtr, *tmpseq;
 	TimeStamp **targetStamp;
 	
-	/* Validate reference file */
-	if(openAndDetermine(infile, *filenames) == '>') {
-		/* find the correct entry */
-		if(*(targetStamp = targetStamps)) {
-			seekFileBiff(infile, *targetStamp);
-		}
-		while(FileBuffgetFsaHeader(infile, header) && strcmp((char *) header->seq, targetTemplate) != 0);
-		
-		/* make timestamp */
-		*targetStamp = timeStampFileBuff(infile, *targetStamp);
-		
-		/* get sequence */
-		if(!header->len) {
-			fprintf(stderr, "Missing template entry (\"%s\") in file:\t%s\n", targetTemplate, *filenames);
-			exit(1);
-		} else if(FileBuffgetFsaSeq(infile, ref, trans)) {
-			/* make initial inclusion array */
-			len = ref->len;
-			minLength = minLength < minCov * len ? minCov * len : minLength;
-			pair = flag & 2;
-			if(cSize < len / 32 + 1) {
-				cSize = len / 32 + 1;
-				i = numFile;
-				while(--i) {
-					if(!(seqs[i] = realloc(seqs[i], cSize * sizeof(long unsigned)))) {
-						ERROR();
-					}
-					if(pair && (includes[i] = realloc(includes[i], cSize * sizeof(unsigned))) == 0) {
-						ERROR();
-					}
-				}
-				if(!(*seqs = realloc(*seqs, cSize * sizeof(long unsigned)))) {
-					ERROR();
-				}
-				if(!(*includes = realloc(*includes, cSize * sizeof(unsigned)))) {
-					ERROR();
-				}
-			}
-			initIncPos(*includes, len);
-			getIncPos(*includes, ref, ref, proxi);
-			
-			if(getNpos(*includes, len) < minLength) {
-				fprintf(stderr, "Template (\"%s\") did not exceed threshold for inclusion:\t%s\n", targetTemplate, *filenames);
-				exit(1);
-			}
-			if((*include = (flag & 16) ? 1 : 0)) {
-				qseq2nibble(ref, *seqs);
-			}
-		} else {
-			fprintf(stderr, "Missing template sequence (\"%s\") in file:\t%s\n", targetTemplate, *filenames);
-			exit(1);
-		}
-		
-		closeFileBuff(infile);
-	} else {
-		fprintf(stderr, "\"%s\" is not fasta.\n", *filenames);
-		exit(1);
-	}
-	
 	/* init */
+	pair = flag & 2 ? 1 : 0;
+	len = 0;
+	ref->len = 0;
 	includesPtr = includes;
-	includePtr = include;
-	seqsPtr = seqs;
-	targetStamp = targetStamps;
+	includePtr = include - 1;
+	seqsPtr = seqs - 1;
+	targetStamp = targetStamps - 1;
+	--filenames;
 	
 	/* load sequences, get included positions and compress */
-	i = numFile;
+	i = numFile + 1;
 	while(--i) {
 		if(*++includePtr) {
 			/* open and validate file */
@@ -126,54 +72,85 @@ int ltdFsaMatrix_get(Matrix *D, Matrix *N, int numFile, long unsigned **seqs, in
 			if(!header->len) {
 				fprintf(stderr, "Missing template entry (\"%s\") in file:\t%s\n", targetTemplate, *filenames);
 				*includePtr = 0;
-				++includesPtr;
 				++seqsPtr;
 			} else if(FileBuffgetFsaSeq(infile, seq, trans)) {
-				if(seq->len != ref->len) {
-					fprintf(stderr, "Sequences does not match: %s\n", *filenames);
-					exit(1);
-				}
-				
-				/* make / update inclusion array(s) */
-				if(pair) {
-					memcpy(*++includesPtr, *includes, ((len >> 5) + 1) * sizeof(unsigned));
-					getIncPos(*includesPtr, seq, ref, proxi);
-					if(getNpos(*includesPtr, len) < minLength) {
-						fprintf(stderr, "Template (\"%s\") did not exceed threshold for inclusion:\t%s\n", targetTemplate, *filenames);
-						*includePtr = 0;
+				if(ref->len) {
+					if(seq->len != ref->len) {
+						fprintf(stderr, "Sequences does not match: %s\n", *filenames);
+						exit(1);
+					}
+					
+					/* make / update inclusion array(s) */
+					if(pair) {
+						initIncPos(*includesPtr, len);
+						getIncPos(*includesPtr, seq, seq, proxi);
+						if(getNpos(*includesPtr, len) < minLength) {
+							fprintf(stderr, "Template (\"%s\") did not exceed threshold for inclusion:\t%s\n", targetTemplate, *filenames);
+							*includePtr = 0;
+							++seqsPtr;
+						} else {
+							qseq2nibble(seq, *++seqsPtr);
+						}
 					} else {
-						*includePtr = 1;
+						getIncPos(*includes, seq, ref, proxi);
+						qseq2nibble(seq, *++seqsPtr);
 					}
 				} else {
-					getIncPos(*includes, seq, ref, proxi);
-					*includePtr = 1;
-				}
-				if(*includePtr) {
-					/* convert seq to nibbles */
-					qseq2nibble(seq, *++seqsPtr);
-				} else {
-					++seqsPtr;
+					len = seq->len;
+					minLength = minLength < minCov * len ? minCov * len : minLength;
+					if(cSize < len / 32 + 1) {
+						cSize = len / 32 + 1;
+						j = numFile;
+						while(--j) {
+							if(!(seqs[j] = realloc(seqs[j], cSize * sizeof(long unsigned)))) {
+								ERROR();
+							}
+							if(pair && (includes[j] = realloc(includes[j], cSize * sizeof(unsigned))) == 0) {
+								ERROR();
+							}
+						}
+						if(!(*seqs = realloc(*seqs, cSize * sizeof(long unsigned)))) {
+							ERROR();
+						}
+						if(!(*includes = realloc(*includes, cSize * sizeof(unsigned)))) {
+							ERROR();
+						}
+					}
+					initIncPos(*includesPtr, len);
+					getIncPos(*includesPtr, seq, seq, proxi);
+					
+					if(getNpos(*includesPtr, len) < minLength) {
+						fprintf(stderr, "Template (\"%s\") did not exceed threshold for inclusion:\t%s\n", targetTemplate, *filenames);
+						++seqsPtr;
+						*includePtr = 0;
+						ref->len = 0;
+					} else {
+						/* swap seq and ref */
+						exchange(seq->size, ref->size, len);
+						exchange(seq->len, ref->len, len);
+						exchange(seq->seq, ref->seq, tmpseq);
+						qseq2nibble(ref, *++seqsPtr);
+					}
 				}
 			} else {
 				fprintf(stderr, "Missing template sequence (\"%s\") in file:\t%s\n", targetTemplate, *filenames);
 				*includePtr = 0;
-				++includesPtr;
 				++seqsPtr;
 			}
-			
 			closeFileBuff(infile);
 		} else {
 			++filenames;
 			++targetStamp;
-			++includesPtr;
 			++seqsPtr;
 		}
+		includesPtr += pair;
 	}
 	
 	/* adjust number of threads */
 	if(numFile * (numFile - 1) / 2 < tnum) {
 		fprintf(stderr, "Adjustning number of nodes to %d, to conform with the matrix size.\n", (tnum = numFile * (numFile - 1) / 2));
 	}
+	
 	/* make ltd matrix */
 	if(pair) {
 		fsaCmpThreadOut(tnum, &cmpairFsaThrd, D, N, numFile, len, seqs, include, includes, norm, minLength, minCov, diffile, targetTemplate, ref, 0, proxi);
@@ -194,48 +171,19 @@ int ltdFsaRow_get(double *D, double *N, FileBuff *infile, char *targetTemplate, 
 	
 	char *filename;
 	unsigned char *trans;
-	unsigned *includeseq, *includeref, *includeadd, i, j, len, inc;
+	unsigned *includeseq, *includeadd;
+	unsigned i, j, len, inc;
 	long unsigned *addL, *seqL, dist;
 	double *Dptr, *Nptr;
 	FILE *diffile;
-	Qseqs *header, *seq, *ref;
+	Qseqs *header, *seq;
 	
 	/* init  */
 	len = 0;
 	minLength = minLength < minCov * len ? minCov * len : minLength;
 	trans = get2BitTable(flag);
 	header = setQseqs(32);
-	ref = setQseqs(1048576);
-	
-	/* load reference */
-	if(flag & 16) {
-		openAndDetermine(infile, (char *) (*filenames)->seq);
-		while(FileBuffgetFsaHeader(infile, header) && strcmp((char *) header->seq, targetTemplate) != 0);
-		
-		/* get sequence */
-		if(!header->len) {
-			fprintf(stderr, "Missing template entry (\"%s\") in file:\t%s\n", targetTemplate, (*filenames)->seq);
-			exit(1);
-		} else if(FileBuffgetFsaSeq(infile, ref, trans)) {
-			closeFileBuff(infile);
-		} else {
-			fprintf(stderr, "\"%s\" is not fasta.\n", (*filenames)->seq);
-			exit(1);
-		}
-		includeref = smalloc(((ref->size >> 5) + 1) * sizeof(unsigned));
-		len = ref->len;
-		initIncPos(includeref, len);
-		getIncPos(includeref, ref, ref, proxi);
-		closeFileBuff(infile);
-	} else {
-		includeref = smalloc(((ref->size >> 5) + 1) * sizeof(unsigned));
-		initIncPos(includeref, ref->size);
-	}
-	seq = setQseqs(ref->size);
-	includeseq = smalloc(((seq->size >> 5) + 1) * sizeof(unsigned));
-	includeadd = smalloc(((seq->size >> 5) + 1) * sizeof(unsigned));
-	addL = smalloc(((seq->size >> 5) + 1) * sizeof(long unsigned));
-	seqL = smalloc(((seq->size >> 5) + 1) * sizeof(long unsigned));
+	seq = setQseqs(1048576);
 	
 	/* load new sample into memory */
 	/* open file, and find target */
@@ -262,10 +210,22 @@ int ltdFsaRow_get(double *D, double *N, FileBuff *infile, char *targetTemplate, 
 	}
 	
 	/* validate new seq */
-	memcpy(includeadd, includeref, ((seq->len >> 5) + 1) * sizeof(unsigned));
-	getIncPos(includeadd, seq, ref, proxi);
+	includeseq = smalloc(((seq->size >> 5) + 1) * sizeof(unsigned));
+	includeadd = smalloc(((seq->size >> 5) + 1) * sizeof(unsigned));
+	addL = smalloc(((seq->size >> 5) + 1) * sizeof(long unsigned));
+	seqL = smalloc(((seq->size >> 5) + 1) * sizeof(long unsigned));
+	initIncPos(includeadd, len);
+	getIncPos(includeadd, seq, seq, proxi);
 	if(getNpos(includeadd, len) < minLength) {
 		fprintf(stderr, "Template (\"%s\") did not exceed threshold for inclusion:\t%s\n", targetTemplate, addfilename);
+		/* clean */
+		destroyTable(trans);
+		destroyQseqs(header);
+		destroyQseqs(seq);
+		free(includeseq);
+		free(includeadd);
+		free(addL);
+		free(seqL);
 		return 1;
 	} else if(diffilename) {
 		diffile = fopen(diffilename, "ab");
@@ -291,17 +251,17 @@ int ltdFsaRow_get(double *D, double *N, FileBuff *infile, char *targetTemplate, 
 		closeFileBuff(infile);
 		
 		/* get included positions */
-		memcpy(includeseq, includeref, ((len >> 5) + 1) * sizeof(unsigned));
-		getIncPos(includeseq, seq, ref, proxi);
+		memcpy(includeseq, includeadd, (len / 32 + 1) * sizeof(unsigned));
+		getIncPos(includeseq, seq, seq, proxi);
 		
 		/* convert seq to nibbles */
 		qseq2nibble(seq, seqL);
 		
 		/* get distance */
 		if(diffile) {
-			dist = fsacmpairint(diffile, i, ++j, addL, seqL, includeadd, includeseq, len);
+			dist = fsacmpairint(diffile, i, ++j, addL, seqL, includeseq, len);
 		} else {
-			dist = fsacmpair(addL, seqL, includeadd, includeseq, len);
+			dist = fsacmpair(addL, seqL, includeseq, len);
 		}
 		
 		/* separate distance and included bases */
@@ -321,9 +281,7 @@ int ltdFsaRow_get(double *D, double *N, FileBuff *infile, char *targetTemplate, 
 	/* clean */
 	destroyTable(trans);
 	destroyQseqs(header);
-	destroyQseqs(ref);
 	destroyQseqs(seq);
-	free(includeref);
 	free(includeseq);
 	free(includeadd);
 	free(addL);

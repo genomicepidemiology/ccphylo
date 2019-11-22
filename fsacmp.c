@@ -179,6 +179,78 @@ void getIncPos(unsigned *include, Qseqs *seq, Qseqs *ref, unsigned proxi) {
 	}
 }
 
+void maskProxi(unsigned *include, unsigned *include1, unsigned *include2, long unsigned *seq1, long unsigned *seq2, unsigned len, unsigned proxi) {
+	
+	int lastSNP;
+	unsigned i, j, end, mask, topBit, inc, *includePtr;
+	long unsigned kmer1, kmer2;
+	
+	/* init */
+	topBit = UINT_MAX ^ (UINT_MAX >> 1);
+	lastSNP = -1;
+	i = 0;
+	--include;
+	--include1;
+	--include2;
+	--seq1;
+	--seq2;
+	
+	/* convert length to compressed length */
+	if(len & 31) {
+		len = (len >> 5) + 2;
+	} else {
+		len = (len >> 5) + 1;
+	}
+	while(--len) {
+		kmer1 = *++seq1;
+		kmer2 = *++seq2;
+		inc = *++include1 & *++include2;
+		*++include = inc;
+		
+		/* possiblity for difference(s) */
+		if(inc && kmer1 != kmer2 && proxi) {
+			j = i;
+			while(inc) {
+				if((inc & 1) && (kmer1 & 3) != (kmer2 & 3)) {
+					/* check proximity */
+					if(j - lastSNP < proxi) {
+						lastSNP -= proxi;
+						if(lastSNP < 0) {
+							lastSNP = 0;
+						}
+						end = j + proxi;
+						mask = UINT_MAX ^ (1 << (31 - (lastSNP & 31)));
+						includePtr = include + (lastSNP >> 5);
+						while(lastSNP < end) {
+							if((*includePtr &= mask)) {
+								if(mask & 1) {
+									mask = (mask >> 1) | topBit;
+								} else {
+									++includePtr;
+									mask = UINT_MAX >> 1;
+								}
+								++lastSNP;
+							} else {
+								lastSNP = ((lastSNP >> 5) + 1) << 5;
+								++includePtr;
+								mask = UINT_MAX >> 1;
+							}
+						}
+					}
+					
+					/* mark position as the last seen SNP */
+					lastSNP = j;
+				}
+				kmer1 >>= 2;
+				kmer2 >>= 2;
+				inc >>= 1;
+				++j;
+			}
+		}
+		i += 32;
+	}
+}
+
 int getNpos(unsigned *include, int len) {
 	
 	unsigned n, inc;
@@ -231,15 +303,14 @@ unsigned fsacmp(long unsigned *seq1, long unsigned *seq2, unsigned *include, int
 	return dist;
 }
 
-long unsigned fsacmpair(long unsigned *seq1, long unsigned *seq2, unsigned *include1, unsigned *include2, int len) {
+long unsigned fsacmpair(long unsigned *seq1, long unsigned *seq2, unsigned *include, int len) {
 	
 	unsigned dist, n, inc;
 	long unsigned kmer1, kmer2;
 	
 	n = 0;
 	dist = 0;
-	--include1;
-	--include2;
+	--include;
 	--seq1;
 	--seq2;
 	/* convert length to compressed length */
@@ -251,7 +322,7 @@ long unsigned fsacmpair(long unsigned *seq1, long unsigned *seq2, unsigned *incl
 	while(--len) {
 		kmer1 = *++seq1;
 		kmer2 = *++seq2;
-		inc = *++include1 & *++include2;
+		inc = *++include;
 		/* possiblity for difference(s) */
 		if(inc && kmer1 != kmer2) {
 			while(inc) {
@@ -329,15 +400,14 @@ unsigned fsacmprint(FILE *outfile, int samplei, int samplej, long unsigned *seq1
 	return dist;
 }
 
-long unsigned fsacmpairint(FILE *outfile, int samplei, int samplej, long unsigned *seq1, long unsigned *seq2, unsigned *include1, unsigned *include2, int len) {
+long unsigned fsacmpairint(FILE *outfile, int samplei, int samplej, long unsigned *seq1, long unsigned *seq2, unsigned *include, int len) {
 	
 	unsigned dist, n, inc, pos;
 	long unsigned kmer1, kmer2;
 	
 	n = 0;
 	dist = 0;
-	--include1;
-	--include2;
+	--include;
 	--seq1;
 	--seq2;
 	/* convert length to compressed length */
@@ -350,7 +420,7 @@ long unsigned fsacmpairint(FILE *outfile, int samplei, int samplej, long unsigne
 	while(--len) {
 		kmer1 = *++seq1;
 		kmer2 = *++seq2;
-		inc = *++include1 & *++include2;
+		inc = *++include;
 		/* possiblity for difference(s) */
 		if(inc && kmer1 != kmer2) {
 			while(inc) {
@@ -457,9 +527,9 @@ unsigned cmpFsa(Matrix *D, int n, int len, long unsigned **seqs, unsigned char *
 	return inc;
 }
 
-void cmpairFsa(Matrix *D, Matrix *N, int n, int len, long unsigned **seqs, unsigned char *include, unsigned **includes, unsigned norm, unsigned minLength, double minCov, FILE *diffile) {
+void cmpairFsa(Matrix *D, Matrix *N, int n, int len, long unsigned **seqs, unsigned char *include, unsigned **includes, unsigned norm, unsigned minLength, double minCov, unsigned proxi, FILE *diffile) {
 	
-	unsigned i, j, inc, **includesi, **includesj;
+	unsigned i, j, inc, *includePair, **includesi, **includesj;
 	long unsigned **seqi, **seqj, dist;
 	unsigned char *includei, *includej;
 	double *Dptr, *Nptr;
@@ -479,6 +549,7 @@ void cmpairFsa(Matrix *D, Matrix *N, int n, int len, long unsigned **seqs, unsig
 	seqi = seqs;
 	includesi = includes;
 	includei = include;
+	includePair = smalloc((len / 32 + 1) * sizeof(unsigned));
 	
 	/* get distances */
 	if(diffile) {
@@ -493,7 +564,11 @@ void cmpairFsa(Matrix *D, Matrix *N, int n, int len, long unsigned **seqs, unsig
 				includej = include - 1;
 				for(j = 0; j < i; ++j) {
 					if(*++includej) {
-						dist = fsacmpairint(diffile, i, j, *seqi, *++seqj, *includesi, *++includesj, len);
+						/* mask out proximity SNPs */
+						maskProxi(includePair, *includesi, *++includesj, *seqi, *++seqj, len, proxi);
+						
+						/* get distance */
+						dist = fsacmpairint(diffile, i, j, *seqi, *seqj, includePair, len);
 						
 						/* separate distance and included bases */
 						if(minLength <= (inc = dist & UINT_MAX)) {
@@ -525,7 +600,11 @@ void cmpairFsa(Matrix *D, Matrix *N, int n, int len, long unsigned **seqs, unsig
 				j = ++n;
 				while(--j) {
 					if(*++includej) {
-						dist = fsacmpair(*seqi, *++seqj, *includesi, *++includesj, len);
+						/* mask out proximity SNPs */
+						maskProxi(includePair, *includesi, *++includesj, *seqi, *++seqj, len, proxi);
+						
+						/* get distance */
+						dist = fsacmpair(*seqi, *seqj, includePair, len);
 						
 						/* separate distance and included bases */
 						if(minLength <= (inc = dist & UINT_MAX)) {
@@ -551,4 +630,5 @@ void cmpairFsa(Matrix *D, Matrix *N, int n, int len, long unsigned **seqs, unsig
 	if(N) {
 		N->n = D->n;
 	}
+	free(includePair);
 }

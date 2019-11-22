@@ -82,7 +82,7 @@ static void makeMatrix(unsigned numFile, char **filenames, char *outputfilename,
 	
 	/* determine format of input */
 	infile = setFileBuff(1048576);
-	if(flag & 32) {
+	if(flag & 16) {
 		informat = '>';
 	} else if(numFile && numFile != 1) {
 		informat = fileExist(infile, *filenames);
@@ -203,7 +203,7 @@ static void makeMatrix(unsigned numFile, char **filenames, char *outputfilename,
 			}
 			
 			/* add file suffix */
-			if(flag & 32) {
+			if(flag & 16) {
 				/* .fsa.gz */
 				strcpy(filenames[n] + len, ".fsa.gz");
 				len += 7;
@@ -537,8 +537,7 @@ int main_dist(int argc, char *argv[]) {
 				fprintf(stdout, "#   2:\tDistances are pairwise, always true on *.mat files\n");
 				fprintf(stdout, "#   4:\tInclude template name in phylip file\n");
 				fprintf(stdout, "#   8:\tInclude insignificant bases in distance calculation, only affects fasta input\n");
-				fprintf(stdout, "#  16:\tInclude reference, only affects fasta input\n");
-				fprintf(stdout, "#  32:\tDistances based on fasta input\n");
+				fprintf(stdout, "#  16:\tDistances based on fasta input\n");
 				fprintf(stdout, "#\n");
 				return 0;
 			} else if(strcmp(arg, "d") == 0) {

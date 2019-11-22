@@ -240,7 +240,8 @@ void * cmpairFsaThrd(void *arg) {
 	static int si = 1, sj = 0, pi = 0, pj = 0, base = 0; /* sample, position in matrix */
 	CmpFsaArg *thread = arg;
 	int n, len, Dn;
-	unsigned i, j, inc, norm, minLength, **includes, *includesi, *includesj;
+	unsigned i, j, inc, norm, minLength, proxi;
+	unsigned **includes, *includesi, *includesj, *includesPair;
 	long unsigned **seqs, *seqi, *seqj, dist;
 	unsigned char *include;
 	double minCov, *Dptr, *Nptr;
@@ -261,6 +262,7 @@ void * cmpairFsaThrd(void *arg) {
 		minCov = thread->minCov;
 		diffile = thread->diffile;
 		minLength = minLength < minCov * len ? minCov * len : minLength;
+		proxi = thread->proxi;
 	} else {
 		/* reset function */
 		si = 1;
@@ -270,6 +272,7 @@ void * cmpairFsaThrd(void *arg) {
 		base = 0;
 		return NULL;
 	}
+	
 	/* set stuff that only needs to be set once */
 	lock(lock);
 	if(!pi) {
@@ -302,6 +305,7 @@ void * cmpairFsaThrd(void *arg) {
 	if(Dn < 2) {
 		return NULL;
 	}
+	includesPair = smalloc((len / 32 + 1) * sizeof(unsigned));
 	
 	/* calculate distances */
 	while(pi != Dn) {
@@ -309,6 +313,7 @@ void * cmpairFsaThrd(void *arg) {
 		/* last distance been found or is being computed */
 		if(pi == Dn) {
 			unlock(lock);
+			free(includesPair);
 			return NULL;
 		}
 		
@@ -354,11 +359,14 @@ void * cmpairFsaThrd(void *arg) {
 		}
 		unlock(lock);
 		
+		/* mask out proximity SNPs */
+		maskProxi(includesPair, includesi, includesj, seqi, seqj, len, proxi);
+		
 		/* calculate distance of pair */
 		if(diffile) {
-			dist = fsacmpairint(diffile, i, j, seqi, seqj, includesi, includesj, len);
+			dist = fsacmpairint(diffile, i, j, seqi, seqj, includesPair, len);
 		} else {
-			dist = fsacmpair(seqi, seqj, includesi, includesj, len);
+			dist = fsacmpair(seqi, seqj, includesPair, len);
 		}
 		
 		/* separate distance and included bases */
@@ -373,6 +381,7 @@ void * cmpairFsaThrd(void *arg) {
 		}
 	}
 	
+	free(includesPair);
 	return NULL;
 }
 
@@ -382,7 +391,8 @@ void * cmpFsaRowThrd(void *arg) {
 	static int pj = 0; /* sample, position in matrix */
 	CmpFsaArg *thread = arg;
 	int n, len;
-	unsigned j, minLength, inc, proxi, *includeadd, *includeref, *includeseq;
+	unsigned j, minLength, inc, proxi;
+	unsigned *includeadd, *includeseq;
 	long unsigned *addL, *seqL, dist;
 	char *targetTemplate, *filename;
 	unsigned char *trans;
@@ -399,8 +409,7 @@ void * cmpFsaRowThrd(void *arg) {
 		len = thread->len;
 		addL = *(thread->seqs);
 		trans = thread->include;
-		includeadd = thread->includes[0];
-		includeref = thread->includes[1];
+		includeadd = *(thread->includes);
 		norm = thread->norm;
 		minLength = thread->minLength;
 		minCov = thread->minCov;
@@ -438,7 +447,7 @@ void * cmpFsaRowThrd(void *arg) {
 			closeFileBuff(infile);
 			
 			/* get included positions */
-			memcpy(includeseq, includeref, ((len >> 5) + 1) * sizeof(unsigned));
+			memcpy(includeseq, includeadd, ((len >> 5) + 1) * sizeof(unsigned));
 			getIncPos(includeseq, seq, ref, proxi);
 			
 			/* convert seq to nibbles */
@@ -446,9 +455,9 @@ void * cmpFsaRowThrd(void *arg) {
 			
 			/* get distance */
 			if(diffile) {
-				dist = fsacmpairint(diffile, n, j, addL, seqL, includeadd, includeseq, len);
+				dist = fsacmpairint(diffile, n, j, addL, seqL, includeseq, len);
 			} else {
-				dist = fsacmpair(addL, seqL, includeadd, includeseq, len);
+				dist = fsacmpair(addL, seqL, includeseq, len);
 			}
 			
 			/* separate distance and included bases */
@@ -478,49 +487,18 @@ int ltdFsaRowThrd(double *D, double *N, char *targetTemplate, char *addfilename,
 	
 	/* this is the threaded version of ltdFsaRow_get */
 	unsigned char *trans;
-	unsigned *includeref, *includeadd, *includes[2], len;
+	unsigned *includeadd, len;
 	long unsigned *addL;
 	FILE *diffile;
 	FileBuff *infile;
-	Qseqs *header, *seq, *ref;
+	Qseqs *header, *seq;
 	
 	/* init  */
 	len = 0;
-	minLength = minLength < minCov * len ? minCov * len : minLength;
 	trans = get2BitTable(flag);
 	infile = setFileBuff(1048576);
 	header = setQseqs(32);
-	ref = setQseqs(1048576);
-	
-	/* load reference */
-	if(flag & 16) {
-		openAndDetermine(infile, (char *) (*filenames)->seq);
-		while(FileBuffgetFsaHeader(infile, header) && strcmp((char *) header->seq, targetTemplate) != 0);
-		
-		/* get sequence */
-		if(!header->len) {
-			fprintf(stderr, "Missing template entry (\"%s\") in file:\t%s\n", targetTemplate, (*filenames)->seq);
-			exit(1);
-		} else if(FileBuffgetFsaSeq(infile, ref, trans)) {
-			closeFileBuff(infile);
-		} else {
-			fprintf(stderr, "\"%s\" is not fasta.\n", (*filenames)->seq);
-			exit(1);
-		}
-		includeref = smalloc(((ref->size >> 5) + 1) * sizeof(unsigned));
-		len = ref->len;
-		initIncPos(includeref, len);
-		getIncPos(includeref, ref, ref, proxi);
-		closeFileBuff(infile);
-	} else {
-		includeref = smalloc(((ref->size >> 5) + 1) * sizeof(unsigned));
-		initIncPos(includeref, ref->size);
-	}
-	seq = setQseqs(ref->size);
-	includeadd = smalloc(((seq->size >> 5) + 1) * sizeof(unsigned));
-	includes[0] = includeadd;
-	includes[1] = includeref;
-	addL = smalloc(((seq->size >> 5) + 1) * sizeof(long unsigned));
+	seq = setQseqs(1048576);
 	
 	/* load new sample into memory */
 	/* open file, and find target */
@@ -544,11 +522,14 @@ int ltdFsaRowThrd(double *D, double *N, char *targetTemplate, char *addfilename,
 		exit(1);
 	} else {
 		len = seq->len;
+		minLength = minLength < minCov * len ? minCov * len : minLength;
 	}
 	
 	/* validate new seq */
-	memcpy(includeadd, includeref, ((seq->len >> 5) + 1) * sizeof(unsigned));
-	getIncPos(includeadd, seq, ref, proxi);
+	includeadd = smalloc(((seq->size >> 5) + 1) * sizeof(unsigned));
+	addL = smalloc(((seq->size >> 5) + 1) * sizeof(long unsigned));
+	initIncPos(includeadd, len);
+	getIncPos(includeadd, seq, seq, proxi);
 	if(getNpos(includeadd, len) < minLength) {
 		fprintf(stderr, "Template (\"%s\") did not exceed threshold for inclusion:\t%s\n", targetTemplate, addfilename);
 		return 1;
@@ -563,22 +544,20 @@ int ltdFsaRowThrd(double *D, double *N, char *targetTemplate, char *addfilename,
 	
 	/* clean */
 	destroyQseqs(header);
-	destroyQseqs(seq);
 	destroyFileBuff(infile);
 	
 	/* thread out */
 	if(n < tnum) {
 		fprintf(stderr, "Adjustning number of nodes to %d, to conform with the matrix size.\n", (tnum = n));
 	}
-	fsaCmpThreadOut(tnum, &cmpFsaRowThrd, (Matrix *) D, (Matrix *) N, n, len, &addL, trans, includes, norm, minLength, minCov, diffile, targetTemplate, ref, filenames, proxi);
+	fsaCmpThreadOut(tnum, &cmpFsaRowThrd, (Matrix *) D, (Matrix *) N, n, len, &addL, trans, &includeadd, norm, minLength, minCov, diffile, targetTemplate, seq, filenames, proxi);
 	
 	/* update size of matrix */
 	fclose(diffile);
 	
 	/* clean */
+	destroyQseqs(seq);
 	destroyTable(trans);
-	destroyQseqs(ref);
-	free(includeref);
 	free(includeadd);
 	free(addL);
 	
