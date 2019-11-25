@@ -29,7 +29,7 @@
 
 int rarify(char *inputfilename, char *outputfilename, long unsigned nf, long unsigned rf) {
 	
-	unsigned i, pos, max;
+	unsigned i, pos;
 	long unsigned count, remainder;
 	short unsigned *counts;
 	FILE *outfile;
@@ -56,28 +56,22 @@ int rarify(char *inputfilename, char *outputfilename, long unsigned nf, long uns
 			counts = mat->counts + 6;
 			pos = 0;
 			i = 7;
-			max = 0;
 			while(--i) {
-				/* get max */
-				count = *--counts;
-				if(max < count) {
-					max = *counts;
-					pos = i - 1;
+				if((count = *--counts)) {
+					/* rarify */
+					count *= rf;
+					remainder += count % nf;
+					count /= nf;
+					
+					/* check remainder */
+					if(rf <= remainder) {
+						count += remainder / rf;
+						remainder %= rf;
+					}
+					
+					/* update */
+					*counts = count;
 				}
-				
-				/* rarify */
-				count *= rf;
-				remainder += count % nf;
-				count /= nf;
-				
-				/* update */
-				*counts = count;
-			}
-			
-			/* update max with excess */
-			if(max && rf <= remainder) {
-				counts[pos] += remainder / rf;
-				remainder %= rf;
 			}
 			
 			/* output new counts */

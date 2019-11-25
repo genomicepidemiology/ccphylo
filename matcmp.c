@@ -378,11 +378,11 @@ double cmpMats(MatrixCounts *mat1, NucCount *mat2, FileBuff *infile, unsigned no
 	
 	if(nNucs < minLength || nNucs < minCov * rowNum) {
 		return -2.0;
-	} else if(rowsInc < minLength) {
+	} else if(rowsInc < minLength || rowsInc < minCov * rowNum) {
 		mat2->total = 0;
 		return -1.0;
 	}
 	
-	mat2->total = nNucs;
+	mat2->total = rowsInc;
 	return dist / rowsInc * norm;
 }

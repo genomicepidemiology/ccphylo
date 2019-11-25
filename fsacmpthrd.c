@@ -466,6 +466,7 @@ void * cmpFsaRowThrd(void *arg) {
 				D[j] = (dist >> 32) * norm / inc;
 			} else {
 				D[j] = -1.0;
+				inc = 0;
 				fprintf(stderr, "No sufficient overlap with sample:\t%s\n", filename);
 			}
 			if(N) {
