@@ -31,6 +31,8 @@ double lncmp(short unsigned *counts1, short unsigned *counts2, int tot1, int tot
 double linfcmp(short unsigned *counts1, short unsigned *counts2, int tot1, int tot2);
 double nbccmp(short unsigned *counts1, short unsigned *counts2, int tot1, int tot2);
 double bccmp(short unsigned *counts1, short unsigned *counts2, int tot1, int tot2);
+double nccmp(short unsigned *counts1, short unsigned *counts2, int tot1, int tot2);
+double ccmp(short unsigned *counts1, short unsigned *counts2, int tot1, int tot2);
 double zcmp(short unsigned *counts1, short unsigned *counts2, int tot1, int tot2);
 double chi2cmp(short unsigned *counts1, short unsigned *counts2, int tot1, int tot2);
 double nchi2cmp(short unsigned *counts1, short unsigned *counts2, int tot1, int tot2);

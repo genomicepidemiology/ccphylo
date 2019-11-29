@@ -237,8 +237,69 @@ double bccmp(short unsigned *counts1, short unsigned *counts2, int tot1, int tot
 	while(--i) {
 		d += *++counts1 < *++counts2 ? *counts1 : *counts2;
 	}
-	d /= (tot1 + tot2);
+	d /= (tot1 - *++counts1 + tot2 - *++counts2);
 	d =  1 - 2 * d;
+	
+	return d < 0 ? 0 : d;
+}
+
+double nccmp(short unsigned *counts1, short unsigned *counts2, int tot1, int tot2) {
+	
+	int i;
+	double d, t1, t2, T;
+	
+	
+	tot1 -= counts1[5];
+	tot2 -= counts2[5];
+	t1 = (double) *counts1 / tot1;
+	t2 = (double) *counts2 / tot2;
+	if(t1 < t2) {
+		d = t1;
+		T = t2;
+	} else {
+		d = t2;
+		T = t1;
+	}
+	i = 5;
+	while(--i) {
+		t1 = (double) *++counts1 / tot1;
+		t2 = (double) *++counts2 / tot2;
+		if(t1 < t2) {
+			d = t1;
+			T = t2;
+		} else {
+			d = t2;
+			T = t1;
+		}
+	}
+	d = T ? 1 - d / T : 0;
+	
+	return d < 0 ? 0 : d;
+}
+
+double ccmp(short unsigned *counts1, short unsigned *counts2, int tot1, int tot2) {
+	
+	int i;
+	double d;
+	
+	if(*counts1 < *counts2) {
+		d = *counts1;
+		tot1 = *counts2;
+	} else {
+		d = *counts2;
+		tot1 = *counts1;
+	}
+	i = 5;
+	while(--i) {
+		if(*++counts1 < *++counts2) {
+			d += *counts1;
+			tot1 += *counts2;
+		} else {
+			d += *counts2;
+			tot1 += *counts1;
+		}
+	}
+	d = tot1 ? 1 - d / tot1 : 0;
 	
 	return d < 0 ? 0 : d;
 }

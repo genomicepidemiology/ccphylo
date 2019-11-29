@@ -551,6 +551,10 @@ int main_dist(int argc, char *argv[]) {
 						veccmp = &chi2cmp;
 					} else if(strcmp(arg, "nchi2") == 0) {
 						veccmp = &nchi2cmp;
+					} else if(strcmp(arg, "nc") == 0) {
+						veccmp = &nccmp;
+					} else if(strcmp(arg, "c") == 0) {
+						veccmp = &ccmp;
 					} else if(strcmp(arg, "nbc") == 0) {
 						veccmp = &nbccmp;
 					} else if(strcmp(arg, "bc") == 0) {
@@ -594,12 +598,14 @@ int main_dist(int argc, char *argv[]) {
 				fprintf(stdout, "# z:\tMake consensus comparison if vectors passes a McNemar test\n");
 				fprintf(stdout, "# chi2:\tCalculate the chi square distance\n");
 				fprintf(stdout, "# nchi2:\tCalculate the normalized chi square distance\n");
-				fprintf(stdout, "# nbc:\tCalculate the normalized Bray-Curtis dissimilarity between the count vectors.\n");
+				fprintf(stdout, "# c:\tCalculate the Clausen distance between the count vectors. d(A,B) = (||A-B||_1 / sum(max{Ai, Bi}))\n");
+				fprintf(stdout, "# nc:\tCalculate the normalized Clausen distance between the count vectors.\n");
 				fprintf(stdout, "# bc:\tCalculate the Bray-Curtis dissimilarity between the count vectors.\n");
-				fprintf(stdout, "# nln:\tCalculate distance between positions as the normalized n-norm distance between the count vectors. Replace last \"n\" with the waned norm\n");
-				fprintf(stdout, "# nlinf:\tCalculate distance between positions as the normalized l_infinity distance between the count vectors.\n");
+				fprintf(stdout, "# nbc:\tCalculate the normalized Bray-Curtis dissimilarity between the count vectors.\n");
 				fprintf(stdout, "# ln:\tCalculate distance between positions as the n-norm distance between the count vectors. Replace \"n\" with the waned norm\n");
 				fprintf(stdout, "# linf:\tCalculate distance between positions as the l_infinity distance between the count vectors.\n");
+				fprintf(stdout, "# nln:\tCalculate distance between positions as the normalized n-norm distance between the count vectors. Replace last \"n\" with the waned norm\n");
+				fprintf(stdout, "# nlinf:\tCalculate distance between positions as the normalized l_infinity distance between the count vectors.\n");
 				fprintf(stdout, "#\n");
 				return 0;
 			} else if(strcmp(arg, "t") == 0) {
