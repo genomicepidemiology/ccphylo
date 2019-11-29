@@ -29,7 +29,7 @@
 
 int rarify(char *inputfilename, char *outputfilename, long unsigned nf, long unsigned rf) {
 	
-	unsigned i, pos;
+	unsigned i;
 	long unsigned count, remainder;
 	short unsigned *counts;
 	FILE *outfile;
@@ -54,7 +54,6 @@ int rarify(char *inputfilename, char *outputfilename, long unsigned nf, long uns
 		if(mat->ref) {
 			/* rarify counts */
 			counts = mat->counts + 6;
-			pos = 0;
 			i = 7;
 			while(--i) {
 				if((count = *--counts)) {
