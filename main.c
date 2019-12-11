@@ -61,10 +61,9 @@ int main(int argc, char *argv[]) {
 		return main_union(argc, argv);
 	} else if(strcmp(arg, "nwck2phy") == 0) {
 		return main_nwck2phy(argc, argv);
-	} else if(strcmp(arg, "rarify") == 0) {
+	} else if(strcmp(arg, "rarify") == 0 || strcmp(arg, "rarefy") == 0) {
 		return main_rarify(argc, argv);
 	} else if(strcmp(arg, "-c") == 0) {
-		/* here */
 		fprintf(stdout, "https://bitbucket.org/genomicepidemiology/ccphylo/src/master/\n");
 	} else if(strcmp(arg, "-v") == 0) {
 		fprintf(stdout, "CCPhylo-%s\n", CCPHYLO_VERSION);

@@ -33,51 +33,71 @@ unsigned char * getMethBitTable() {
 	i = 385;
 	--table;
 	while(--i) {
-		*++table = 32;
+		*++table = 64;
 	}
 	table -= 255;
-	table['\n'] = 16;
+	table['\n'] = 32;
+	table['-'] = 32;
+	table['.'] = 32;
 	
-	table['a'] = 0;
-	table['c'] = 1;
-	table['g'] = 2;
-	table['t'] = 3;
-	table['u'] = 3;
-	/* &8 -> meth site */
-	table['A'] = 8;
-	table['C'] = 9;
-	table['G'] = 10;
-	table['T'] = 11;
-	table['U'] = 11;
+	/* standard bases */
+	table['a'] = 1;
+	table['c'] = 2;
+	table['g'] = 4;
+	table['t'] = 8;
+	table['u'] = 8;
+	table['r'] = 5;
+	table['y'] = 10;
+	table['s'] = 6;
+	table['w'] = 9;
+	table['k'] = 12;
+	table['m'] = 3;
+	table['b'] = 14;
+	table['d'] = 13;
+	table['h'] = 11;
+	table['v'] = 7;
+	table['x'] = 15;
+	table['n'] = 15;
 	
-	/* unknowns */
-	table['n'] = 4;
-	table['N'] = 4;
-	table['-'] = 4;
-	table['R'] = 4;
-	table['Y'] = 4;
-	table['S'] = 4;
-	table['W'] = 4;
-	table['K'] = 4;
-	table['M'] = 4;
-	table['B'] = 4;
-	table['D'] = 4;
-	table['H'] = 4;
-	table['V'] = 4;
-	table['X'] = 4;
-	table['r'] = 4;
-	table['y'] = 4;
-	table['s'] = 4;
-	table['w'] = 4;
-	table['k'] = 4;
-	table['m'] = 4;
-	table['b'] = 4;
-	table['d'] = 4;
-	table['h'] = 4;
-	table['v'] = 4;
-	table['x'] = 4;
+	/* &16 -> meth site */
+	table['A'] = 17;
+	table['C'] = 18;
+	table['G'] = 20;
+	table['T'] = 24;
+	table['U'] = 24;
+	table['R'] = 21;
+	table['Y'] = 26;
+	table['S'] = 22;
+	table['W'] = 25;
+	table['K'] = 28;
+	table['M'] = 19;
+	table['B'] = 30;
+	table['D'] = 29;
+	table['H'] = 27;
+	table['V'] = 23;
+	table['X'] = 31;
+	table['N'] = 31;
 	
 	return table;
+}
+
+void strrcMeth(unsigned char *qseq, int q_len) {
+	
+	int seqlen;
+	unsigned char carry, *rseq;
+	unsigned char comp[] = {0, 8, 4, 12, 2, 10, 6, 14, 1, 9, 5, 13, 3, 11, 7, 15, 16, 24, 20, 28, 18, 26, 22, 30, 17, 25, 21, 29, 19, 27, 23, 31};
+	
+	seqlen = (q_len >> 1) + 1;
+	rseq = qseq + q_len;
+	--qseq;
+	while(--seqlen) {
+		carry = comp[*++qseq];
+		*qseq = comp[*--rseq];
+		*rseq = carry;
+	}
+	if(q_len & 1) {
+		*qseq = comp[*qseq];
+	}
 }
 
 int FileBuffgetFsaMethSeq(FileBuff *src, Qseqs *qseq, unsigned char *trans) {
@@ -126,8 +146,7 @@ int FileBuffgetFsaMethSeq(FileBuff *src, Qseqs *qseq, unsigned char *trans) {
 	seq = qseq->seq;
 	size = qseq->size;
 	while(*buff != '>') {
-		*seq = trans[*buff++];
-		if(((*seq) >> 4) == 0) {
+		if((*seq = trans[*buff++]) < 32) {
 			if(--size == 0) {
 				size = qseq->size;
 				qseq->size <<= 1;
@@ -160,38 +179,73 @@ int FileBuffgetFsaMethSeq(FileBuff *src, Qseqs *qseq, unsigned char *trans) {
 
 MethMotif * qseq2methMotif(Qseqs *qseq) {
 	
-	unsigned i, len, *mask;
-	long unsigned *motif;
-	unsigned char *seq;
+	unsigned i, len, num, *mask;
+	long unsigned *motif, *mPtr;
+	unsigned char base, mBase, *seq;
+	unsigned char nums[] = {0, 1, 1, 2, 1, 2, 2, 3, 1, 2, 2, 3, 2, 3, 3, 4, 0, 1, 1, 2, 1, 2, 2, 3, 1, 2, 2, 3, 2, 3, 3, 4};
+	unsigned char bases[] = {0, 0, 1, 0, 2, 0, 1, 0, 3, 0, 1, 0, 2, 0, 1, 0};
 	MethMotif *dest;
 	
 	/* init */
-	dest = newMethMotif(qseq->len);
+	len = qseq->len;
+	i = len;
+	seq = qseq->seq;
+	num = nums[*seq];
+	while(--i) {
+		if(num < nums[*++seq]) {
+			num = nums[*seq];
+		}
+	}
+	dest = newMethMotif(num, len);
 	
 	/* get motif and mask */
-	motif = dest->motif - 1;
+	motif = dest->motif - dest->num;
 	mask = dest->mask - 1;
-	seq = qseq->seq;
-	len = qseq->len;
+	seq = qseq->seq - 1;
 	for(i = 0; i < len; ++i) {
 		if((i & 31) == 0) {
-			*++motif = 0;
+			motif += dest->num;
 			*++mask = 0;
 		}
 		
-		/* update motif and mask */
-		*motif <<= 1;
-		*motif |= (*seq & 3);
-		*mask <<= 1;
-		if(*seq & 4) {
-			*mask |= 1;
-		}		
+		/* update mask */
+		base = *++seq;
+		if(base & 16) {
+			base ^= 16;
+			*mask = (*mask << 1) | 1;
+		} else {
+			*mask <<= 1;
+		}
+		
+		/* update motif */
+		num = nums[base] + 1;
+		mPtr = motif - 1;
+		while(--num) {
+			*++mPtr <<= 2;
+			mBase = bases[base];
+			*mPtr |= mBase;
+			base ^= (1 << mBase);
+		}
+		/* update remainder */
+		base = *seq & 31;
+		num = dest->num - nums[base] + 1;
+		mBase = bases[base];
+		while(--num) {
+			*++mPtr <<= 2;
+			*mPtr |= mBase;
+		}
 	}
 	
-	if(qseq->len & 31) {
-		i = 32 - (qseq->len & 31);
+	/* fence post */
+	if(len & 31) {
+		i = 32 - (len & 31);
 		*mask <<= i;
-		*motif <<= (i << 1);
+		i <<= 1;
+		num = dest->num + 1;
+		mPtr = motif - 1;
+		while(--num) {
+			*++mPtr <<= i;
+		}
 	}
 	
 	return dest;
@@ -212,6 +266,12 @@ MethMotif * getMethMotifs(FileBuff *infile, Qseqs *qseq) {
 		node = qseq2methMotif(qseq);
 		
 		/* link new motif */
+		node->next = dest;
+		dest = node;
+		
+		/* rc */
+		strrcMeth(qseq->seq, qseq->len);
+		node = qseq2methMotif(qseq);
 		node->next = dest;
 		dest = node;
 	}

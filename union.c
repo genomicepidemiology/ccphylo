@@ -194,7 +194,7 @@ static int helpMessage(FILE *out) {
 	fprintf(out, "# %16s\t%-32s\t%s\n", "Options are:", "Desc:", "Default:");
 	fprintf(out, "# %16s\t%-32s\t%s\n", "-i", "Input file(s).", "None");
 	fprintf(out, "# %16s\t%-32s\t%s\n", "-o", "Output file", "stdout");
-	fprintf(out, "# %16s\t%-32s\t%s\n", "-t_db", "Print ordered wrt. template DB filename", "none");
+	fprintf(out, "# %16s\t%-32s\t%s\n", "-db", "Print ordered wrt. template DB filename", "none");
 	fprintf(out, "# %16s\t%-32s\t%s\n", "-r", "Create reference fasta", "None");
 	fprintf(out, "# %16s\t%-32s\t%s\n", "-md", "Minimum depth", "1.0");
 	fprintf(out, "# %16s\t%-32s\t%s\n", "-mc", "Minimum coverage", "50.0");
@@ -238,11 +238,11 @@ int main_union(int argc, char *argv[]) {
 				} else {
 					missArg("\"-o\"");
 				}
-			} else if(strcmp(arg, "t_db") == 0) {
+			} else if(strcmp(arg, "db") == 0 || strcmp(arg, "t_db") == 0) {
 				if(++args < argc) {
 					templatefilename = argv[args];
 				} else {
-					missArg("\"-t_db\"");
+					missArg("\"-db\"");
 				}
 			} else if(strcmp(arg, "r") == 0) {
 				if(++args < argc) {

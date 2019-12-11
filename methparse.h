@@ -22,6 +22,7 @@
 #include "qseqs.h"
 
 unsigned char * getMethBitTable();
+void strrcMeth(unsigned char *qseq, int q_len);
 int FileBuffgetFsaMethSeq(FileBuff *src, Qseqs *qseq, unsigned char *trans);
 MethMotif * qseq2methMotif(Qseqs *qseq);
 MethMotif * getMethMotifs(FileBuff *infile, Qseqs *qseq);

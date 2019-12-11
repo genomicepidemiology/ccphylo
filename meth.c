@@ -20,18 +20,15 @@
 #include "meth.h"
 #include "pherror.h"
 
-/* here */
-/* remember Makefile */
-
-MethMotif * newMethMotif(int len) {
+MethMotif * newMethMotif(int num, int len) {
 	
 	int size;
 	MethMotif *dest;
 	
-	size = (len << 5) + (len & 31);
+	size = num * ((len << 5) + (len & 31));
 	dest = smalloc(sizeof(MethMotif) + size * (sizeof(long unsigned) + sizeof(unsigned)));
+	dest->num = num;
 	dest->len = len;
-	dest->size = size;
 	dest->motif = (long unsigned *)(dest + 1);
 	dest->mask = (unsigned *)(dest->motif + size);
 	dest->next = 0;
@@ -53,12 +50,6 @@ void destroyMethMotifs(MethMotif *src) {
 long unsigned matchMotif32(long unsigned seq, long unsigned *motif, unsigned num) {
 	
 	/* matches a 32 bp sequence to a 32 bp motif */
-	
-	/* num = # of alternate motifs, e.g:
-	N included -> num = 4
-	Y -> num = 2
-	*/
-	
 	long unsigned match, mer;
 	
 	/* mark unmatched parts */
@@ -67,9 +58,99 @@ long unsigned matchMotif32(long unsigned seq, long unsigned *motif, unsigned num
 	match = mer | ((mer << 1) & 0xAAAAAAAAAAAAAAAA) | ((mer >> 1) & 0x5555555555555555);
 	while(--num && match) {
 		mer = *++motif ^ seq;
-		//mer |= (((mer << 1) & 0xAAAAAAAAAAAAAAAA) | ((mer >> 1) & 0x5555555555555555));
 		match &= mer | ((mer << 1) & 0xAAAAAAAAAAAAAAAA) | ((mer >> 1) & 0x5555555555555555);
 	}
 	
 	return match;
+}
+
+long unsigned getMmer(long unsigned *seq, unsigned cPos, const unsigned shifter, const long unsigned mask) {
+	
+	unsigned iPos = (cPos & 31) << 1;
+	cPos >>= 5;
+	
+	return (iPos <= shifter) ? ((seq[cPos] << iPos) & mask) : (((seq[cPos] << iPos) | (seq[cPos + 1] >> (64-iPos))) & mask);
+}
+
+int matchMotif(long unsigned *seq, int pos, int seqlen, MethMotif *motif) {
+	
+	int sPos, mPos, len, num, shifter;
+	long unsigned kmer, mask, match, *motifP;
+	
+	len = motif->len;
+	num = motif->num;
+	shifter = len <= 32 ? 64 - (len << 1) : 0;
+	mask = 0xFFFFFFFFFFFFFFFF << shifter;
+	motifP = motif->motif;
+	seqlen -= len - 1;
+	--pos;
+	
+	while(++pos < seqlen) {
+		kmer = getMmer(seq, pos, shifter, mask);
+		if(!matchMotif32(kmer, motifP, num)) {
+			motifP += num;
+			sPos = pos + 32;
+			mPos = len <= 32 ? 0 : 32;
+			match = 0;
+			while(!match && mPos) {
+				mPos += 32;
+				if(len <= mPos) {
+					shifter = 64 - (((mPos - len) + 32) << 1);
+					mask = 0xFFFFFFFFFFFFFFFF << shifter;
+					mPos = 0;
+				}
+				kmer = getMmer(seq, sPos, shifter, mask);
+				match = matchMotif32(kmer, motifP, num);
+				sPos += 32;
+				motifP += num;
+			}
+			
+			if(match) {
+				shifter = len <= 32 ? 64 - (len << 1) : 0;
+				mask = 0xFFFFFFFFFFFFFFFF << shifter;
+				motifP = motif->motif;
+			} else {
+				return pos;
+			}
+		}
+	}
+	
+	return -1;
+}
+
+void maskMotif(unsigned *include, int pos, unsigned *mask, int len) {
+	
+	unsigned mShifter, rShifter;
+	
+	mShifter = pos & 31;
+	rShifter = 32 - mShifter;
+	include += pos >> 5;
+	--mask;
+	while(0 < len) {
+		*include &= 0xFFFFFFFF ^ (*++mask >> mShifter);
+		if(rShifter < len) {
+			*++include &= 0xFFFFFFFF ^ ((*mask << rShifter));
+		}
+		len -= 32;
+	}
+}
+
+int maskMotifs(long unsigned *seq, unsigned *include, int seqlen, MethMotif *motif) {
+	
+	/* returns number of found methylation sites */
+	int pos, n;
+	
+	/* search motifs */
+	n = 0;
+	while(motif) {
+		/* search seq */
+		pos = -1;
+		while(0 <= (pos = matchMotif(seq, pos + 1, seqlen, motif))) {
+			maskMotif(include, pos, motif->mask, motif->len);
+			++n;
+		}
+		motif = motif->next;
+	}
+	
+	return n;
 }

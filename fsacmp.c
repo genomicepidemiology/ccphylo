@@ -88,16 +88,6 @@ unsigned char * get2BitTable(unsigned flag) {
 	return to2Bit;
 }
 
-void getMethPos(unsigned *include, Qseqs *ref) {
-	
-	/* here */
-	
-	/* ask Malte how he did it, and agree on what the format is */
-	
-	
-	
-}
-
 void initIncPos(unsigned *include, int len) {
 	
 	int complen;
@@ -261,10 +251,11 @@ int getNpos(unsigned *include, int len) {
 	while(--len) {
 		inc = *++include;
 		while(inc) {
-			++n;
-			inc <<= 1;
+			n += inc & 1;
+			inc >>= 1;
 		}
 	}
+	
 	return n;
 }
 

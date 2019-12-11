@@ -20,7 +20,7 @@
 #ifndef METH
 typedef struct methMotif MethMotif;
 struct methMotif {
-	int size;
+	int num;
 	int len;
 	long unsigned *motif;
 	unsigned *mask;
@@ -29,5 +29,9 @@ struct methMotif {
 #define METH 1
 #endif
 
-MethMotif * newMethMotif(int len);
+MethMotif * newMethMotif(int num, int len);
 void destroyMethMotifs(MethMotif *src);
+long unsigned matchMotif32(long unsigned seq, long unsigned *motif, unsigned num);
+int matchMotif(long unsigned *seq, int pos, int seqlen, MethMotif *motif);
+void maskMotif(unsigned *include, int pos, unsigned *mask, int len);
+int maskMotifs(long unsigned *seq, unsigned *include, int seqlen, MethMotif *motif);

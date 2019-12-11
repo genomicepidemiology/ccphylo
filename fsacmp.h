@@ -23,7 +23,6 @@
 #define destroyTable(trans)(free(trans - 128))
 
 unsigned char * get2BitTable(unsigned flag);
-void getMethPos(unsigned *include, Qseqs *ref);
 void initIncPos(unsigned *include, int len);
 void getIncPos(unsigned *include, Qseqs *seq, Qseqs *ref, unsigned proxi);
 void maskProxi(unsigned *include, unsigned *include1, unsigned *include2, long unsigned *seq1, long unsigned *seq2, unsigned len, unsigned proxi);

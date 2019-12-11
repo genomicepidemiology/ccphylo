@@ -17,9 +17,9 @@ libccphylo.a: $(LIBS)
 clean:
 	$(RM) $(LIBS) $(PROGS) libccphylo.a
 
-cdist.o: cdist.h filebuff.h matrix.h pherror.h phy.h seqparse.h
+cdist.o: cdist.h filebuff.h matrix.h meth.h pherror.h phy.h seqparse.h
 dbparse.o: dbparse.h pherror.h qseqs.h
-dist.o: dist.h ltdmatrix.h matcmp.h matrix.h pherror.h phy.h unionparse.h
+dist.o: dist.h ltdmatrix.h matcmp.h matrix.h meth.h methparse.h pherror.h phy.h unionparse.h
 fbseek.o: fbseek.h filebuff.h pherror.h
 filebuff.o: filebuff.h pherror.h
 fsacmp.o: fsacmp.h matrix.h pherror.h qseqs.h threader.h
@@ -32,7 +32,7 @@ matcmp.o: matcmp.h filebuff.h matparse.h stdstat.h
 matparse.o: matparse.h filebuff.h pherror.h qseqs.h
 matrix.o: matrix.h pherror.h
 merge.o: merge.h filebuff.h hashmapstr.h hashmapstrindex.h matrix.h phy.h qseqs.h ulist.h
-meth.o: meth.h pherror.h
+meth.o: meth.h pherror.h stdnuc.h
 methparse.o: methparse.h filebuff.h meth.h pherror.h qseqs.h
 nj.o: nj.h matrix.h pherror.h vector.h
 nwck.o: nwck.h filebuff.h qseqs.h pherror.h

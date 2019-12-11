@@ -27,12 +27,13 @@
 #include "fsacmp.h"
 #include "fsacmpthrd.h"
 #include "matrix.h"
+#include "meth.h"
 #include "pherror.h"
 #include "phy.h"
 #include "seqparse.h"
 #define exchange(src1, src2, tmp) tmp = src1; src1 = src2; src2 = tmp;
 
-int ltdFsaMatrix_get(Matrix *D, Matrix *N, int numFile, long unsigned **seqs, int cSize, FileBuff *infile, TimeStamp **targetStamps, unsigned char *include, unsigned **includes, char *targetTemplate, char **filenames, unsigned char *trans, Qseqs *ref, Qseqs *seq, Qseqs *header, unsigned norm, unsigned minLength, double minCov, unsigned flag, unsigned proxi, FILE *diffile, int tnum) {
+int ltdFsaMatrix_get(Matrix *D, Matrix *N, int numFile, long unsigned **seqs, int cSize, FileBuff *infile, TimeStamp **targetStamps, unsigned char *include, unsigned **includes, char *targetTemplate, char **filenames, unsigned char *trans, Qseqs *ref, Qseqs *seq, Qseqs *header, unsigned norm, unsigned minLength, double minCov, unsigned flag, unsigned proxi, MethMotif *motif, FILE *diffile, int tnum) {
 	
 	unsigned i, j, pair, len, **includesPtr;
 	long unsigned **seqsPtr;
@@ -83,17 +84,17 @@ int ltdFsaMatrix_get(Matrix *D, Matrix *N, int numFile, long unsigned **seqs, in
 					/* make / update inclusion array(s) */
 					if(pair) {
 						initIncPos(*includesPtr, len);
+						qseq2nibble(seq, *++seqsPtr);
+						maskMotifs(*seqsPtr, *includesPtr, len, motif);
 						getIncPos(*includesPtr, seq, seq, proxi);
 						if(getNpos(*includesPtr, len) < minLength) {
 							fprintf(stderr, "Template (\"%s\") did not exceed threshold for inclusion:\t%s\n", targetTemplate, *filenames);
 							*includePtr = 0;
-							++seqsPtr;
-						} else {
-							qseq2nibble(seq, *++seqsPtr);
 						}
 					} else {
-						getIncPos(*includes, seq, ref, proxi);
 						qseq2nibble(seq, *++seqsPtr);
+						maskMotifs(*seqsPtr, *includes, len, motif);
+						getIncPos(*includes, seq, ref, proxi);
 					}
 				} else {
 					len = seq->len;
@@ -117,11 +118,12 @@ int ltdFsaMatrix_get(Matrix *D, Matrix *N, int numFile, long unsigned **seqs, in
 						}
 					}
 					initIncPos(*includesPtr, len);
+					qseq2nibble(seq, *++seqsPtr);
+					maskMotifs(*seqsPtr, *includesPtr, len, motif);
 					getIncPos(*includesPtr, seq, seq, proxi);
 					
 					if(getNpos(*includesPtr, len) < minLength) {
 						fprintf(stderr, "Template (\"%s\") did not exceed threshold for inclusion:\t%s\n", targetTemplate, *filenames);
-						++seqsPtr;
 						*includePtr = 0;
 						ref->len = 0;
 					} else {
@@ -129,7 +131,6 @@ int ltdFsaMatrix_get(Matrix *D, Matrix *N, int numFile, long unsigned **seqs, in
 						exchange(seq->size, ref->size, len);
 						exchange(seq->len, ref->len, len);
 						exchange(seq->seq, ref->seq, tmpseq);
-						qseq2nibble(ref, *++seqsPtr);
 					}
 				}
 			} else {

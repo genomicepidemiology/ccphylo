@@ -29,6 +29,8 @@
 #include "ltdmatrixthrd.h"
 #include "matcmp.h"
 #include "matrix.h"
+#include "meth.h"
+#include "methparse.h"
 #include "pherror.h"
 #include "phy.h"
 #include "str.h"
@@ -36,7 +38,7 @@
 #define missArg(opt) fprintf(stderr, "Missing argument at %s.\n", opt); exit(1);
 #define invaArg(opt) fprintf(stderr, "Invalid value parsed at %s.\n", opt); exit(1);
 
-static void makeMatrix(unsigned numFile, char **filenames, char *outputfilename, char *noutputfilename, char *diffilename, char *targetTemplate, double minCov, double alpha, unsigned norm, unsigned minDepth, unsigned minLength, unsigned proxi, unsigned flag, double (*veccmp)(short unsigned*, short unsigned*, int, int), int tnum) {
+static void makeMatrix(unsigned numFile, char **filenames, char *outputfilename, char *noutputfilename, char *diffilename, char *targetTemplate, double minCov, double alpha, unsigned norm, unsigned minDepth, unsigned minLength, unsigned proxi, unsigned flag, double (*veccmp)(short unsigned*, short unsigned*, int, int), char *methfilename, int tnum) {
 	
 	int i, informat, cSize;
 	unsigned n, pos, len, **includes;
@@ -46,6 +48,7 @@ static void makeMatrix(unsigned numFile, char **filenames, char *outputfilename,
 	FileBuff *infile, *unionfile;
 	Matrix *distMat, *nDest;
 	MatrixCounts *mat1;
+	MethMotif *motif;
 	NucCount *mat2;
 	Qseqs *ref, *seq, *header;
 	TimeStamp **targetStamps;
@@ -79,6 +82,7 @@ static void makeMatrix(unsigned numFile, char **filenames, char *outputfilename,
 	} else {
 		diffile = 0;
 	}
+	motif = 0;
 	
 	/* determine format of input */
 	infile = setFileBuff(1048576);
@@ -103,6 +107,13 @@ static void makeMatrix(unsigned numFile, char **filenames, char *outputfilename,
 		ref = setQseqs(1048576);
 		seq = setQseqs(1048576);
 		header = setQseqs(64);
+		
+		/* get methylationsites */
+		if(methfilename) {
+			openAndDetermine(infile, methfilename);
+			motif = getMethMotifs(infile, seq);
+			closeFileBuff(infile);
+		}
 	} else {
 		fprintf(stderr, "Format of inputfiles are unsupported.\n");
 		exit(1);
@@ -141,7 +152,7 @@ static void makeMatrix(unsigned numFile, char **filenames, char *outputfilename,
 			ltdMatrixThrd(distMat, nDest, mat1, targetStamps, include, targetTemplate, filenames, numFile, norm, minDepth, minLength, minCov, veccmp, tnum);
 			//ltdMatrix_get(distMat, nDest, mat1, mat2, infile, targetStamps, include, targetTemplate, filenames, numFile, norm, minDepth, minLength, minCov, veccmp);
 		} else if(informat == '>') {
-			cSize = ltdFsaMatrix_get(distMat, nDest, numFile, seqs, cSize, infile, targetStamps, include, includes, targetTemplate, filenames, trans, ref, seq, header, norm, minLength, minCov, flag, proxi, diffile, tnum);
+			cSize = ltdFsaMatrix_get(distMat, nDest, numFile, seqs, cSize, infile, targetStamps, include, includes, targetTemplate, filenames, trans, ref, seq, header, norm, minLength, minCov, flag, proxi, motif, diffile, tnum);
 		}
 		
 		/* print ltd matrix */
@@ -236,7 +247,7 @@ static void makeMatrix(unsigned numFile, char **filenames, char *outputfilename,
 				//ltdMatrixThrd(distMat, nDest, mat1, targetStamps, include, entry->target, filenames, numFile, norm, minDepth, minLength, minCov, veccmp, tnum);
 				ltdMatrix_get(distMat, nDest, mat1, mat2, infile, targetStamps, include, entry->target, filenames, numFile, norm, minDepth, minLength, minCov, veccmp);
 			} else if(informat == '>') {
-				cSize = ltdFsaMatrix_get(distMat, nDest, numFile, seqs, cSize, infile, targetStamps, include, includes, entry->target, filenames, trans, ref, seq, header, norm, minLength, minCov, flag, proxi, diffile, tnum);
+				cSize = ltdFsaMatrix_get(distMat, nDest, numFile, seqs, cSize, infile, targetStamps, include, includes, entry->target, filenames, trans, ref, seq, header, norm, minLength, minCov, flag, proxi, motif, diffile, tnum);
 			}
 			
 			/* print ltd matrix */
@@ -277,6 +288,7 @@ static void makeMatrix(unsigned numFile, char **filenames, char *outputfilename,
 		destroyQseqs(seq);
 		destroyQseqs(header);
 	}
+	destroyMethMotifs(motif);
 	Matrix_destroy(distMat);
 	Matrix_destroy(nDest);
 	destroyFileBuff(infile);
@@ -381,7 +393,8 @@ static int helpMessage(FILE *out) {
 	fprintf(out, "# %16s\t%-32s\t%s\n", "-i", "Input file(s)", "stdin");
 	fprintf(out, "# %16s\t%-32s\t%s\n", "-o", "Output file", "stdout");
 	fprintf(out, "# %16s\t%-32s\t%s\n", "-n", "Output number of nucleotides included", "False/None");
-	fprintf(out, "# %16s\t%-32s\t%s\n", "-dff", "Output nucleotide differences", "False/None");
+	fprintf(out, "# %16s\t%-32s\t%s\n", "-m", "Mask methylation motifs from <file>", "False/None");
+	fprintf(out, "# %16s\t%-32s\t%s\n", "-nv", "Output nucleotide variations", "False/None");
 	fprintf(out, "# %16s\t%-32s\t%s\n", "-r", "Target reference", "None");
 	fprintf(out, "# %16s\t%-32s\t%s\n", "-a", "Add file to existing matrix", "stdin");
 	fprintf(out, "# %16s\t%-32s\t%s\n", "-md", "Minimum depth", "15");
@@ -403,7 +416,7 @@ int main_dist(int argc, char *argv[]) {
 	
 	unsigned args, numFile, flag, norm, minDepth, minLength, proxi, n, t;
 	char *arg, *targetTemplate, **filenames, *addfilename, *errorMsg;
-	char *outputfilename, *noutputfilename, *diffilename;
+	char *outputfilename, *noutputfilename, *methfilename, *diffilename;
 	double minCov, alpha;
 	double (*veccmp)(short unsigned*, short unsigned*, int, int);
 	
@@ -420,6 +433,7 @@ int main_dist(int argc, char *argv[]) {
 	addfilename = 0;
 	outputfilename = "--";
 	noutputfilename = 0;
+	methfilename = 0;
 	diffilename = 0;
 	minCov = 0.5;
 	alpha = 0.05;
@@ -453,7 +467,13 @@ int main_dist(int argc, char *argv[]) {
 				} else {
 					noutputfilename = "--";
 				}
-			} else if(strcmp(arg, "dff") == 0) {
+			} else if(strcmp(arg, "m") == 0) {
+				if(++args < argc) {
+					methfilename = argv[args];
+				} else {
+					missArg("\"-m\"");
+				}
+			} else if(strcmp(arg, "nv") == 0) {
 				if(++args < argc) {
 					diffilename = argv[args];
 				} else {
@@ -650,7 +670,7 @@ int main_dist(int argc, char *argv[]) {
 	if(addfilename && filenames) {
 		return add2Matrix(*filenames, addfilename, outputfilename, noutputfilename, diffilename, targetTemplate, minCov, norm, minDepth, minLength, proxi, flag, veccmp, t);
 	} else {
-		makeMatrix(numFile, filenames, outputfilename, noutputfilename, diffilename, targetTemplate, minCov, alpha, norm, minDepth, minLength, proxi, flag, veccmp, t);
+		makeMatrix(numFile, filenames, outputfilename, noutputfilename, diffilename, targetTemplate, minCov, alpha, norm, minDepth, minLength, proxi, flag, veccmp, methfilename, t);
 	}
 	
 	return 0;
