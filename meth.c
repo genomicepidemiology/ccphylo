@@ -128,8 +128,10 @@ void maskMotif(unsigned *include, int pos, unsigned *mask, int len) {
 	--mask;
 	while(0 < len) {
 		*include &= 0xFFFFFFFF ^ (*++mask >> mShifter);
-		if(rShifter < len) {
+		if(mShifter && rShifter < len) {
 			*++include &= 0xFFFFFFFF ^ ((*mask << rShifter));
+		} else {
+			++include;
 		}
 		len -= 32;
 	}
