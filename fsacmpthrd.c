@@ -372,8 +372,12 @@ void * cmpairFsaThrd(void *arg) {
 		/* separate distance and included bases */
 		inc = dist & UINT_MAX;
 		if(minLength <= inc) {
-			*Dptr = (dist >> 32) * norm;
-			*Dptr /= inc;
+			if(norm) {
+				*Dptr = (dist >> 32);
+			} else {
+				*Dptr = (dist >> 32) * norm;
+				*Dptr /= inc;
+			}
 		} else {
 			*Dptr = -1.0;
 		}
@@ -463,7 +467,7 @@ void * cmpFsaRowThrd(void *arg) {
 			
 			/* separate distance and included bases */
 			if(minLength <= (inc = dist & UINT_MAX)) {
-				D[j] = (dist >> 32) * norm / inc;
+				D[j] = norm ? ((dist >> 32) * norm / inc) : (dist >> 32);
 			} else {
 				D[j] = -1.0;
 				inc = 0;

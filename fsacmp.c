@@ -563,8 +563,12 @@ void cmpairFsa(Matrix *D, Matrix *N, int n, int len, long unsigned **seqs, unsig
 						
 						/* separate distance and included bases */
 						if(minLength <= (inc = dist & UINT_MAX)) {
-							*++Dptr = (dist >> 32) * norm;
-							*Dptr /= inc;
+							if(norm) {
+								*++Dptr = (dist >> 32);
+							} else {
+								*++Dptr = (dist >> 32) * norm;
+								*Dptr /= inc;
+							}
 						} else {
 							*++Dptr = -1.0;
 						}
@@ -599,8 +603,12 @@ void cmpairFsa(Matrix *D, Matrix *N, int n, int len, long unsigned **seqs, unsig
 						
 						/* separate distance and included bases */
 						if(minLength <= (inc = dist & UINT_MAX)) {
-							*++Dptr = (dist >> 32) * norm;
-							*Dptr /= inc;
+							if(norm) {
+								*++Dptr = (dist >> 32);
+							} else {
+								*++Dptr = (dist >> 32) * norm;
+								*Dptr /= inc;
+							}
 						} else {
 							*++Dptr = -1.0;
 						}

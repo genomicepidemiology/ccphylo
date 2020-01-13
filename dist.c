@@ -575,6 +575,10 @@ int main_dist(int argc, char *argv[]) {
 						veccmp = &nccmp;
 					} else if(strcmp(arg, "c") == 0) {
 						veccmp = &ccmp;
+					} else if(strcmp(arg, "np") == 0) {
+						veccmp = &npcmp;
+					} else if(strcmp(arg, "p") == 0) {
+						veccmp = &pcmp;
 					} else if(strcmp(arg, "nbc") == 0) {
 						veccmp = &nbccmp;
 					} else if(strcmp(arg, "bc") == 0) {

@@ -32,7 +32,7 @@ matcmp.o: matcmp.h filebuff.h matparse.h stdstat.h
 matparse.o: matparse.h filebuff.h pherror.h qseqs.h
 matrix.o: matrix.h pherror.h
 merge.o: merge.h filebuff.h hashmapstr.h hashmapstrindex.h matrix.h phy.h qseqs.h ulist.h
-meth.o: meth.h pherror.h stdnuc.h
+meth.o: meth.h pherror.h
 methparse.o: methparse.h filebuff.h meth.h pherror.h qseqs.h
 nj.o: nj.h matrix.h pherror.h vector.h
 nwck.o: nwck.h filebuff.h qseqs.h pherror.h

@@ -19,6 +19,7 @@
 
 #include "filebuff.h"
 #include "qseqs.h"
+#define exchange(src1, src2, tmp) tmp = src1; src1 = src2; src2 = tmp;
 
 void formNode(Qseqs *node1, Qseqs *node2, double L1, double L2);
 void formLastNode(Qseqs *node1, Qseqs *node2, double L);

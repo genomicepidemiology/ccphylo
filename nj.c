@@ -312,9 +312,7 @@ unsigned * nj(Matrix *D, Matrix *Q, Vector *sD, unsigned *N, Qseqs **names) {
 		ltdMatrix_popArrange(D, i);
 		sD->vec[i] = sD->vec[--sD->n];
 		N[i] = N[D->n];
-		tmp = names[i];
-		names[i] = names[D->n];
-		names[D->n] = tmp;
+		exchange(names[i], names[D->n], tmp);
 	}
 	
 	if(D->n == 2) {

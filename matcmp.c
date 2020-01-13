@@ -248,11 +248,11 @@ double nccmp(short unsigned *counts1, short unsigned *counts2, int tot1, int tot
 	int i;
 	double d, t1, t2, T;
 	
-	
 	tot1 -= counts1[5];
 	tot2 -= counts2[5];
 	t1 = (double) *counts1 / tot1;
 	t2 = (double) *counts2 / tot2;
+	d = 1;
 	if(t1 < t2) {
 		d = t1;
 		T = t2;
@@ -264,15 +264,16 @@ double nccmp(short unsigned *counts1, short unsigned *counts2, int tot1, int tot
 	while(--i) {
 		t1 = (double) *++counts1 / tot1;
 		t2 = (double) *++counts2 / tot2;
+		T = 1;
 		if(t1 < t2) {
-			d = t1;
-			T = t2;
+			d += t1;
+			T += t2;
 		} else {
-			d = t2;
-			T = t1;
+			d += t2;
+			T += t1;
 		}
 	}
-	d = T ? 1 - d / T : 0;
+	d = 1 - d / T;
 	
 	return d < 0 ? 0 : d;
 }
@@ -299,7 +300,10 @@ double ccmp(short unsigned *counts1, short unsigned *counts2, int tot1, int tot2
 			tot1 += *counts1;
 		}
 	}
-	d = tot1 ? 1 - d / tot1 : 0;
+	if(!tot1) {
+		return -1;
+	}
+	d = 1 - d / tot1;
 	
 	return d < 0 ? 0 : d;
 }
@@ -330,25 +334,61 @@ double zcmp(short unsigned *counts1, short unsigned *counts2, int tot1, int tot2
 		}
 	}
 	
-	if(tot1 < (max1 << 1) && tot2 < (max2 << 1) && 
-		p_chisqr(pow(tot1 - (max1 << 1), 2) / tot1) <= alpha && 
-		p_chisqr(pow(tot2 - (max2 << 1), 2) / tot2) <= alpha) {
-		
+	x1 = p_chisqr(pow(tot1 - (max1 << 1), 2) / tot1) <= alpha && tot1 < (max1 << 1);
+	x2 = p_chisqr(pow(tot2 - (max2 << 1), 2) / tot2) <= alpha && tot1 < (max1 << 1);
+	if(x1 && x2) {
 		return x1 == x2 ? 0 : 1;
 	}
 	
 	return -1;
 }
 
+double pcmp(short unsigned *counts1, short unsigned *counts2, int tot1, int tot2) {
+	
+	double d, T;
+	
+	d = (T = *counts1 - *counts2) ? T * T / (*counts1 + *counts2) : 0;
+	tot1 = 5;
+	while(--tot1) {
+		if((T = *++counts1 - *++counts2)) {
+			d += T * T / (*counts1 + *counts2);
+		}
+	}
+	
+	return 1 - p_chisqr(d);
+}
+
+double npcmp(short unsigned *counts1, short unsigned *counts2, int tot1, int tot2) {
+	
+	int n;
+	double d, diff, t1, t2;
+	
+	tot1 -= counts1[5];
+	tot2 -= counts2[5];
+	t1 = (double) *counts1 / tot1;
+	t2 = (double) *counts2 / tot2;
+	d = (diff = t1 - t2) ? diff * diff / (t1 + t2) : 0;
+	n = 5;
+	while(--n) {
+		t1 = (double) *++counts1 / tot1;
+		t2 = (double) *++counts2 / tot2;
+		if((diff = t1 - t2)) {
+			d += diff * diff / (t1 + t2);
+		}
+	}
+	
+	return 1 - p_chisqr(d);
+}
+
 double chi2cmp(short unsigned *counts1, short unsigned *counts2, int tot1, int tot2) {
 	
-	double d;
+	double d, T;
 	
-	d = (tot1 = *counts1 - *counts2) ? (tot1 * tot1 / ((double) (*counts1 + *counts2))) : 0;
+	d = (T = *counts1 - *counts2) ? (T * T / (*counts1 + *counts2)) : 0;
 	tot2 = 5;
 	while(--tot2) {
-		if((tot1 = *++counts1 - *++counts2)) {
-			d += tot1 * tot1 / ((double) (*counts1 + *counts2));
+		if((T = *++counts1 - *++counts2)) {
+			d += T * T / (*counts1 + *counts2);
 		}
 	}
 	
@@ -379,23 +419,27 @@ double nchi2cmp(short unsigned *counts1, short unsigned *counts2, int tot1, int 
 
 double coscmp(short unsigned *counts1, short unsigned *counts2, int tot1, int tot2) {
 	
-	unsigned i, c1, c2;
+	unsigned i;
+	long unsigned c1, c2;
 	double d;
 	
-	c1 = *counts1;
-	c2 = *counts2;
-	tot1 = c1 * c1;
-	tot2 = c2 * c2;
-	d = c1 * c2;
+	tot1 = *counts1;
+	tot2 = *counts2;
+	c1 = tot1 * tot1;
+	c2 = tot2 * tot2;
+	d = tot1 * tot2;
 	i = 5;
 	while(--i) {
-		c1 = *++counts1;
-		c2 = *++counts2;
-		d += c1 * c2;
-		tot1 += c1 * c1;
-		tot2 += c2 * c2;
+		tot1 = *++counts1;
+		tot2 = *++counts2;
+		d += tot1 * tot2;
+		c1 += tot1 * tot1;
+		c2 += tot2 * tot2;
 	}
-	d = 1 - d / (sqrt(tot1) * sqrt(tot2));
+	if(!c1 || !c2) {
+		return -1;
+	}
+	d = 1 - d / (sqrt(c1) * sqrt(c2));
 	
 	/* take care of negative approx. error */
 	return d < 0 ? 0 : d;
@@ -405,9 +449,9 @@ double cmpMats(MatrixCounts *mat1, NucCount *mat2, FileBuff *infile, unsigned no
 	
 	/* requires mat1 to be stripped from insertions */
 	
-	unsigned rowNum, rowsInc, nNucs;
+	unsigned rowNum, rowsInc, nNucs, tot1;
 	short unsigned *counts1;
-	double dist, d, tot1;
+	double dist, d;
 	
 	/* check if templates matches */
 	if(strcmp((char *) mat1->name->seq, (char *) mat2->name) != 0) {
@@ -445,5 +489,6 @@ double cmpMats(MatrixCounts *mat1, NucCount *mat2, FileBuff *infile, unsigned no
 	}
 	
 	mat2->total = rowsInc;
-	return dist / rowsInc * norm;
+	
+	return norm ? dist / rowsInc * norm : dist;
 }
