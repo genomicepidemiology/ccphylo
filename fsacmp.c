@@ -119,15 +119,10 @@ void getIncPos(unsigned *include, Qseqs *seq, Qseqs *ref, unsigned proxi) {
 	for(i = 0; i < len; ++i) {
 		c = *++cPtr;
 		r = *++rPtr;
-		
-		/* mask position */
-		if(c != r || c == 4) {
-			/* unknown base */
-			if(c == 4 || r == 4) {
-				/* mask position */
-				include[i >> 5] &= (UINT_MAX ^ (1 << (31 - (i & 31))));
-			}
-			
+		if(c == 4 || r == 4) {
+			/* mask unknown position */
+			include[i >> 5] &= (UINT_MAX ^ (1 << (31 - (i & 31))));
+		} else if(c != r) {
 			/* check proximity */
 			if(i - lastSNP < proxi) {
 				lastSNP -= proxi;
@@ -166,19 +161,64 @@ void getIncPos(unsigned *include, Qseqs *seq, Qseqs *ref, unsigned proxi) {
 			/* mark position as the last seen SNP */
 			lastSNP = i;
 		}
+		
+		/* here */
+		/* mask between insignificants as well
+		// mask position
+		if(c != r || c == 4) {
+			// unknown base
+			if(c == 4 || r == 4) {
+				// mask position
+				include[i >> 5] &= (UINT_MAX ^ (1 << (31 - (i & 31))));
+			}
+			
+			// check proximity
+			if(i - lastSNP < proxi) {
+				lastSNP -= proxi;
+				if(lastSNP < 0) {
+					lastSNP = 0;
+				}
+				end = i + proxi;
+				mask = UINT_MAX ^ (1 << (31 - (lastSNP & 31)));
+				includePtr = include + (lastSNP >> 5);
+				while(lastSNP < end) {
+					if((*includePtr &= mask)) {
+						if(mask & 1) {
+							mask = (mask >> 1) | topBit;
+						} else {
+							++includePtr;
+							mask = UINT_MAX >> 1;
+						}
+						++lastSNP;
+					} else {
+						lastSNP = ((lastSNP >> 5) + 1) << 5;
+						++includePtr;
+						mask = UINT_MAX >> 1;
+					}
+				}
+			}
+			
+			// mark position as the last seen SNP
+			lastSNP = i;
+		}
+		*/
 	}
 }
 
 void maskProxi(unsigned *include, unsigned *include1, unsigned *include2, long unsigned *seq1, long unsigned *seq2, unsigned len, unsigned proxi) {
 	
-	int lastSNP;
+	int lastSNP, seqlen;
 	unsigned i, j, end, mask, topBit, inc, *includePtr;
 	long unsigned kmer1, kmer2;
 	
 	/* init */
+	if(!proxi) {
+		return;
+	}
 	topBit = UINT_MAX ^ (UINT_MAX >> 1);
 	lastSNP = -1;
 	i = 0;
+	seqlen = len;
 	--include;
 	--include1;
 	--include2;
@@ -208,7 +248,8 @@ void maskProxi(unsigned *include, unsigned *include1, unsigned *include2, long u
 						if(lastSNP < 0) {
 							lastSNP = 0;
 						}
-						end = j + proxi;
+						
+						end = seqlen < j + proxi ? seqlen : j + proxi;
 						mask = UINT_MAX ^ (1 << (31 - (lastSNP & 31)));
 						includePtr = include + (lastSNP >> 5);
 						while(lastSNP < end) {

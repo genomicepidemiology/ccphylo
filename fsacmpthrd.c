@@ -373,10 +373,10 @@ void * cmpairFsaThrd(void *arg) {
 		inc = dist & UINT_MAX;
 		if(minLength <= inc) {
 			if(norm) {
-				*Dptr = (dist >> 32);
-			} else {
 				*Dptr = (dist >> 32) * norm;
 				*Dptr /= inc;
+			} else {
+				*Dptr = (dist >> 32);
 			}
 		} else {
 			*Dptr = -1.0;

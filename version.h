@@ -17,4 +17,4 @@
  * limitations under the License.
 */
 
-#define CCPHYLO_VERSION "0.0.10"
+#define CCPHYLO_VERSION "0.0.11"

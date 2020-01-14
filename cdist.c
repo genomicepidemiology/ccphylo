@@ -161,6 +161,7 @@ int ltdFsaMatrix_get(Matrix *D, Matrix *N, int numFile, long unsigned **seqs, in
 	/* make ltd matrix */
 	if(!inludeN) {
 		D->n = 0;
+		errno = 1;
 		fprintf(stderr, "All sequences were trimmed away.\n");
 	} else if(pair) {
 		fsaCmpThreadOut(tnum, &cmpairFsaThrd, D, N, numFile, len, seqs, include, includes, norm, minLength, minCov, diffile, targetTemplate, ref, 0, proxi);
@@ -171,6 +172,7 @@ int ltdFsaMatrix_get(Matrix *D, Matrix *N, int numFile, long unsigned **seqs, in
 		fprintf(stderr, "# %d / %d bases included in distance matrix.\n", i, len); */
 	} else {
 		D->n = 0;
+		errno = 1;
 		fprintf(stderr, "No sufficient overlap was found.\n");
 	}
 	
