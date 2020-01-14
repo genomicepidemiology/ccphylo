@@ -35,7 +35,7 @@
 
 int ltdFsaMatrix_get(Matrix *D, Matrix *N, int numFile, long unsigned **seqs, int cSize, FileBuff *infile, TimeStamp **targetStamps, unsigned char *include, unsigned **includes, char *targetTemplate, char **filenames, unsigned char *trans, Qseqs *ref, Qseqs *seq, Qseqs *header, unsigned norm, unsigned minLength, double minCov, unsigned flag, unsigned proxi, MethMotif *motif, FILE *diffile, int tnum) {
 	
-	unsigned i, j, pair, len, **includesPtr;
+	unsigned i, j, pair, len, inludeN, **includesPtr;
 	long unsigned **seqsPtr;
 	unsigned char *includePtr, *tmpseq;
 	TimeStamp **targetStamp;
@@ -44,6 +44,7 @@ int ltdFsaMatrix_get(Matrix *D, Matrix *N, int numFile, long unsigned **seqs, in
 	pair = flag & 2 ? 1 : 0;
 	len = 0;
 	ref->len = 0;
+	inludeN = numFile;
 	includesPtr = includes;
 	includePtr = include - 1;
 	seqsPtr = seqs - 1;
@@ -74,6 +75,7 @@ int ltdFsaMatrix_get(Matrix *D, Matrix *N, int numFile, long unsigned **seqs, in
 				fprintf(stderr, "Missing template entry (\"%s\") in file:\t%s\n", targetTemplate, *filenames);
 				*includePtr = 0;
 				++seqsPtr;
+				--inludeN;
 			} else if(FileBuffgetFsaSeq(infile, seq, trans)) {
 				if(ref->len) {
 					if(seq->len != ref->len) {
@@ -90,6 +92,7 @@ int ltdFsaMatrix_get(Matrix *D, Matrix *N, int numFile, long unsigned **seqs, in
 						if(getNpos(*includesPtr, len) < minLength) {
 							fprintf(stderr, "Template (\"%s\") did not exceed threshold for inclusion:\t%s\n", targetTemplate, *filenames);
 							*includePtr = 0;
+							--inludeN;
 						}
 					} else {
 						qseq2nibble(seq, *++seqsPtr);
@@ -126,6 +129,7 @@ int ltdFsaMatrix_get(Matrix *D, Matrix *N, int numFile, long unsigned **seqs, in
 						fprintf(stderr, "Template (\"%s\") did not exceed threshold for inclusion:\t%s\n", targetTemplate, *filenames);
 						*includePtr = 0;
 						ref->len = 0;
+						--inludeN;
 					} else {
 						/* swap seq and ref */
 						exchange(seq->size, ref->size, len);
@@ -137,12 +141,14 @@ int ltdFsaMatrix_get(Matrix *D, Matrix *N, int numFile, long unsigned **seqs, in
 				fprintf(stderr, "Missing template sequence (\"%s\") in file:\t%s\n", targetTemplate, *filenames);
 				*includePtr = 0;
 				++seqsPtr;
+				--inludeN;
 			}
 			closeFileBuff(infile);
 		} else {
 			++filenames;
 			++targetStamp;
 			++seqsPtr;
+			--inludeN;
 		}
 		includesPtr += pair;
 	}
@@ -153,7 +159,10 @@ int ltdFsaMatrix_get(Matrix *D, Matrix *N, int numFile, long unsigned **seqs, in
 	}
 	
 	/* make ltd matrix */
-	if(pair) {
+	if(!inludeN) {
+		D->n = 0;
+		fprintf(stderr, "All sequences were trimmed away.\n");
+	} else if(pair) {
 		fsaCmpThreadOut(tnum, &cmpairFsaThrd, D, N, numFile, len, seqs, include, includes, norm, minLength, minCov, diffile, targetTemplate, ref, 0, proxi);
 		//cmpairFsa(D, N, numFile, len, seqs, include, includes, norm, minLength, minCov, proxi, diffile);
 	} else if(minLength <= getNpos(*includes, len)) {
