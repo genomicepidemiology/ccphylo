@@ -121,7 +121,7 @@ void getIncPos(unsigned *include, Qseqs *seq, Qseqs *ref, unsigned proxi) {
 		r = *++rPtr;
 		if(c == 4 || r == 4) {
 			/* mask unknown position */
-			include[i >> 5] &= (UINT_MAX ^ (1 << (31 - (i & 31))));
+			include[i >> 5] &= (0xFFFFFFFF ^ (1 << (31 - (i & 31))));
 		} else if(c != r) {
 			/* check proximity */
 			if(i - lastSNP < proxi) {
@@ -129,8 +129,8 @@ void getIncPos(unsigned *include, Qseqs *seq, Qseqs *ref, unsigned proxi) {
 				if(lastSNP < 0) {
 					lastSNP = 0;
 				}
-				end = i + proxi;
-				mask = UINT_MAX ^ (1 << (31 - (lastSNP & 31)));
+				end = len < i + proxi ? len : i + proxi;
+				mask = 0xFFFFFFFF ^ (1 << (31 - (lastSNP & 31)));
 				includePtr = include + (lastSNP >> 5);
 				while(lastSNP < end) {
 					if((*includePtr &= mask)) {
@@ -138,13 +138,13 @@ void getIncPos(unsigned *include, Qseqs *seq, Qseqs *ref, unsigned proxi) {
 							mask = (mask >> 1) | topBit;
 						} else {
 							++includePtr;
-							mask = UINT_MAX >> 1;
+							mask = 0xFFFFFFFF >> 1;
 						}
 						++lastSNP;
 					} else {
 						lastSNP = ((lastSNP >> 5) + 1) << 5;
 						++includePtr;
-						mask = UINT_MAX >> 1;
+						mask = 0xFFFFFFFF >> 1;
 					}
 				}
 				/*
@@ -207,78 +207,126 @@ void getIncPos(unsigned *include, Qseqs *seq, Qseqs *ref, unsigned proxi) {
 
 void maskProxi(unsigned *include, unsigned *include1, unsigned *include2, long unsigned *seq1, long unsigned *seq2, unsigned len, unsigned proxi) {
 	
-	int lastSNP, seqlen;
-	unsigned i, j, end, mask, topBit, inc, *includePtr;
+	int lastSNP, seqlen, proxiMasking;
+	unsigned i, j, end, mask, topBit, inc, *includePtr, *includeOrg;
 	long unsigned kmer1, kmer2;
 	
 	/* init */
-	if(!proxi) {
-		return;
-	}
-	topBit = UINT_MAX ^ (UINT_MAX >> 1);
-	lastSNP = -1;
-	i = 0;
+	proxiMasking = 0;
+	topBit = 0xFFFFFFFF ^ (0xFFFFFFFF >> 1);
+	includeOrg = include;
+	lastSNP = len + proxi;
 	seqlen = len;
-	--include;
-	--include1;
-	--include2;
-	--seq1;
-	--seq2;
-	
 	/* convert length to compressed length */
 	if(len & 31) {
 		len = (len >> 5) + 2;
 	} else {
 		len = (len >> 5) + 1;
 	}
+	include += len;
+	include1 += len;
+	include2 += len;
+	seq1 += len;
+	seq2 += len;
+	if((i = seqlen) & 31) {
+		i = ((i >> 5) + 1) << 5;
+	}
 	while(--len) {
-		kmer1 = *++seq1;
-		kmer2 = *++seq2;
-		inc = *++include1 & *++include2;
-		*++include = inc;
+		kmer1 = *--seq1;
+		kmer2 = *--seq2;
+		inc = *--include1 & *--include2;
+		*--include = inc;
 		
 		/* possiblity for difference(s) */
-		if(inc && kmer1 != kmer2 && proxi) {
-			j = i;
+		if(proxi && inc && kmer1 != kmer2) {
+			
 			while(inc) {
 				if((inc & 1) && (kmer1 & 3) != (kmer2 & 3)) {
 					/* check proximity */
-					if(j - lastSNP < proxi) {
-						lastSNP -= proxi;
-						if(lastSNP < 0) {
-							lastSNP = 0;
-						}
-						
-						end = seqlen < j + proxi ? seqlen : j + proxi;
-						mask = UINT_MAX ^ (1 << (31 - (lastSNP & 31)));
-						includePtr = include + (lastSNP >> 5);
-						while(lastSNP < end) {
-							if((*includePtr &= mask)) {
+					if(lastSNP - i < proxi) {
+						/* mask prev bases */
+						mask = 0xFFFFFFFF ^ (1 << (31 - (i & 31)));
+						includePtr = includeOrg + (i >> 5);
+						end = seqlen < lastSNP + proxi ? seqlen : lastSNP + proxi;
+						j = i;
+						while(j < end) {
+							*includePtr &= mask;
+							if(*includePtr) {
 								if(mask & 1) {
 									mask = (mask >> 1) | topBit;
 								} else {
 									++includePtr;
-									mask = UINT_MAX >> 1;
+									mask = 0xFFFFFFFF >> 1;
 								}
-								++lastSNP;
+								++j;
 							} else {
-								lastSNP = ((lastSNP >> 5) + 1) << 5;
+								j = ((j >> 5) + 1) << 5;
 								++includePtr;
-								mask = UINT_MAX >> 1;
+								mask = 0xFFFFFFFF >> 1;
 							}
 						}
+						
+						proxiMasking = 1;
+					} else if(proxiMasking) {
+						/* mask bases in front of last SNP */
+						j = lastSNP - proxi < 0 ? 0 : lastSNP - proxi;
+						mask = 0xFFFFFFFF ^ (1 << (31 - (j & 31)));
+						includePtr = includeOrg + (j >> 5);
+						while(j < lastSNP) {
+							*includePtr &= mask;
+							if(*includePtr) {
+								if(mask & 1) {
+									mask = (mask >> 1) | topBit;
+								} else {
+									++includePtr;
+									mask = 0xFFFFFFFF >> 1;
+								}
+								++j;
+							} else {
+								j = ((j >> 5) + 1) << 5;
+								++includePtr;
+								mask = 0xFFFFFFFF >> 1;
+							}
+						}
+						
+						proxiMasking = 0;
 					}
 					
 					/* mark position as the last seen SNP */
-					lastSNP = j;
+					lastSNP = i;
 				}
+				
 				kmer1 >>= 2;
 				kmer2 >>= 2;
 				inc >>= 1;
+				--i;
+			}
+			i = (i >> 5) << 5;
+		} else {
+			i -= 32;
+		}
+	}
+	if(proxiMasking) {
+		/* mask bases in front of last SNP */
+		j = lastSNP - proxi < 0 ? 0 : lastSNP - proxi;
+		mask = 0xFFFFFFFF ^ (1 << (31 - (j & 31)));
+		includePtr = includeOrg + (j >> 5);
+		while(j < lastSNP) {
+			*includePtr &= mask;
+			if(*includePtr) {
+				if(mask & 1) {
+					mask = (mask >> 1) | topBit;
+				} else {
+					++includePtr;
+					mask = 0xFFFFFFFF >> 1;
+				}
 				++j;
+			} else {
+				j = ((j >> 5) + 1) << 5;
+				++includePtr;
+				mask = 0xFFFFFFFF >> 1;
 			}
 		}
-		i += 32;
 	}
 }
 
