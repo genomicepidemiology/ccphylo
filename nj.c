@@ -24,6 +24,7 @@
 #include "nwck.h"
 #include "qseqs.h"
 #include "pherror.h"
+#include "str.h"
 #include "vector.h"
 
 void limbLength(double *Li, double *Lj, unsigned i, unsigned j, Vector *sD, unsigned *N, double D_ij) {
@@ -324,5 +325,11 @@ unsigned * nj(Matrix *D, Matrix *Q, Vector *sD, unsigned *N, Qseqs **names) {
 			formLastNode(names[0], names[--D->n], -1.0);
 		}
 	}
+	
+	/* verify valid newick format */
+	if(*((*names)->seq) != '(') {
+		byteshift((*names)->seq, (*names)->len, '(');
+	}
+	
 	return N;
 }

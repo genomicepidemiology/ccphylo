@@ -64,10 +64,18 @@ void formTree(char *inputfilename, char *outputfilename) {
 			N = nj(D, Q, sD, N, names);
 			
 			/* output tree */
-			fprintf(outfile, ">%s%s;\n", header->seq, (*names)->seq);
+			if(header->len) {
+				fprintf(outfile, ">%s%s;\n", header->seq, (*names)->seq);
+			} else {
+				fprintf(outfile, "%s;\n", (*names)->seq);
+			}
 		} else if(D->n == 2) {
 			/* output tree */
-			fprintf(outfile, ">%s(%s,%s:%.2f);\n", header->seq, (*names)->seq, names[1]->seq, **(D->mat));
+			if(header->len) {
+				fprintf(outfile, ">%s(%s,%s:%.2f);\n", header->seq, (*names)->seq, names[1]->seq, **(D->mat));
+			} else {
+				fprintf(outfile, "(%s,%s:%.2f);\n", (*names)->seq, names[1]->seq, **(D->mat));
+			}
 		}
 	}
 	

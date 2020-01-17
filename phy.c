@@ -45,7 +45,7 @@ static char * stripDir(char *str) {
 void printphy(FILE *outfile, Matrix *src, char **names, unsigned char *include, char *comment, unsigned format) {
 	
 	int i, j, jStart;
-	double *ptr;
+	double d, *ptr;
 	
 	/* printf comment */
 	if(format & 4) {
@@ -64,7 +64,12 @@ void printphy(FILE *outfile, Matrix *src, char **names, unsigned char *include, 
 			
 			j = jStart++;
 			while(j--) {
-				fprintf(outfile, "\t%.4f", *ptr++);
+				d = *ptr++;
+				if(d == (int) d) {
+					fprintf(outfile, "\t%d", (int) d);
+				} else {
+					fprintf(outfile, "\t%.4f", d);
+				}
 			}
 			fprintf(outfile, "\n");
 		}
@@ -74,6 +79,7 @@ void printphy(FILE *outfile, Matrix *src, char **names, unsigned char *include, 
 void printphyUpdate(FILE *outfile, int n, char *name, double *D, unsigned format) {
 	
 	int c;
+	double d;
 	
 	/* skip comment */
 	if((c = getc(outfile)) == '#') {
@@ -95,7 +101,12 @@ void printphyUpdate(FILE *outfile, int n, char *name, double *D, unsigned format
 	}
 	--D;
 	while(--n) {
-		fprintf(outfile, "\t%.4f", *++D);
+		d = *++D;
+		if(d == (int) d) {
+			fprintf(outfile, "\t%d", (int) d);
+		} else {
+			fprintf(outfile, "\t%.4f", d);
+		}
 	}
 	fprintf(outfile, "\n");
 	fflush(outfile);

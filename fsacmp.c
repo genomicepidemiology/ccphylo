@@ -125,10 +125,7 @@ void getIncPos(unsigned *include, Qseqs *seq, Qseqs *ref, unsigned proxi) {
 		} else if(c != r) {
 			/* check proximity */
 			if(i - lastSNP < proxi) {
-				lastSNP -= proxi;
-				if(lastSNP < 0) {
-					lastSNP = 0;
-				}
+				lastSNP = (lastSNP - proxi) < 0 ? 0 : (lastSNP - proxi);
 				end = len < i + proxi ? len : i + proxi;
 				mask = 0xFFFFFFFF ^ (1 << (31 - (lastSNP & 31)));
 				includePtr = include + (lastSNP >> 5);

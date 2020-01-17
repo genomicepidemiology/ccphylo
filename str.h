@@ -19,3 +19,4 @@
 
 int strpos(char *str, char c);
 int rstrpos(char *str, char c, int len);
+void byteshift(unsigned char *str, int len, char newchar);

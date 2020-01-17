@@ -47,3 +47,17 @@ int rstrpos(char *str, char c, int len) {
 	
 	return len;
 }
+
+void byteshift(unsigned char *str, int len, char newchar) {
+	
+	unsigned char *strshift;
+	
+	++len;
+	str += len;
+	strshift = str - 1;
+	*str = 0;
+	while(--len) {
+		*--str = *--strshift;
+	}
+	*strshift = newchar;
+}
