@@ -26,6 +26,8 @@
 #include "qseqs.h"
 #include "threader.h"
 
+void (*getIncPosPtr)(unsigned*, Qseqs*, Qseqs*, unsigned) = &getIncPos;
+
 unsigned char * get2BitTable(unsigned flag) {
 	
 	int i;
@@ -119,6 +121,60 @@ void getIncPos(unsigned *include, Qseqs *seq, Qseqs *ref, unsigned proxi) {
 	for(i = 0; i < len; ++i) {
 		c = *++cPtr;
 		r = *++rPtr;
+		/* mask position */
+		if(c != r || c == 4) {
+			/* unknown base */
+			if(c == 4 || r == 4) {
+				/* mask position */
+				include[i >> 5] &= (UINT_MAX ^ (1 << (31 - (i & 31))));
+			}
+			
+			/* check proximity */
+			if(i - lastSNP < proxi) {
+				lastSNP -= proxi;
+				if(lastSNP < 0) {
+					lastSNP = 0;
+				}
+				end = i + proxi;
+				mask = UINT_MAX ^ (1 << (31 - (lastSNP & 31)));
+				includePtr = include + (lastSNP >> 5);
+				while(lastSNP < end) {
+					if((*includePtr &= mask)) {
+						if(mask & 1) {
+							mask = (mask >> 1) | topBit;
+						} else {
+							++includePtr;
+							mask = UINT_MAX >> 1;
+						}
+						++lastSNP;
+					} else {
+						lastSNP = ((lastSNP >> 5) + 1) << 5;
+						++includePtr;
+						mask = UINT_MAX >> 1;
+					}
+				}
+			}
+			
+			/* mark position as the last seen SNP */
+			lastSNP = i;
+		}
+	}
+}
+
+void getIncPosInsig(unsigned *include, Qseqs *seq, Qseqs *ref, unsigned proxi) {
+	
+	int lastSNP;
+	unsigned i, end, len, mask, topBit, *includePtr;
+	unsigned char *cPtr, *rPtr, c, r;
+	
+	topBit = UINT_MAX ^ (UINT_MAX >> 1);
+	len = seq->len;
+	lastSNP = -1;
+	cPtr = seq->seq - 1;
+	rPtr = ref->seq - 1;
+	for(i = 0; i < len; ++i) {
+		c = *++cPtr;
+		r = *++rPtr;
 		if(c == 4 || r == 4) {
 			/* mask unknown position */
 			include[i >> 5] &= (0xFFFFFFFF ^ (1 << (31 - (i & 31))));
@@ -158,47 +214,6 @@ void getIncPos(unsigned *include, Qseqs *seq, Qseqs *ref, unsigned proxi) {
 			/* mark position as the last seen SNP */
 			lastSNP = i;
 		}
-		
-		/* here */
-		/* mask between insignificants as well
-		// mask position
-		if(c != r || c == 4) {
-			// unknown base
-			if(c == 4 || r == 4) {
-				// mask position
-				include[i >> 5] &= (UINT_MAX ^ (1 << (31 - (i & 31))));
-			}
-			
-			// check proximity
-			if(i - lastSNP < proxi) {
-				lastSNP -= proxi;
-				if(lastSNP < 0) {
-					lastSNP = 0;
-				}
-				end = i + proxi;
-				mask = UINT_MAX ^ (1 << (31 - (lastSNP & 31)));
-				includePtr = include + (lastSNP >> 5);
-				while(lastSNP < end) {
-					if((*includePtr &= mask)) {
-						if(mask & 1) {
-							mask = (mask >> 1) | topBit;
-						} else {
-							++includePtr;
-							mask = UINT_MAX >> 1;
-						}
-						++lastSNP;
-					} else {
-						lastSNP = ((lastSNP >> 5) + 1) << 5;
-						++includePtr;
-						mask = UINT_MAX >> 1;
-					}
-				}
-			}
-			
-			// mark position as the last seen SNP
-			lastSNP = i;
-		}
-		*/
 	}
 }
 

@@ -665,6 +665,9 @@ int main_dist(int argc, char *argv[]) {
 	
 	/* set function variables */
 	zcmp(0, (short unsigned *)(&alpha), 0, 0);
+	if(flag & 8) {
+		getIncPosPtr = &getIncPosInsig;
+	}
 	
 	/* check for required input */
 	if(!numFile && targetTemplate) {

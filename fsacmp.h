@@ -22,9 +22,12 @@
 #include "qseqs.h"
 #define destroyTable(trans)(free(trans - 128))
 
+extern void (*getIncPosPtr)(unsigned*, Qseqs*, Qseqs*, unsigned);
+
 unsigned char * get2BitTable(unsigned flag);
 void initIncPos(unsigned *include, int len);
 void getIncPos(unsigned *include, Qseqs *seq, Qseqs *ref, unsigned proxi);
+void getIncPosInsig(unsigned *include, Qseqs *seq, Qseqs *ref, unsigned proxi);
 void maskProxi(unsigned *include, unsigned *include1, unsigned *include2, long unsigned *seq1, long unsigned *seq2, unsigned len, unsigned proxi);
 int getNpos(unsigned *include, int len);
 unsigned fsacmp(long unsigned *seq1, long unsigned *seq2, unsigned *include, int len);

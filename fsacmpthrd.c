@@ -453,7 +453,7 @@ void * cmpFsaRowThrd(void *arg) {
 			
 			/* get included positions */
 			memcpy(includeseq, includeadd, ((len >> 5) + 1) * sizeof(unsigned));
-			getIncPos(includeseq, seq, ref, proxi);
+			getIncPosPtr(includeseq, seq, ref, proxi);
 			
 			/* convert seq to nibbles */
 			qseq2nibble(seq, seqL);
@@ -535,7 +535,7 @@ int ltdFsaRowThrd(double *D, double *N, char *targetTemplate, char *addfilename,
 	includeadd = smalloc(((seq->size >> 5) + 1) * sizeof(unsigned));
 	addL = smalloc(((seq->size >> 5) + 1) * sizeof(long unsigned));
 	initIncPos(includeadd, len);
-	getIncPos(includeadd, seq, seq, proxi);
+	getIncPosPtr(includeadd, seq, seq, proxi);
 	if(getNpos(includeadd, len) < minLength) {
 		fprintf(stderr, "Template (\"%s\") did not exceed threshold for inclusion:\t%s\n", targetTemplate, addfilename);
 		return 1;

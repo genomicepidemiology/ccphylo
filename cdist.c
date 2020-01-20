@@ -88,7 +88,7 @@ int ltdFsaMatrix_get(Matrix *D, Matrix *N, int numFile, long unsigned **seqs, in
 						initIncPos(*includesPtr, len);
 						qseq2nibble(seq, *++seqsPtr);
 						maskMotifs(*seqsPtr, *includesPtr, len, motif);
-						getIncPos(*includesPtr, seq, seq, proxi);
+						getIncPosPtr(*includesPtr, seq, seq, proxi);
 						if(getNpos(*includesPtr, len) < minLength) {
 							fprintf(stderr, "Template (\"%s\") did not exceed threshold for inclusion:\t%s\n", targetTemplate, *filenames);
 							*includePtr = 0;
@@ -97,7 +97,7 @@ int ltdFsaMatrix_get(Matrix *D, Matrix *N, int numFile, long unsigned **seqs, in
 					} else {
 						qseq2nibble(seq, *++seqsPtr);
 						maskMotifs(*seqsPtr, *includes, len, motif);
-						getIncPos(*includes, seq, ref, proxi);
+						getIncPosPtr(*includes, seq, ref, proxi);
 					}
 				} else {
 					len = seq->len;
@@ -123,7 +123,7 @@ int ltdFsaMatrix_get(Matrix *D, Matrix *N, int numFile, long unsigned **seqs, in
 					initIncPos(*includesPtr, len);
 					qseq2nibble(seq, *++seqsPtr);
 					maskMotifs(*seqsPtr, *includesPtr, len, motif);
-					getIncPos(*includesPtr, seq, seq, proxi);
+					getIncPosPtr(*includesPtr, seq, seq, proxi);
 					
 					if(getNpos(*includesPtr, len) < minLength) {
 						fprintf(stderr, "Template (\"%s\") did not exceed threshold for inclusion:\t%s\n", targetTemplate, *filenames);
@@ -227,7 +227,7 @@ int ltdFsaRow_get(double *D, double *N, FileBuff *infile, char *targetTemplate, 
 	addL = smalloc(((seq->size >> 5) + 1) * sizeof(long unsigned));
 	seqL = smalloc(((seq->size >> 5) + 1) * sizeof(long unsigned));
 	initIncPos(includeadd, len);
-	getIncPos(includeadd, seq, seq, proxi);
+	getIncPosPtr(includeadd, seq, seq, proxi);
 	if(getNpos(includeadd, len) < minLength) {
 		fprintf(stderr, "Template (\"%s\") did not exceed threshold for inclusion:\t%s\n", targetTemplate, addfilename);
 		/* clean */
@@ -268,7 +268,7 @@ int ltdFsaRow_get(double *D, double *N, FileBuff *infile, char *targetTemplate, 
 		
 		/* get included positions */
 		memcpy(includeseq, includeadd, (len / 32 + 1) * sizeof(unsigned));
-		getIncPos(includeseq, seq, seq, proxi);
+		getIncPosPtr(includeseq, seq, seq, proxi);
 		
 		/* convert seq to nibbles */
 		qseq2nibble(seq, seqL);
