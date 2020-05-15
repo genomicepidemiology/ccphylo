@@ -251,7 +251,6 @@ void maskProxi(unsigned *include, unsigned *include1, unsigned *include2, long u
 		
 		/* possiblity for difference(s) */
 		if(proxi && inc && kmer1 != kmer2) {
-			
 			while(inc) {
 				if((inc & 1) && (kmer1 & 3) != (kmer2 & 3)) {
 					/* check proximity */
@@ -259,7 +258,12 @@ void maskProxi(unsigned *include, unsigned *include1, unsigned *include2, long u
 						/* mask prev bases */
 						mask = 0xFFFFFFFF ^ (1 << (31 - (i & 31)));
 						includePtr = includeOrg + (i >> 5);
+						end = lastSNP + 1;
+						/* uncomment if past proxi masking is wanted */
+						/*
 						end = seqlen < lastSNP + proxi ? seqlen : lastSNP + proxi;
+						*/
+						
 						j = i;
 						while(j < end) {
 							*includePtr &= mask;
@@ -278,7 +282,10 @@ void maskProxi(unsigned *include, unsigned *include1, unsigned *include2, long u
 							}
 						}
 						
+						/* uncomment if prior proxi masking is wanted */
+						/*
 						proxiMasking = 1;
+						*/
 					} else if(proxiMasking) {
 						/* mask bases in front of last SNP */
 						j = lastSNP - proxi < 0 ? 0 : lastSNP - proxi;
@@ -300,7 +307,6 @@ void maskProxi(unsigned *include, unsigned *include1, unsigned *include2, long u
 								mask = 0xFFFFFFFF >> 1;
 							}
 						}
-						
 						proxiMasking = 0;
 					}
 					
