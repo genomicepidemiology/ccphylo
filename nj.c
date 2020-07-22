@@ -566,7 +566,7 @@ void updateD(Matrix *D, Vector *sD, unsigned *N, unsigned i, unsigned j, double 
 void updateD_UPGMA(Matrix *D, Vector *sD, unsigned *N, unsigned i, unsigned j, double Li, double Lj) {
 	
 	unsigned k, n, Dn;
-	double dist, sd, D_ik, D_kj, D_ij, *D_i, *D_j, **Dmat, *sDvec;
+	double dist, sd, D_ik, D_kj, *D_i, *D_j, **Dmat, *sDvec;
 	
 	/*
 	UPGMA
@@ -576,7 +576,6 @@ void updateD_UPGMA(Matrix *D, Vector *sD, unsigned *N, unsigned i, unsigned j, d
 	Dmat = D->mat;
 	D_i = Dmat[i];
 	D_j = Dmat[j];
-	D_ij = D_i[j];
 	sDvec = sD->vec;
 	
 	/* prepare upadate on N and sD */
@@ -652,7 +651,7 @@ void updateD_UPGMA(Matrix *D, Vector *sD, unsigned *N, unsigned i, unsigned j, d
 void updateD_FF(Matrix *D, Vector *sD, unsigned *N, unsigned i, unsigned j, double Li, double Lj) {
 	
 	unsigned k, n, Dn;
-	double dist, sd, D_ik, D_kj, D_ij, *D_i, *D_j, **Dmat, *sDvec;
+	double dist, sd, D_ik, D_kj, *D_i, *D_j, **Dmat, *sDvec;
 	
 	/*
 	Furthest First
@@ -662,7 +661,6 @@ void updateD_FF(Matrix *D, Vector *sD, unsigned *N, unsigned i, unsigned j, doub
 	Dmat = D->mat;
 	D_i = Dmat[i];
 	D_j = Dmat[j];
-	D_ij = D_i[j];
 	sDvec = sD->vec;
 	
 	/* prepare upadate on N and sD */
@@ -738,7 +736,7 @@ void updateD_FF(Matrix *D, Vector *sD, unsigned *N, unsigned i, unsigned j, doub
 void updateD_CF(Matrix *D, Vector *sD, unsigned *N, unsigned i, unsigned j, double Li, double Lj) {
 	
 	unsigned k, n, Dn;
-	double dist, sd, D_ik, D_kj, D_ij, *D_i, *D_j, **Dmat, *sDvec;
+	double dist, sd, D_ik, D_kj, *D_i, *D_j, **Dmat, *sDvec;
 	
 	/*
 	Closest First
@@ -748,7 +746,6 @@ void updateD_CF(Matrix *D, Vector *sD, unsigned *N, unsigned i, unsigned j, doub
 	Dmat = D->mat;
 	D_i = Dmat[i];
 	D_j = Dmat[j];
-	D_ij = D_i[j];
 	sDvec = sD->vec;
 	
 	/* prepare upadate on N and sD */
@@ -874,7 +871,7 @@ unsigned * nj(Matrix *D, Vector *sD, unsigned *N, Qseqs **names) {
 
 unsigned * nj_thread(Matrix *D, Vector *sD, unsigned *N, Qseqs **names, int thread_num) {
 	
-	unsigned i, j, mask, shift;
+	unsigned i, j;
 	double Li, Lj;
 	NJthread *threads, *thread;
 	Qseqs *tmp;
@@ -885,8 +882,6 @@ unsigned * nj_thread(Matrix *D, Vector *sD, unsigned *N, Qseqs **names, int thre
 	
 	/* init */
 	N = initSummaD(sD, D, N);
-	mask = UINT_MAX;
-	shift = 8 * sizeof(unsigned);
 	j = 0;
 	
 	/* start threads */
