@@ -17,11 +17,18 @@
  * limitations under the License.
 */
 
+#define _XOPEN_SOURCE 600
 #include <stdlib.h>
+#include <stdio.h>
+#include <sys/mman.h>
+#include <sys/param.h>
 #include "matrix.h"
 #include "pherror.h"
+#include "tmp.h"
 
-Matrix * ltdMatrix_init(unsigned size) {
+Matrix * (*ltdMatrix_init)(unsigned) = &ltdMatrixInit;
+
+Matrix * ltdMatrixInit(unsigned size) {
 	
 	int i;
 	double **ptr, *src;
@@ -31,7 +38,8 @@ Matrix * ltdMatrix_init(unsigned size) {
 	dest->n = 0;
 	dest->size = size;
 	dest->mat = smalloc(size * sizeof(double *));
-	*(dest->mat) = smalloc(size * size * sizeof(double) / 2);
+	*(dest->mat) = smalloc(size * (size - 1) * sizeof(double) / 2);
+	dest->file = 0;
 	
 	/* set matrix rows */
 	ptr = dest->mat;
@@ -46,12 +54,100 @@ Matrix * ltdMatrix_init(unsigned size) {
 	return dest;
 }
 
+Matrix * ltdMatrixMinit(unsigned size) {
+	
+	int i;
+	long unsigned matSize;
+	double **ptr, *src;
+	FILE *tmp;
+	Matrix *dest;
+	
+	dest = smalloc(sizeof(Matrix));
+	dest->n = 0;
+	dest->size = size;
+	dest->mat = smalloc(size * sizeof(double *));
+	tmp = tmpF(0);
+	dest->file = tmp;
+	matSize = size * (size - 1) * sizeof(double) / 2;
+	if(fseek(tmp, matSize - 1, SEEK_SET) || putc(0, tmp) == EOF) {
+		ERROR();
+	}
+	fflush(tmp);
+	fseek(tmp, 0, SEEK_SET);
+	*(dest->mat) = mmap(0, matSize, PROT_READ | PROT_WRITE, MAP_SHARED, fileno(tmp), 0);
+	if(*(dest->mat) == MAP_FAILED) {
+			ERROR();
+	}
+	posix_madvise(*(dest->mat), matSize, POSIX_MADV_SEQUENTIAL);
+	
+	/* set matrix rows */
+	ptr = dest->mat;
+	src = *ptr;
+	i = 0;
+	*ptr++ = src;
+	while(--size) {
+		*ptr++ = src + i;
+		src += i++;
+	}
+	
+	return dest;
+}
+
+void ltdMatrix_mrealloc(Matrix *src, unsigned size) {
+	
+	int i;
+	long unsigned matSize;
+	double **ptr, *mat;
+	FILE *tmp;
+	
+	/* unmap current mapping */
+	matSize = src->size * (src->size - 1) * sizeof(int) / 2;
+	msync(*(src->mat), size, MS_SYNC);
+	munmap(*(src->mat), size);
+	
+	/* reallocate file */
+	tmp = src->file;
+	matSize = size * (size - 1) * sizeof(double) / 2;
+	if(fseek(tmp, matSize - 1, SEEK_SET) || putc(0, tmp) == EOF) {
+		ERROR();
+	}
+	fflush(tmp);
+	fseek(tmp, 0, SEEK_SET);
+	
+	/* map new size */
+	*(src->mat) = mmap(0, matSize, PROT_READ | PROT_WRITE, MAP_SHARED, fileno(tmp), 0);
+	if(*(src->mat) == MAP_FAILED) {
+			ERROR();
+	}
+	posix_madvise(*(src->mat), matSize, POSIX_MADV_SEQUENTIAL);
+	
+	src->mat = realloc(src->mat, size * sizeof(double *));
+	if(!src->mat) {
+		ERROR();
+	}
+	src->size = size;
+	
+	/* set matrix rows */
+	ptr = src->mat;
+	mat = *ptr;
+	i = 0;
+	*ptr++ = mat;
+	while(--size) {
+		*ptr++ = mat + i;
+		mat += i++;
+	}
+}
+
 void ltdMatrix_realloc(Matrix *src, unsigned size) {
 	
 	int i;
 	double **ptr, *mat;
 	
-	*(src->mat) = realloc(*(src->mat), size * size * sizeof(double) / 2);
+	if(src->file) {
+		return ltdMatrix_mrealloc(src, size);
+	}
+	
+	*(src->mat) = realloc(*(src->mat), size * (size - 1) * sizeof(double) / 2);
 	src->mat = realloc(src->mat, size * sizeof(double *));
 	if(!src->mat || !*(src->mat)) {
 		ERROR();
@@ -69,10 +165,31 @@ void ltdMatrix_realloc(Matrix *src, unsigned size) {
 	}
 }
 
+void Matrix_mdestroy(Matrix *src) {
+	
+	long unsigned size;
+	
+	size = src->size * (src->size - 1) * sizeof(int) / 2;
+	if(src) {
+		msync(*(src->mat), size, MS_SYNC);
+		munmap(*(src->mat), size);
+		free(src->mat);
+		fclose(src->file);
+		free(src);
+	}
+}
+
 void Matrix_destroy(Matrix *src) {
 	
-	free(src->mat);
-	free(src);
+	if(src) {
+		if(src->file) {
+			Matrix_mdestroy(src);
+		} else {
+			free(*(src->mat));
+			free(src->mat);
+			free(src);
+		}
+	}
 }
 
 void ltdMatrix_popArrange(Matrix *mat, unsigned pos) {

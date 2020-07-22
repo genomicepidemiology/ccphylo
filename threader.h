@@ -26,6 +26,7 @@
 #define unlock(exclude) (__sync_lock_release(exclude))
 #define wait_atomic(src) while(src) {nanosleep(sleepSpec(100000),NULL);}
 #else
+#include <time.h>
 #include <unistd.h>
 #define lock(exclude) while(__sync_lock_test_and_set(exclude, 1)) {while(*exclude) {usleep(100);}}
 #define lockTime(exclude, spin) while(__sync_lock_test_and_set(exclude, 1)) {while(*exclude) {usleep(spin);}}

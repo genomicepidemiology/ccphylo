@@ -17,18 +17,26 @@
  * limitations under the License.
 */
 
+#include <stdio.h>
+
 #ifndef MATRIX
 typedef struct matrix Matrix;
 struct matrix {
 	int n;
 	int size;
 	double **mat;
+	FILE *file;
 };
 #define MATRIX 1
 #endif
 
-Matrix * ltdMatrix_init(unsigned size);
+extern Matrix * (*ltdMatrix_init)(unsigned);
+
+Matrix * ltdMatrixInit(unsigned size);
+Matrix * ltdMatrixMinit(unsigned size);
+void ltdMatrix_mrealloc(Matrix *src, unsigned size);
 void ltdMatrix_realloc(Matrix *src, unsigned size);
+void Matrix_mdestroy(Matrix *src);
 void Matrix_destroy(Matrix *src);
 void ltdMatrix_popArrange(Matrix *mat, unsigned pos);
 int ltdMatrix_add(Matrix *src);

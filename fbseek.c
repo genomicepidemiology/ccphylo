@@ -30,7 +30,6 @@ TimeStamp * timeStampFileBuff(FileBuff *src, TimeStamp *dest) {
 	z_stream *strm;
 	
 	if(src->buffFileBuff == &BuffgzFileBuff) {
-		/* here */
 		/* deflateCopy does not work -> opt out for gz */
 		return 0;
 	} else if(!dest) {

@@ -17,5 +17,6 @@
  * limitations under the License.
 */
 
-void formTree(char *inputfilename, char *outputfilename, int thread_num);
-int main_tree(int argc, char *argv[]);
+#include <stdio.h>
+
+FILE * tmpF(const char *location);

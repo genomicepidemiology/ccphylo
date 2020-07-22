@@ -17,7 +17,9 @@
  * limitations under the License.
 */
 
+#define _XOPEN_SOURCE 600
 #include <limits.h>
+#include <pthread.h>
 #include <stdlib.h>
 #include "matrix.h"
 #include "nj.h"
@@ -25,7 +27,12 @@
 #include "qseqs.h"
 #include "pherror.h"
 #include "str.h"
+#include "threader.h"
 #include "vector.h"
+
+void (*updateDptr)(Matrix *, Vector *, unsigned *, unsigned, unsigned, double, double) = &updateD;
+long unsigned (*minDist)(Matrix *, Vector *, unsigned *) = &initQ;
+void * (*minDist_thread)(void *) = &initQ_thread;
 
 void limbLength(double *Li, double *Lj, unsigned i, unsigned j, Vector *sD, unsigned *N, double D_ij) {
 	
@@ -110,11 +117,12 @@ unsigned * initSummaD(Vector *sD, Matrix *D, unsigned *N) {
 	return N;
 }
 
-long unsigned initQ(Matrix *D, Matrix *Q, Vector *sD, unsigned *N) {
+long unsigned initQ(Matrix *D, Vector *sD, unsigned *N) {
 	
 	int i, j, mi, mj;
+	unsigned N_i, *Ni, *Nj;
 	long unsigned pos;
-	double dist, min, *Dptr, *Qptr, *sDvec;
+	double dist, min, Q, sD_i, *sDi, *sDj, *Dptr;
 	
 	/*
 	Q(i,j) = (n(i) + n(j) - 4) / 2 * D(i,j) - summa(d(i,k)) - summa(d(k,j));
@@ -123,29 +131,188 @@ long unsigned initQ(Matrix *D, Matrix *Q, Vector *sD, unsigned *N) {
 	Q(i,j) = (n - 2) * D(i,j) - summa(d(i,k)) - summa(d(k,j));
 	*/
 	
-	/* alloc */
-	if(Q->size < (Q->n = D->n)) {
-		ltdMatrix_realloc(Q, Q->n);
+	/* init */
+	mi = 0;
+	mj = 0;
+	min = 1;
+	Dptr = *(D->mat) - 1;
+	sDi = sD->vec;
+	Ni = N;
+	i = 0;
+	while(++i < D->n) {
+		N_i = *++Ni;
+		Nj = N - 1;
+		sD_i = *++sDi;
+		sDj = sD->vec - 1;
+		j = -1;
+		while(++j < i) {
+			if(0 <= (dist = *++Dptr)) {
+				dist *= ((N_i + *++Nj - 4) >> 1);
+				if((Q = dist - sD_i - *++sDj) < min) {
+					min = Q;
+					mi = i;
+					mj = j;
+				}
+			} /* else {
+				// missing
+				Q = 1;
+			} */
+		}
 	}
+	
+	/* save pos */
+	pos = 0;
+	pos |= mi;
+	pos <<= sizeof(unsigned) * 8;
+	pos |= mj;
+	
+	return pos;
+}
+
+double initQchunk(Matrix *D, double *sD, unsigned *N, double min, int *mi, int *mj, int i, int j) {
+	
+	const int chunk = 65536;
+	int end;
+	unsigned N_i;
+	double sD_i, dist, Q, *Dptr;
+	
+	/* init */
+	end = (j + chunk < i) ? (j + chunk) : i;
+	N_i = N[i];
+	N += --j;
+	sD_i = sD[i];
+	sD += j;
+	Dptr = D->mat[i] + j;
+	
+	/* get chunk */
+	while(++j < end) {
+		if(0 <= (dist = *++Dptr)) {
+			dist *= ((N_i + *++N - 4) >> 1);
+			if((Q = dist - sD_i - *++sD) < min) {
+				min = Q;
+				*mi = i;
+				*mj = j;
+			}
+		}
+	}
+	
+	return min;
+}
+
+void * initQ_thread(void *arg) {
+	
+	const int chunk = 65536;
+	static volatile int thread_begin = 1, thread_wait, lock[1] = {0};
+	static int thread_num = 1, next_i, next_j, Mi, Mj;
+	static double Min;
+	NJthread *thread = arg;
+	int i, j, mi, mj;
+	unsigned *N;
+	double min, *sDvec;
+	Matrix *D;
+	Vector *sD;
+	
+	/*
+	Q(i,j) = (n(i) + n(j) - 4) / 2 * D(i,j) - summa(d(i,k)) - summa(d(k,j));
+	sD(i) = summa(d(i,k));
+	org:
+	Q(i,j) = (n - 2) * D(i,j) - summa(d(i,k)) - summa(d(k,j));
+	*/
+	
+	/* init */
+	if(!thread) {
+		wait_atomic((thread_begin != thread_num));
+		thread_num = 0;
+		thread_begin = 0;
+		return NULL;
+	}
+	D = thread->D;
+	sD = thread->sD;
+	N = thread->N;
+	if(thread->min) {
+		lock(lock);
+		/* init start */
+		Mi = 0;
+		Mj = 0;
+		Min = 1;
+		next_i = 1;
+		next_j = 0;
+		wait_atomic((thread_begin != thread_num));
+		thread_num = thread->num;
+		thread_wait = thread_num;
+		thread_begin = 0;
+		unlock(lock);
+	}
+	
+	do {
+		wait_atomic(thread_begin);
+		
+		/* terminate */
+		if(!thread_num) {
+			return NULL;
+		}
+		
+		/* init */
+		i = 0;
+		mi = 0;
+		mj = 0;
+		min = 1;
+		sDvec = sD->vec;
+		
+		/* fill in chunks */
+		while(i < D->n) {
+			/* get next chunk */
+			lockTime(lock, 2);
+			i = next_i;
+			j = next_j;
+			if(i <= (next_j += chunk)) {
+				++next_i;
+				next_j = 0;
+			}
+			unlock(lock);
+			
+			/* init chunk */
+			if(i < D->n) {
+				min = initQchunk(D, sDvec, N, min, &mi, &mj, i, j);
+			}
+		}
+		
+		/* check min */
+		lockTime(lock, 2);
+		if(min < Min) {
+			Min = min;
+			Mi = mi;
+			Mj = mj;
+		}
+		--thread_wait;
+		unlock(lock);
+		wait_atomic(thread_wait);
+		__sync_add_and_fetch(&thread_begin, 1);
+	} while(!thread->min);
+	
+	thread->min = Min;
+	thread->mi = Mi;
+	thread->mj = Mj;
+	
+	return NULL;
+}
+
+long unsigned minD(Matrix *D, Vector *sD, unsigned *N) {
+	
+	unsigned i, j, mi, mj;
+	long unsigned pos;
+	double min, *Dptr;
 	
 	mi = 0;
 	mj = 0;
 	min = 1;
 	Dptr = *(D->mat) - 1;
-	Qptr = *(Q->mat) - 1;
-	sDvec = sD->vec;
-	for(i = 1; i < Q->n; ++i) {
-		for(j = 0; j < i; j++) {
-			if(0 <= (dist = *++Dptr)) {
-				dist *= (N[i] + N[j] - 4) / 2;
-				if((*++Qptr = dist - sDvec[i] - sDvec[j]) < min) {
-					min = *Qptr;
-					mi = i;
-					mj = j;
-				}
-			} else {
-				/* missing */
-				*++Qptr = 1;
+	for(i = 1; i < D->n; ++i) {
+		for(j = 0; j < i; ++j) {
+			if(0 <= *++Dptr && *Dptr <= min && (*Dptr < min || (N[mi] + N[mj]) < (N[i] + N[j]))) {
+				min = *Dptr;
+				mi = i;
+				mj = j;
 			}
 		}
 	}
@@ -157,6 +324,119 @@ long unsigned initQ(Matrix *D, Matrix *Q, Vector *sD, unsigned *N) {
 	pos |= mj;
 	
 	return pos;
+}
+
+double minDchunk(Matrix *D, unsigned *N, double min, int *mi, int *mj, int i, int j) {
+	
+	const int chunk = 65536;
+	int end;
+	unsigned Nmin;
+	double *Dptr;
+	
+	/* init */
+	end = (j + chunk < i) ? (j + chunk) : i;
+	Dptr = D->mat[i] + --j;
+	Nmin = 0;
+	
+	/* get chunk */
+	while(++j < end) {
+		if(0 <= *++Dptr && *Dptr <= min && (*Dptr < min || (Nmin) < (N[i] + N[j]))) {
+			min = *Dptr;
+			*mi = i;
+			*mj = j;
+			Nmin = N[i] + N[j];
+		}
+	}
+	
+	return min;
+}
+
+void * minD_thread(void *arg) {
+	
+	const int chunk = 65536;
+	static volatile int thread_begin = 1, thread_wait, lock[1] = {0};
+	static int thread_num = 1, next_i, next_j, Mi, Mj;
+	static double Min;
+	NJthread *thread = arg;
+	int i, j, mi, mj;
+	unsigned *N;
+	double min;
+	Matrix *D;
+	
+	/* init */
+	if(!thread) {
+		wait_atomic((thread_begin != thread_num));
+		thread_num = 0;
+		thread_begin = 0;
+		return NULL;
+	}
+	D = thread->D;
+	N = thread->N;
+	if(thread->min) {
+		lock(lock);
+		/* init start */
+		Mi = 0;
+		Mj = 0;
+		Min = 1;
+		next_i = 1;
+		next_j = 0;
+		wait_atomic((thread_begin != thread_num));
+		thread_num = thread->num;
+		thread_wait = thread_num;
+		thread_begin = 0;
+		unlock(lock);
+	}
+	
+	do {
+		wait_atomic(thread_begin);
+		
+		/* terminate */
+		if(!thread_num) {
+			return NULL;
+		}
+		
+		/* init */
+		i = 0;
+		mi = 0;
+		mj = 0;
+		min = 1;
+		
+		/* fill in chunks */
+		while(i < D->n) {
+			/* get next chunk */
+			lockTime(lock, 2);
+			i = next_i;
+			j = next_j;
+			if(i <= (next_j += chunk)) {
+				++next_i;
+				next_j = 0;
+			}
+			unlock(lock);
+			
+			/* init chunk */
+			if(i < D->n) {
+				min = minDchunk(D, N, min, &mi, &mj, i, j);
+			}
+		}
+		
+		/* check min */
+		lockTime(lock, 2);
+		if(min < Min) {
+			Min = min;
+			Mi = mi;
+			Mj = mj;
+		}
+		--thread_wait;
+		unlock(lock);
+		wait_atomic(thread_wait);
+		__sync_add_and_fetch(&thread_begin, 1);
+	} while(!thread->min);
+	
+	thread->min = Min;
+	thread->mi = Mi;
+	thread->mj = Mj;
+	
+	return NULL;
 }
 
 long unsigned minPair(Matrix *Q) {
@@ -283,7 +563,265 @@ void updateD(Matrix *D, Vector *sD, unsigned *N, unsigned i, unsigned j, double 
 	sDvec[j] = sd;
 }
 
-unsigned * nj(Matrix *D, Matrix *Q, Vector *sD, unsigned *N, Qseqs **names) {
+void updateD_UPGMA(Matrix *D, Vector *sD, unsigned *N, unsigned i, unsigned j, double Li, double Lj) {
+	
+	unsigned k, n, Dn;
+	double dist, sd, D_ik, D_kj, D_ij, *D_i, *D_j, **Dmat, *sDvec;
+	
+	/*
+	UPGMA
+	*/
+	
+	/* init */
+	Dmat = D->mat;
+	D_i = Dmat[i];
+	D_j = Dmat[j];
+	D_ij = D_i[j];
+	sDvec = sD->vec;
+	
+	/* prepare upadate on N and sD */
+	n = 1;
+	sd = 0;
+	
+	/* update (first) row */
+	for(k = 0; k < j; ++k) {
+		D_ik = D_i[k];
+		D_kj = D_j[k];
+		if(0 <= D_ik && 0 <= D_kj) {
+			dist = (D_ik + D_kj) / 2;
+			D_j[k] = dist;
+			/* update N and sD */
+			sDvec[k] -= (D_kj - dist);
+			sd += dist;
+			--N[k];
+			++n;
+		} else if(0 <= D_ik) {
+			D_j[k] = D_ik;
+			/* update N and sD, sD(k) is new */
+			sDvec[k] += D_ik;
+			sd += D_ik;
+			++n;
+		} else if(0 <= D_kj) {
+			/* update N and sD */
+			--N[k];
+			sd += D_kj;
+			++n;
+		}
+		sDvec[k] -= D_ik;
+	}
+	
+	/* update jth column */
+	Dn = i;
+	while(Dn != D->n) {
+		if(k == Dn) {
+			Dn = D->n;
+		}
+		while(++k < Dn) {
+			D_ik = k < i ? Dmat[i][k] : Dmat[k][i];
+			D_kj = Dmat[k][j];
+			if(0 <= D_ik && 0 <= D_kj) {
+				dist = (D_kj + D_ik) / 2;
+				Dmat[k][j] = dist;
+				
+				/* update N and sD */
+				sDvec[k] -= (D_kj - dist);
+				sd += dist;
+				--N[k];
+				++n;
+			} else if(0 <= D_ik) {
+				Dmat[k][j] = D_ik;
+				/* update N and sD, sD(k) is new */
+				sDvec[k] += D_ik;
+				sd += D_ik;
+				++n;
+			} else if(0 <= D_kj) {
+				/* update N and sD */
+				--N[k];
+				sd += D_kj;
+				++n;
+			}
+			sDvec[k] -= D_ik;
+		}
+	}
+	
+	/* update N and sD for row j*/
+	N[j] = n;
+	sDvec[j] = sd;
+}
+
+void updateD_FF(Matrix *D, Vector *sD, unsigned *N, unsigned i, unsigned j, double Li, double Lj) {
+	
+	unsigned k, n, Dn;
+	double dist, sd, D_ik, D_kj, D_ij, *D_i, *D_j, **Dmat, *sDvec;
+	
+	/*
+	Furthest First
+	*/
+	
+	/* init */
+	Dmat = D->mat;
+	D_i = Dmat[i];
+	D_j = Dmat[j];
+	D_ij = D_i[j];
+	sDvec = sD->vec;
+	
+	/* prepare upadate on N and sD */
+	n = 1;
+	sd = 0;
+	
+	/* update (first) row */
+	for(k = 0; k < j; ++k) {
+		D_ik = D_i[k];
+		D_kj = D_j[k];
+		if(0 <= D_ik && 0 <= D_kj) {
+			dist = D_ik < D_kj ? D_kj : D_ik;
+			D_j[k] = dist;
+			/* update N and sD */
+			sDvec[k] -= (D_kj - dist);
+			sd += dist;
+			--N[k];
+			++n;
+		} else if(0 <= D_ik) {
+			D_j[k] = D_ik;
+			/* update N and sD, sD(k) is new */
+			sDvec[k] += D_ik;
+			sd += D_ik;
+			++n;
+		} else if(0 <= D_kj) {
+			/* update N and sD */
+			--N[k];
+			sd += D_kj;
+			++n;
+		}
+		sDvec[k] -= D_ik;
+	}
+	
+	/* update jth column */
+	Dn = i;
+	while(Dn != D->n) {
+		if(k == Dn) {
+			Dn = D->n;
+		}
+		while(++k < Dn) {
+			D_ik = k < i ? Dmat[i][k] : Dmat[k][i];
+			D_kj = Dmat[k][j];
+			if(0 <= D_ik && 0 <= D_kj) {
+				dist = D_ik < D_kj ? D_kj : D_ik;
+				Dmat[k][j] = dist;
+				
+				/* update N and sD */
+				sDvec[k] -= (D_kj - dist);
+				sd += dist;
+				--N[k];
+				++n;
+			} else if(0 <= D_ik) {
+				Dmat[k][j] = D_ik;
+				/* update N and sD, sD(k) is new */
+				sDvec[k] += D_ik;
+				sd += D_ik;
+				++n;
+			} else if(0 <= D_kj) {
+				/* update N and sD */
+				--N[k];
+				sd += D_kj;
+				++n;
+			}
+			sDvec[k] -= D_ik;
+		}
+	}
+	
+	/* update N and sD for row j*/
+	N[j] = n;
+	sDvec[j] = sd;
+}
+
+void updateD_CF(Matrix *D, Vector *sD, unsigned *N, unsigned i, unsigned j, double Li, double Lj) {
+	
+	unsigned k, n, Dn;
+	double dist, sd, D_ik, D_kj, D_ij, *D_i, *D_j, **Dmat, *sDvec;
+	
+	/*
+	Closest First
+	*/
+	
+	/* init */
+	Dmat = D->mat;
+	D_i = Dmat[i];
+	D_j = Dmat[j];
+	D_ij = D_i[j];
+	sDvec = sD->vec;
+	
+	/* prepare upadate on N and sD */
+	n = 1;
+	sd = 0;
+	
+	/* update (first) row */
+	for(k = 0; k < j; ++k) {
+		D_ik = D_i[k];
+		D_kj = D_j[k];
+		if(0 <= D_ik && 0 <= D_kj) {
+			dist = D_ik < D_kj ? D_ik : D_kj;
+			D_j[k] = dist;
+			/* update N and sD */
+			sDvec[k] -= (D_kj - dist);
+			sd += dist;
+			--N[k];
+			++n;
+		} else if(0 <= D_ik) {
+			D_j[k] = D_ik;
+			/* update N and sD, sD(k) is new */
+			sDvec[k] += D_ik;
+			sd += D_ik;
+			++n;
+		} else if(0 <= D_kj) {
+			/* update N and sD */
+			--N[k];
+			sd += D_kj;
+			++n;
+		}
+		sDvec[k] -= D_ik;
+	}
+	
+	/* update jth column */
+	Dn = i;
+	while(Dn != D->n) {
+		if(k == Dn) {
+			Dn = D->n;
+		}
+		while(++k < Dn) {
+			D_ik = k < i ? Dmat[i][k] : Dmat[k][i];
+			D_kj = Dmat[k][j];
+			if(0 <= D_ik && 0 <= D_kj) {
+				dist = D_ik < D_kj ? D_ik : D_kj;
+				Dmat[k][j] = dist < 0 ? 0 : dist;
+				
+				/* update N and sD */
+				sDvec[k] -= (D_kj - dist);
+				sd += dist;
+				--N[k];
+				++n;
+			} else if(0 <= D_ik) {
+				Dmat[k][j] = D_ik;
+				/* update N and sD, sD(k) is new */
+				sDvec[k] += D_ik;
+				sd += D_ik;
+				++n;
+			} else if(0 <= D_kj) {
+				/* update N and sD */
+				--N[k];
+				sd += D_kj;
+				++n;
+			}
+			sDvec[k] -= D_ik;
+		}
+	}
+	
+	/* update N and sD for row j*/
+	N[j] = n;
+	sDvec[j] = sd;
+}
+
+unsigned * nj(Matrix *D, Vector *sD, unsigned *N, Qseqs **names) {
 	
 	unsigned i, j, mask, shift;
 	long unsigned pair;
@@ -296,7 +834,7 @@ unsigned * nj(Matrix *D, Matrix *Q, Vector *sD, unsigned *N, Qseqs **names) {
 	shift = 8 * sizeof(unsigned);
 	
 	/* get pairs */
-	while(D->n != 2 && (pair = initQ(D, Q, sD, N))) {
+	while(D->n != 2 && (pair = minDist(D, sD, N))) {
 		j = pair & mask;
 		i = pair >> shift;
 		
@@ -307,7 +845,7 @@ unsigned * nj(Matrix *D, Matrix *Q, Vector *sD, unsigned *N, Qseqs **names) {
 		formNode(names[j], names[i], Lj, Li);
 		
 		/* update D and vectors */
-		updateD(D, sD, N, i, j, Li, Lj);
+		updateDptr(D, sD, N, i, j, Li, Lj);
 		
 		/* rearrange */
 		ltdMatrix_popArrange(D, i);
@@ -322,13 +860,105 @@ unsigned * nj(Matrix *D, Matrix *Q, Vector *sD, unsigned *N, Qseqs **names) {
 		/* form remaining nodes with undefined distance */
 		while(D->n != 1) {
 			/* form leaf */
-			formLastNode(names[0], names[--D->n], -1.0);
+			formLastNode(*names, names[--D->n], -1.0);
 		}
 	}
 	
 	/* verify valid newick format */
 	if(*((*names)->seq) != '(') {
 		byteshift((*names)->seq, (*names)->len, '(');
+	}
+	
+	return N;
+}
+
+unsigned * nj_thread(Matrix *D, Vector *sD, unsigned *N, Qseqs **names, int thread_num) {
+	
+	unsigned i, j, mask, shift;
+	double Li, Lj;
+	NJthread *threads, *thread;
+	Qseqs *tmp;
+	
+	if(thread_num == 1) {
+		return nj(D, sD, N, names);
+	}
+	
+	/* init */
+	N = initSummaD(sD, D, N);
+	mask = UINT_MAX;
+	shift = 8 * sizeof(unsigned);
+	j = 0;
+	
+	/* start threads */
+	threads = 0;
+	thread = threads;
+	i = thread_num;
+	while(i) {
+		thread = smalloc(sizeof(NJthread));
+		thread->D = D;
+		thread->sD = sD;
+		thread->N = N;
+		thread->min = 0;
+		thread->mi = 0;
+		thread->mj = 0;
+		thread->num = thread_num;
+		thread->next = threads;
+		threads = thread;
+		if(--i && (errno = pthread_create(&thread->id, NULL, &initQ_thread, thread))) {
+			fprintf(stderr, "Error: %d (%s)\n", errno, strerror(errno));
+			fprintf(stderr, "Will continue with %d threads.\n", thread_num - i);
+			i = 0;
+		}
+	}
+	thread->id = 0;
+	thread->min = 1;
+	
+	/* get pairs */
+	while(D->n != 2 && (minDist_thread(thread) || ((i = thread->mi) | (j = thread->mj)))) {
+		/* get limbs */
+		limbLength(&Li, &Lj, i, j, sD, N, D->mat[i][j]);
+		
+		/* form leaf */
+		formNode(names[j], names[i], Lj, Li);
+		
+		/* update D and vectors */
+		updateDptr(D, sD, N, i, j, Li, Lj);
+		
+		/* rearrange */
+		ltdMatrix_popArrange(D, i);
+		sD->vec[i] = sD->vec[--sD->n];
+		N[i] = N[D->n];
+		exchange(names[i], names[D->n], tmp);
+		
+		threads->min = 1;
+	}
+	
+	if(D->n == 2) {
+		formLastNode(*names, names[1], **(D->mat));
+	} else {
+		/* form remaining nodes with undefined distance */
+		while(D->n != 1) {
+			/* form leaf */
+			formLastNode(*names, names[--D->n], -1.0);
+		}
+	}
+	
+	/* verify valid newick format */
+	if(*((*names)->seq) != '(') {
+		byteshift((*names)->seq, (*names)->len, '(');
+	}
+	
+	/* collect threads */
+	initQ_thread(0);
+	thread = threads->next;
+	free(threads);
+	while(thread) {
+		threads = thread->next;
+		if((errno = pthread_join(thread->id, NULL))) {
+			ERROR();
+		}
+		free(thread);
+		thread = threads;
 	}
 	
 	return N;
