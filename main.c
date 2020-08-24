@@ -24,6 +24,7 @@
 #include "nwck2phy.h"
 #include "rarify.h"
 #include "tree.h"
+#include "trim.h"
 #include "union.h"
 #include "version.h"
 
@@ -37,6 +38,7 @@ static int helpMessage(FILE *out) {
 	fprintf(out, "# %16s\t%-32s\n", "merge", "merge distance matrices");
 	fprintf(out, "# %16s\t%-32s\n", "nwck2phy", "Convert newick file to phylip distance file");
 	fprintf(out, "# %16s\t%-32s\n", "rarify", "Rarify a KMA matrix");
+	fprintf(out, "# %16s\t%-32s\n", "trim", "Trim multiple alignments");
 	fprintf(out, "# %16s\t%-32s\n", "-c", "Citation");
 	fprintf(out, "# %16s\t%-32s\n", "-v", "Version");
 	fprintf(out, "# %16s\t%-32s\n", "-h", "Shows this helpmessage");
@@ -63,6 +65,8 @@ int main(int argc, char *argv[]) {
 		return main_nwck2phy(argc, argv);
 	} else if(strcmp(arg, "rarify") == 0 || strcmp(arg, "rarefy") == 0) {
 		return main_rarify(argc, argv);
+	} else if(strcmp(arg, "trim") == 0) {
+		return main_trim(argc, argv);
 	} else if(strcmp(arg, "-c") == 0) {
 		fprintf(stdout, "https://bitbucket.org/genomicepidemiology/ccphylo/src/master/\n");
 	} else if(strcmp(arg, "-v") == 0) {

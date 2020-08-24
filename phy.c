@@ -27,7 +27,7 @@
 #include "phy.h"
 #include "qseqs.h"
 
-static char * stripDir(char *str) {
+char * stripDir(char *str) {
 	
 	char *ptr;
 	

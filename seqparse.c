@@ -112,7 +112,7 @@ int FileBuffgetFsaSeq(FileBuff *src, Qseqs *qseq, unsigned char *trans) {
 	size = qseq->size;
 	while(*buff != '>') {
 		*seq = trans[*buff++];
-		if(((*seq) >> 3) == 0) {
+		if(*seq < 32) {
 			if(--size == 0) {
 				size = qseq->size;
 				qseq->size <<= 1;

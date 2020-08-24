@@ -37,10 +37,9 @@ unsigned char * get2BitTable(unsigned flag) {
 	i = 385;
 	--to2Bit;
 	while(--i) {
-		*++to2Bit = 8;
+		*++to2Bit = 32;
 	}
 	to2Bit -= 255;
-	to2Bit['\n'] = 16;
 	to2Bit['A'] = 0;
 	to2Bit['C'] = 1;
 	to2Bit['G'] = 2;
@@ -90,6 +89,77 @@ unsigned char * get2BitTable(unsigned flag) {
 	return to2Bit;
 }
 
+unsigned char * getIupacBitTable(unsigned flag) {
+	
+	int i;
+	unsigned char *to2Bit;
+	
+	to2Bit = smalloc(384); /* 128 * 3 = 384 -> OS independent */
+	i = 385;
+	--to2Bit;
+	while(--i) {
+		*++to2Bit = 32;
+	}
+	to2Bit -= 255;
+	to2Bit['A'] = 0;
+	to2Bit['C'] = 1;
+	to2Bit['G'] = 2;
+	to2Bit['T'] = 3;
+	to2Bit['U'] = 3;
+	to2Bit['N'] = 4;
+	to2Bit['-'] = 5;
+	to2Bit['R'] = 6;
+	to2Bit['Y'] = 7;
+	to2Bit['S'] = 8;
+	to2Bit['W'] = 9;
+	to2Bit['K'] = 10;
+	to2Bit['M'] = 11;
+	to2Bit['B'] = 12;
+	to2Bit['D'] = 13;
+	to2Bit['H'] = 14;
+	to2Bit['V'] = 15;
+	to2Bit['X'] = 4;
+	/* include insignificant bases */
+	if(flag & 1) {
+		to2Bit['a'] = 4;
+		to2Bit['c'] = 4;
+		to2Bit['g'] = 4;
+		to2Bit['t'] = 4;
+		to2Bit['u'] = 4;
+		to2Bit['n'] = 4;
+		to2Bit['r'] = 4;
+		to2Bit['y'] = 4;
+		to2Bit['s'] = 4;
+		to2Bit['w'] = 4;
+		to2Bit['k'] = 4;
+		to2Bit['m'] = 4;
+		to2Bit['b'] = 4;
+		to2Bit['d'] = 4;
+		to2Bit['h'] = 4;
+		to2Bit['v'] = 4;
+	} else {
+		to2Bit['a'] = 0 | 16;
+		to2Bit['c'] = 1 | 16;
+		to2Bit['g'] = 2 | 16;
+		to2Bit['t'] = 3 | 16;
+		to2Bit['u'] = 3 | 16;
+		to2Bit['n'] = 4;
+		to2Bit['r'] = 6 | 16;
+		to2Bit['y'] = 7 | 16;
+		to2Bit['s'] = 8 | 16;
+		to2Bit['w'] = 9 | 16;
+		to2Bit['k'] = 10 | 16;
+		to2Bit['m'] = 11 | 16;
+		to2Bit['b'] = 12 | 16;
+		to2Bit['d'] = 13 | 16;
+		to2Bit['h'] = 14 | 16;
+		to2Bit['v'] = 15 | 16;
+	}
+	to2Bit['x'] = 4;
+	
+	return to2Bit;
+}
+
 void initIncPos(unsigned *include, int len) {
 	
 	int complen;
@@ -122,20 +192,25 @@ void getIncPos(unsigned *include, Qseqs *seq, Qseqs *ref, unsigned proxi) {
 		c = *++cPtr;
 		r = *++rPtr;
 		/* mask position */
-		if(c != r || c == 4) {
+		if(c != r || c == 4 || (c & 16)) {
 			/* unknown base */
 			if(c == 4 || r == 4) {
 				/* mask position */
 				include[i >> 5] &= (UINT_MAX ^ (1 << (31 - (i & 31))));
+			} else if((c & 16) || (r & 16)) {
+				/* mask position */
+				include[i >> 5] &= (UINT_MAX ^ (1 << (31 - (i & 31))));
+				*cPtr &= 15;
+				*rPtr &= 15;
 			}
 			
 			/* check proximity */
-			if(i - lastSNP < proxi) {
-				lastSNP -= proxi;
-				if(lastSNP < 0) {
-					lastSNP = 0;
-				}
-				end = i + proxi;
+			if(i - lastSNP <= proxi) {
+				/*
+				lastSNP = (lastSNP - proxi) < 0 ? 0 : (lastSNP - proxi);
+				end = len < i + proxi + 1 ? len : i + proxi + 1;
+				*/
+				end = i + 1;
 				mask = UINT_MAX ^ (1 << (31 - (lastSNP & 31)));
 				includePtr = include + (lastSNP >> 5);
 				while(lastSNP < end) {
@@ -180,9 +255,12 @@ void getIncPosInsig(unsigned *include, Qseqs *seq, Qseqs *ref, unsigned proxi) {
 			include[i >> 5] &= (0xFFFFFFFF ^ (1 << (31 - (i & 31))));
 		} else if(c != r) {
 			/* check proximity */
-			if(i - lastSNP < proxi) {
+			if(i - lastSNP <= proxi) {
+				/*
 				lastSNP = (lastSNP - proxi) < 0 ? 0 : (lastSNP - proxi);
-				end = len < i + proxi ? len : i + proxi;
+				end = len < i + proxi + 1 ? len : i + proxi + 1;
+				*/
+				end = i + 1;
 				mask = 0xFFFFFFFF ^ (1 << (31 - (lastSNP & 31)));
 				includePtr = include + (lastSNP >> 5);
 				while(lastSNP < end) {
@@ -254,7 +332,7 @@ void maskProxi(unsigned *include, unsigned *include1, unsigned *include2, long u
 			while(inc) {
 				if((inc & 1) && (kmer1 & 3) != (kmer2 & 3)) {
 					/* check proximity */
-					if(lastSNP - i < proxi) {
+					if(lastSNP - i <= proxi) {
 						/* mask prev bases */
 						mask = 0xFFFFFFFF ^ (1 << (31 - (i & 31)));
 						includePtr = includeOrg + (i >> 5);

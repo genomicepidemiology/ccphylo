@@ -25,6 +25,7 @@
 extern void (*getIncPosPtr)(unsigned*, Qseqs*, Qseqs*, unsigned);
 
 unsigned char * get2BitTable(unsigned flag);
+unsigned char * getIupacBitTable(unsigned flag);
 void initIncPos(unsigned *include, int len);
 void getIncPos(unsigned *include, Qseqs *seq, Qseqs *ref, unsigned proxi);
 void getIncPosInsig(unsigned *include, Qseqs *seq, Qseqs *ref, unsigned proxi);

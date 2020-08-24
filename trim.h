@@ -17,14 +17,6 @@
  * limitations under the License.
 */
 
-#include <stdio.h>
-#include "filebuff.h"
-#include "matrix.h"
-#include "qseqs.h"
-
-char * stripDir(char *str);
-void printphy(FILE *outfile, Matrix *src, char **names, unsigned char *include, char *comment, unsigned format);
-void printphyUpdate(FILE *outfile, int n, char *name, double *D, unsigned format);
-Qseqs ** loadPhy(Matrix *src, Qseqs **names, Qseqs *header, FileBuff *infile);
-int getSizePhy(FileBuff *infile);
-Qseqs ** getFilenamesPhy(char *path, int n, FileBuff *infile);
+void printTrimFsa(char *filename, unsigned char *seq, int len, unsigned *includes, int flag);
+void fsaTrim(int numFile, char *targetTemplate, char **filenames, unsigned minLength, double minCov, unsigned flag, unsigned proxi, char *methfilename);
+int main_trim(int argc, char *argv[]);
