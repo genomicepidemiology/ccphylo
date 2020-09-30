@@ -38,6 +38,8 @@ struct njThread {
 #define NJ 1
 #endif
 
+extern double (*initQchunkPtr)(Matrix *, double*, unsigned*, double, int*, int*, int, int);
+extern double (*minDchunkPtr)(Matrix *, unsigned*, double, int*, int*, int, int);
 extern void (*updateDptr)(Matrix *, Vector *, unsigned *, unsigned, unsigned, double, double);
 extern long unsigned (*minDist)(Matrix *, Vector *, unsigned *);
 extern void * (*minDist_thread)(void *);
@@ -46,9 +48,13 @@ void limbLength(double *Li, double *Lj, unsigned i, unsigned j, Vector *sD, unsi
 unsigned * initSummaD(Vector *sD, Matrix *D, unsigned *N);
 long unsigned initQ(Matrix *D, Vector *sD, unsigned *N);
 double initQchunk(Matrix *D, double *sD, unsigned *N, double min, int *mi, int *mj, int i, int j);
+long unsigned initQ_MN(Matrix *D, Vector *sD, unsigned *N);
+double initQ_MNchunk(Matrix *D, double *sD, unsigned *N, double max, int *mi, int *mj, int i, int j);
 void * initQ_thread(void *arg);
 long unsigned minD(Matrix *D, Vector *sD, unsigned *N);
 double minDchunk(Matrix *D, unsigned *N, double min, int *mi, int *mj, int i, int j);
+long unsigned maxD(Matrix *D, Vector *sD, unsigned *N);
+double maxDchunk(Matrix *D, unsigned *N, double max, int *mi, int *mj, int i, int j);
 void * minD_thread(void *arg);
 long unsigned minPair(Matrix *Q);
 void updateD(Matrix *D, Vector *sD, unsigned *N, unsigned i, unsigned j, double Li, double Lj);

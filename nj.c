@@ -30,6 +30,8 @@
 #include "threader.h"
 #include "vector.h"
 
+double (*initQchunkPtr)(Matrix *, double*, unsigned*, double, int*, int*, int, int) = &initQchunk;
+double (*minDchunkPtr)(Matrix *, unsigned*, double, int*, int*, int, int) = &minDchunk;
 void (*updateDptr)(Matrix *, Vector *, unsigned *, unsigned, unsigned, double, double) = &updateD;
 long unsigned (*minDist)(Matrix *, Vector *, unsigned *) = &initQ;
 void * (*minDist_thread)(void *) = &initQ_thread;
@@ -199,6 +201,88 @@ double initQchunk(Matrix *D, double *sD, unsigned *N, double min, int *mi, int *
 	return min;
 }
 
+long unsigned initQ_MN(Matrix *D, Vector *sD, unsigned *N) {
+	
+	int i, j, mi, mj;
+	unsigned N_i, *Ni, *Nj;
+	long unsigned pos;
+	double dist, max, Q, sD_i, *sDi, *sDj, *Dptr;
+	
+	/*
+	Q(i,j) = (n(i) + n(j) - 4) / 2 * D(i,j) - summa(d(i,k)) - summa(d(k,j));
+	sD(i) = summa(d(i,k));
+	org:
+	Q(i,j) = (n - 2) * D(i,j) - summa(d(i,k)) - summa(d(k,j));
+	*/
+	
+	/* init */
+	mi = 0;
+	mj = 0;
+	max = -1 - sD->vec[1] - sD->vec[2];
+	Dptr = *(D->mat) - 1;
+	sDi = sD->vec;
+	Ni = N;
+	i = 0;
+	while(++i < D->n) {
+		N_i = *++Ni;
+		Nj = N - 1;
+		sD_i = *++sDi;
+		sDj = sD->vec - 1;
+		j = -1;
+		while(++j < i) {
+			if(0 <= (dist = *++Dptr)) {
+				dist *= ((N_i + *++Nj - 4) >> 1);
+				if(max < (Q = dist - sD_i - *++sDj)) {
+					max = Q;
+					mi = i;
+					mj = j;
+				}
+			} /* else {
+				// missing
+				Q = 1;
+			} */
+		}
+	}
+	
+	/* save pos */
+	pos = 0;
+	pos |= mi;
+	pos <<= sizeof(unsigned) * 8;
+	pos |= mj;
+	
+	return pos;
+}
+
+double initQ_MNchunk(Matrix *D, double *sD, unsigned *N, double max, int *mi, int *mj, int i, int j) {
+	
+	const int chunk = 65536;
+	int end;
+	unsigned N_i;
+	double sD_i, dist, Q, *Dptr;
+	
+	/* init */
+	end = (j + chunk < i) ? (j + chunk) : i;
+	N_i = N[i];
+	N += --j;
+	sD_i = sD[i];
+	sD += j;
+	Dptr = D->mat[i] + j;
+	
+	/* get chunk */
+	while(++j < end) {
+		if(0 <= (dist = *++Dptr)) {
+			dist *= ((N_i + *++N - 4) >> 1);
+			if(max < (Q = dist - sD_i - *++sD)) {
+				max = Q;
+				*mi = i;
+				*mj = j;
+			}
+		}
+	}
+	
+	return max;
+}
+
 void * initQ_thread(void *arg) {
 	
 	const int chunk = 65536;
@@ -234,7 +318,7 @@ void * initQ_thread(void *arg) {
 		/* init start */
 		Mi = 0;
 		Mj = 0;
-		Min = 1;
+		Min = (initQchunkPtr == &initQchunk) ? 1 : -1 - sD->vec[1] - sD->vec[2];
 		next_i = 1;
 		next_j = 0;
 		wait_atomic((thread_begin != thread_num));
@@ -256,7 +340,7 @@ void * initQ_thread(void *arg) {
 		i = 0;
 		mi = 0;
 		mj = 0;
-		min = 1;
+		min = (initQchunkPtr == &initQchunk) ? 1 : -1 - sD->vec[1] - sD->vec[2];
 		sDvec = sD->vec;
 		
 		/* fill in chunks */
@@ -273,13 +357,19 @@ void * initQ_thread(void *arg) {
 			
 			/* init chunk */
 			if(i < D->n) {
-				min = initQchunk(D, sDvec, N, min, &mi, &mj, i, j);
+				min = initQchunkPtr(D, sDvec, N, min, &mi, &mj, i, j);
 			}
 		}
 		
 		/* check min */
 		lockTime(lock, 2);
-		if(min < Min) {
+		if(initQchunkPtr == &initQ_MNchunk) {
+			if(Min < min) {
+				Min = min;
+				Mi = mi;
+				Mj = mj;
+			}
+		} else if(min < Min) {
 			Min = min;
 			Mi = mi;
 			Mj = mj;
@@ -299,20 +389,22 @@ void * initQ_thread(void *arg) {
 
 long unsigned minD(Matrix *D, Vector *sD, unsigned *N) {
 	
-	unsigned i, j, mi, mj;
+	unsigned i, j, mi, mj, Nmin;
 	long unsigned pos;
 	double min, *Dptr;
 	
 	mi = 0;
 	mj = 0;
-	min = 1;
+	Nmin = 0;
 	Dptr = *(D->mat) - 1;
+	min = (minDchunkPtr == &minDchunk) ? 2 * **(D->mat) : -1;
 	for(i = 1; i < D->n; ++i) {
 		for(j = 0; j < i; ++j) {
-			if(0 <= *++Dptr && *Dptr <= min && (*Dptr < min || (N[mi] + N[mj]) < (N[i] + N[j]))) {
+			if(0 <= *++Dptr && *Dptr <= min && (*Dptr < min || (Nmin) < (N[i] + N[j]))) {
 				min = *Dptr;
 				mi = i;
 				mj = j;
+				Nmin = N[i] + N[j];
 			}
 		}
 	}
@@ -351,6 +443,63 @@ double minDchunk(Matrix *D, unsigned *N, double min, int *mi, int *mj, int i, in
 	return min;
 }
 
+long unsigned maxD(Matrix *D, Vector *sD, unsigned *N) {
+	
+	unsigned i, j, mi, mj, Nmin;
+	long unsigned pos;
+	double max, *Dptr;
+	
+	mi = 0;
+	mj = 0;
+	Nmin = 0;
+	max = -1;
+	Dptr = *(D->mat) - 1;
+	for(i = 1; i < D->n; ++i) {
+		for(j = 0; j < i; ++j) {
+			if(0 <= *++Dptr && max <= *Dptr && (max < *Dptr || (Nmin) < (N[i] + N[j]))) {
+				max = *Dptr;
+				mi = i;
+				mj = j;
+				Nmin = N[i] + N[j];
+			}
+		}
+	}
+	
+	/* save pos */
+	pos = 0;
+	pos |= mi;
+	pos <<= sizeof(unsigned) * 8;
+	pos |= mj;
+	
+	return pos;
+}
+
+double maxDchunk(Matrix *D, unsigned *N, double max, int *mi, int *mj, int i, int j) {
+	
+	const int chunk = 65536;
+	int end;
+	unsigned Nmin;
+	double *Dptr;
+	
+	/* init */
+	end = (j + chunk < i) ? (j + chunk) : i;
+	Dptr = D->mat[i] + --j;
+	Nmin = 0;
+	
+	/* get chunk */
+	while(++j < end) {
+		//if(0 <= *++Dptr && max <= *Dptr && (max < *Dptr || (Nmin) < (N[i] + N[j]))) {
+		if(0 <= *++Dptr && max <= *Dptr && (max < *Dptr || (Nmin <= (N[i] + N[j]) && (Nmin < (N[i] + N[j]) || (i <= *mi && (i < *mi || j < *mj)))))) {
+			max = *Dptr;
+			*mi = i;
+			*mj = j;
+			Nmin = N[i] + N[j];
+		}
+	}
+	
+	return max;
+}
+
 void * minD_thread(void *arg) {
 	
 	const int chunk = 65536;
@@ -377,7 +526,7 @@ void * minD_thread(void *arg) {
 		/* init start */
 		Mi = 0;
 		Mj = 0;
-		Min = 1;
+		Min = (minDchunkPtr == &minDchunk) ? 2 * **(D->mat) : -1;
 		next_i = 1;
 		next_j = 0;
 		wait_atomic((thread_begin != thread_num));
@@ -389,7 +538,6 @@ void * minD_thread(void *arg) {
 	
 	do {
 		wait_atomic(thread_begin);
-		
 		/* terminate */
 		if(!thread_num) {
 			return NULL;
@@ -399,7 +547,7 @@ void * minD_thread(void *arg) {
 		i = 0;
 		mi = 0;
 		mj = 0;
-		min = 1;
+		min = (minDchunkPtr == &minDchunk) ? (2 * **(D->mat)) : -1;
 		
 		/* fill in chunks */
 		while(i < D->n) {
@@ -415,13 +563,19 @@ void * minD_thread(void *arg) {
 			
 			/* init chunk */
 			if(i < D->n) {
-				min = minDchunk(D, N, min, &mi, &mj, i, j);
+				min = minDchunkPtr(D, N, min, &mi, &mj, i, j);
 			}
 		}
 		
 		/* check min */
 		lockTime(lock, 2);
-		if(min < Min) {
+		if(minDchunkPtr == &maxDchunk) {
+			if(Min < min) {
+				Min = min;
+				Mi = mi;
+				Mj = mj;
+			}
+		} else if(min < Min) {
 			Min = min;
 			Mi = mi;
 			Mj = mj;
@@ -848,7 +1002,7 @@ unsigned * nj(Matrix *D, Vector *sD, unsigned *N, Qseqs **names) {
 		ltdMatrix_popArrange(D, i);
 		sD->vec[i] = sD->vec[--sD->n];
 		N[i] = N[D->n];
-		exchange(names[i], names[D->n], tmp);
+		exchange(names[i], names[D->n], tmp);	
 	}
 	
 	if(D->n == 2) {
@@ -899,7 +1053,7 @@ unsigned * nj_thread(Matrix *D, Vector *sD, unsigned *N, Qseqs **names, int thre
 		thread->num = thread_num;
 		thread->next = threads;
 		threads = thread;
-		if(--i && (errno = pthread_create(&thread->id, NULL, &initQ_thread, thread))) {
+		if(--i && (errno = pthread_create(&thread->id, NULL, minDist_thread, thread))) {
 			fprintf(stderr, "Error: %d (%s)\n", errno, strerror(errno));
 			fprintf(stderr, "Will continue with %d threads.\n", thread_num - i);
 			i = 0;
@@ -944,7 +1098,7 @@ unsigned * nj_thread(Matrix *D, Vector *sD, unsigned *N, Qseqs **names, int thre
 	}
 	
 	/* collect threads */
-	initQ_thread(0);
+	minDist_thread(0);
 	thread = threads->next;
 	free(threads);
 	while(thread) {

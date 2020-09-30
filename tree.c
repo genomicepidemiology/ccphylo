@@ -136,18 +136,34 @@ int main_tree(int argc, char *argv[]) {
 						updateDptr = &updateD;
 						minDist = &initQ;
 						minDist_thread = &initQ_thread;
+						initQchunkPtr = &initQchunk;
 					} else if(strcmp(arg, "upgma") == 0) {
 						updateDptr = &updateD_UPGMA;
 						minDist = &minD;
 						minDist_thread = &minD_thread;
+						minDchunkPtr = &minDchunk;
 					} else if(strcmp(arg, "cf") == 0) {
 						updateDptr = &updateD_CF;
 						minDist = &minD;
 						minDist_thread = &minD_thread;
+						minDchunkPtr = &minDchunk;
 					} else if(strcmp(arg, "ff") == 0) {
 						updateDptr = &updateD_FF;
 						minDist = &minD;
 						minDist_thread = &minD_thread;
+						minDchunkPtr = &minDchunk;
+					} else if(strcmp(arg, "mn") == 0) {
+						updateDptr = &updateD;
+						minDist = &initQ_MN;
+						minDist_thread = &initQ_thread;
+						initQchunkPtr = &initQ_MNchunk;
+					} else if(strcmp(arg, "frank") == 0) {
+						/* here */
+						/* not frank, and add to -mh */
+						updateDptr = &updateD_CF;
+						minDist = &maxD;
+						minDist_thread = &minD_thread;
+						minDchunkPtr = &maxDchunk;
 					} else {
 						invaArg("\"-m\"");
 					}
@@ -161,6 +177,7 @@ int main_tree(int argc, char *argv[]) {
 				fprintf(stdout, "# %-8s\t%s\n", "upgma", "UPGMA");
 				fprintf(stdout, "# %-8s\t%s\n", "cf", "K-means Closest First");
 				fprintf(stdout, "# %-8s\t%s\n", "ff", "K-means Furthest First");
+				fprintf(stdout, "# %-8s\t%s\n", "mn", "Minimum Neighbours");
 				fprintf(stdout, "#\n");
 				return 0;
 			} else if(strcmp(arg, "t") == 0) {
