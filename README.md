@@ -15,7 +15,9 @@ CCPhylo is a software suite designed to easen phylogenitic analysis based on ali
 Neighbour-Joining can be run without KMA alignments, if a Phylip distance matrix is given using "ccphylo tree".
 
 If you use CCPhylo for your published research, then please cite:
-*Article on the way*
+Malte B. Hallgren, Søren Overballe-Petersen, Ole Lund, Henrik Hasman & Philip T.L.C. Clausen
+"MINTyper: A method for generating phylogenetic distance matrices with long read sequencing data",
+bioRxiv 2020.
 
 
 # Usage #
@@ -58,7 +60,7 @@ Usage and options are available with the "-h" option on all programs in the soft
 If in doubt, please mail any concerns or problems to: *plan@dtu.dk*.
 
 # Citation #
-1. *Article on the way*
+1. Malte B. Hallgren, Søren Overballe-Petersen, Ole Lund, Henrik Hasman & Philip T.L.C. Clausen, "MINTyper: A method for generating phylogenetic distance matrices with long read sequencing data", bioRxiv 2020.
 
 # License #
 Copyright (c) 2017, Philip Clausen, Technical University of Denmark
