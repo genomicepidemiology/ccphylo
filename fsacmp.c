@@ -236,6 +236,62 @@ void getIncPos(unsigned *include, Qseqs *seq, Qseqs *ref, unsigned proxi) {
 	}
 }
 
+void getIncPosInsigPrune(unsigned *include, Qseqs *seq, Qseqs *ref, unsigned proxi) {
+	
+	int lastSNP;
+	unsigned i, end, len, mask, topBit, *includePtr;
+	unsigned char *cPtr, *rPtr, c, r;
+	
+	topBit = UINT_MAX ^ (UINT_MAX >> 1);
+	len = seq->len;
+	lastSNP = -1;
+	cPtr = seq->seq - 1;
+	rPtr = ref->seq - 1;
+	for(i = 0; i < len; ++i) {
+		c = *++cPtr;
+		r = *++rPtr;
+		/* mask position */
+		if(c == 4 || r == 4) {
+			/* mask position */
+			include[i >> 5] &= (UINT_MAX ^ (1 << (31 - (i & 31))));
+		} else if((c & 16) || (r & 16)) {
+			/* mask position */
+			include[i >> 5] &= (UINT_MAX ^ (1 << (31 - (i & 31))));
+			*cPtr &= 15;
+			*rPtr &= 15;
+		}else if(c != r) {
+			/* check proximity */
+			if(i - lastSNP <= proxi) {
+				/*
+				lastSNP = (lastSNP - proxi) < 0 ? 0 : (lastSNP - proxi);
+				end = len < i + proxi + 1 ? len : i + proxi + 1;
+				*/
+				end = i + 1;
+				mask = UINT_MAX ^ (1 << (31 - (lastSNP & 31)));
+				includePtr = include + (lastSNP >> 5);
+				while(lastSNP < end) {
+					if((*includePtr &= mask)) {
+						if(mask & 1) {
+							mask = (mask >> 1) | topBit;
+						} else {
+							++includePtr;
+							mask = UINT_MAX >> 1;
+						}
+						++lastSNP;
+					} else {
+						lastSNP = ((lastSNP >> 5) + 1) << 5;
+						++includePtr;
+						mask = UINT_MAX >> 1;
+					}
+				}
+			}
+			
+			/* mark position as the last seen SNP */
+			lastSNP = i;
+		}
+	}
+}
+
 void getIncPosInsig(unsigned *include, Qseqs *seq, Qseqs *ref, unsigned proxi) {
 	
 	int lastSNP;

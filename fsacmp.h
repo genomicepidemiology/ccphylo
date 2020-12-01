@@ -28,6 +28,7 @@ unsigned char * get2BitTable(unsigned flag);
 unsigned char * getIupacBitTable(unsigned flag);
 void initIncPos(unsigned *include, int len);
 void getIncPos(unsigned *include, Qseqs *seq, Qseqs *ref, unsigned proxi);
+void getIncPosInsigPrune(unsigned *include, Qseqs *seq, Qseqs *ref, unsigned proxi);
 void getIncPosInsig(unsigned *include, Qseqs *seq, Qseqs *ref, unsigned proxi);
 void maskProxi(unsigned *include, unsigned *include1, unsigned *include2, long unsigned *seq1, long unsigned *seq2, unsigned len, unsigned proxi);
 int getNpos(unsigned *include, int len);

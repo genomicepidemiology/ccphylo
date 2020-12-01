@@ -558,6 +558,7 @@ int main_dist(int argc, char *argv[]) {
 				fprintf(stdout, "#   4:\tInclude template name in phylip file\n");
 				fprintf(stdout, "#   8:\tInclude insignificant bases in distance calculation, only affects fasta input\n");
 				fprintf(stdout, "#  16:\tDistances based on fasta input\n");
+				fprintf(stdout, "#  32:\tDo not include insignificant bases in pruning\n");
 				fprintf(stdout, "#\n");
 				return 0;
 			} else if(strcmp(arg, "d") == 0) {
@@ -665,7 +666,9 @@ int main_dist(int argc, char *argv[]) {
 	
 	/* set function variables */
 	zcmp(0, (short unsigned *)(&alpha), 0, 0);
-	if(flag & 8) {
+	if(flag & 32) {
+		getIncPosPtr = &getIncPosInsigPrune;
+	} else if(flag & 8) {
 		getIncPosPtr = &getIncPosInsig;
 	}
 	

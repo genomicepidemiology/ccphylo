@@ -73,6 +73,7 @@ void fsaTrim(int numFile, char *targetTemplate, char **filenames, unsigned minLe
 	Qseqs *header, *ref, *seq;
 	
 	/* init */
+	includes = 0;
 	--filenames;
 	pair = flag & 2 ? 1 : 0;
 	inludeN = numFile;
@@ -123,7 +124,7 @@ void fsaTrim(int numFile, char *targetTemplate, char **filenames, unsigned minLe
 					initIncPos(includes, len);
 					qseq2nibble(seq, nibbleSeq);
 					maskMotifs(nibbleSeq, includes, len, motif);
-					getIncPos(includes, seq, seq, proxi);
+					getIncPosPtr(includes, seq, seq, proxi);
 					if(getNpos(includes, len) < minLength) {
 						fprintf(stderr, "Template (\"%s\") did not exceed threshold for inclusion:\t%s\n", targetTemplate, *filenames);
 						--inludeN;
@@ -131,7 +132,7 @@ void fsaTrim(int numFile, char *targetTemplate, char **filenames, unsigned minLe
 				} else {
 					qseq2nibble(seq, nibbleSeq);
 					maskMotifs(nibbleSeq, includes, len, motif);
-					getIncPos(includes, seq, ref, proxi);
+					getIncPosPtr(includes, seq, ref, proxi);
 					*seqsPtr = smalloc(len + 1);
 					memcpy(*seqsPtr, seq->seq, len + 1);
 				}
@@ -230,14 +231,13 @@ static int helpMessage(FILE *out) {
 	fprintf(out, "# %16s\t%-32s\t%s\n", "-pr", "Minimum proximity between SNPs", "0");
 	fprintf(out, "# %16s\t%-32s\t%s\n", "-f", "Output flags", "0");
 	fprintf(out, "# %16s\t%-32s\t%s\n", "-fh", "Help on option \"-f\"", "");
-	fprintf(out, "# %16s\t%-32s\t%s\n", "-t", "Number of threads", "1");
 	fprintf(out, "# %16s\t%-32s\t%s\n", "-h", "Shows this helpmessage", "");
 	return (out == stderr);
 }
 
 int main_trim(int argc, char *argv[]) {
 	
-	unsigned args, numFile, flag, minLength, proxi, t;
+	unsigned args, numFile, flag, minLength, proxi;
 	char *arg, *targetTemplate, **filenames, *errorMsg, *methfilename;
 	double minCov;
 	
@@ -246,7 +246,6 @@ int main_trim(int argc, char *argv[]) {
 	flag = 0;
 	minLength = 1;
 	proxi = 0;
-	t = 1;
 	targetTemplate = 0;
 	filenames = 0;
 	methfilename = 0;
@@ -324,17 +323,10 @@ int main_trim(int argc, char *argv[]) {
 				fprintf(stdout, "#\n");
 				fprintf(stdout, "#   1:\tHard mask\n");
 				fprintf(stdout, "#   2:\tPairwise comparison\n");
+				fprintf(stdout, "#   8:\tInclude insignificant bases in distance calculation, only affects fasta input\n");
+				fprintf(stdout, "#  32:\tDo not include insignificant bases in pruning\n");
 				fprintf(stdout, "#\n");
 				return 0;
-			} else if(strcmp(arg, "t") == 0) {
-				if(++args < argc) {
-					t = strtoul(argv[args], &errorMsg, 10);
-					if(*errorMsg != 0) {
-						invaArg("\"-t\"");
-					}
-				} else {
-					missArg("\"-t\"");
-				}
 			} else if(strcmp(arg, "h") == 0) {
 				return helpMessage(stdout);
 			} else {
@@ -346,6 +338,13 @@ int main_trim(int argc, char *argv[]) {
 			return helpMessage(stderr);
 		}
 		++args;
+	}
+	
+	/* set pointers */
+	if(flag & 32) {
+		getIncPosPtr = &getIncPosInsigPrune;
+	} else if(flag & 8) {
+		getIncPosPtr = &getIncPosInsig;
 	}
 	
 	/* check for required input */
