@@ -23,6 +23,8 @@
 #include "qseqs.h"
 #include "pherror.h"
 
+void (*formLastNodePtr)(Qseqs *, Qseqs *, double) = &formLastNode;
+
 void formNode(Qseqs *node1, Qseqs *node2, double L1, double L2) {
 	
 	unsigned char *seq, *seq2;
@@ -93,6 +95,46 @@ void formLastNode(Qseqs *node1, Qseqs *node2, double L) {
 		node1->len += sprintf((char *) node1->seq + node1->len, ",%s)", (char *) node2->seq);
 	} else {
 		node1->len += sprintf((char *) node1->seq + node1->len, ",%s:%.2f)", (char *) node2->seq, L);
+	}
+}
+
+void formLastBiNode(Qseqs *node1, Qseqs *node2, double L) {
+	
+	unsigned char *seq, *seq2;
+	unsigned newsize;
+	
+	/* move largest qseq down */
+	if(node1->size < node2->size) {
+		exchange(node1->seq, node2->seq, seq);
+		exchange(node1->size, node2->size, newsize);
+		exchange(node1->len, node2->len, newsize);
+	}
+	
+	/* alloc */
+	newsize = node1->len + node2->len + 32;
+	if(node1->size < newsize) {
+		if(!(node1->seq = realloc(node1->seq, newsize))) {
+			ERROR();
+		}
+		node1->size = newsize;
+	}
+	
+	/* shift one byte */
+	newsize = ++node1->len;
+	seq = node1->seq + newsize;
+	seq2 = seq - 1;
+	*seq = 0;
+	while(--newsize) {
+		*--seq = *--seq2;
+	}
+	*seq2 = '(';
+	
+	/* form node */
+	if(L < 0) {
+		node1->len += sprintf((char *) node1->seq + node1->len, ",%s)", (char *) node2->seq);
+	} else {
+		L /= 2;
+		node1->len += sprintf((char *) node1->seq + node1->len, ":%.2f,%s:%.2f)", L, (char *) node2->seq, L);
 	}
 }
 

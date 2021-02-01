@@ -1006,12 +1006,12 @@ unsigned * nj(Matrix *D, Vector *sD, unsigned *N, Qseqs **names) {
 	}
 	
 	if(D->n == 2) {
-		formLastNode(*names, names[1], **(D->mat));
+		formLastNodePtr(*names, names[1], **(D->mat));
 	} else {
 		/* form remaining nodes with undefined distance */
 		while(D->n != 1) {
 			/* form leaf */
-			formLastNode(*names, names[--D->n], -1.0);
+			formLastNodePtr(*names, names[--D->n], -1.0);
 		}
 	}
 	
@@ -1083,12 +1083,12 @@ unsigned * nj_thread(Matrix *D, Vector *sD, unsigned *N, Qseqs **names, int thre
 	}
 	
 	if(D->n == 2) {
-		formLastNode(*names, names[1], **(D->mat));
+		formLastNodePtr(*names, names[1], **(D->mat));
 	} else {
 		/* form remaining nodes with undefined distance */
 		while(D->n != 1) {
 			/* form leaf */
-			formLastNode(*names, names[--D->n], -1.0);
+			formLastNodePtr(*names, names[--D->n], -1.0);
 		}
 	}
 	

@@ -21,6 +21,7 @@
 #include "filebuff.h"
 #include "matrix.h"
 #include "nj.h"
+#include "nwck.h"
 #include "pherror.h"
 #include "phy.h"
 #include "qseqs.h"
@@ -99,6 +100,7 @@ static int helpMessage(FILE *out) {
 	fprintf(out, "# %16s\t%-32s\t%s\n", "-mh", "Help on option \"-m\"", "");
 	fprintf(out, "# %16s\t%-32s\t%s\n", "-mm", "Allocate matrix on the disk", "False");
 	fprintf(out, "# %16s\t%-32s\t%s\n", "-tmp", "Set directory for temporary files", "");
+	fprintf(out, "# %16s\t%-32s\t%s\n", "-b", "Strictly bifurcate root", "False");
 	fprintf(out, "# %16s\t%-32s\t%s\n", "-t", "Number of threads", "1");
 	fprintf(out, "# %16s\t%-32s\t%s\n", "-h", "Shows this helpmessage", "");
 	return (out == stderr);
@@ -192,6 +194,8 @@ int main_tree(int argc, char *argv[]) {
 				}
 			} else if(strcmp(arg, "mm") == 0) {
 				ltdMatrix_init = &ltdMatrixMinit;
+			} else if(strcmp(arg, "b") == 0) {
+				formLastNodePtr = &formLastBiNode;
 			} else if(strcmp(arg, "tmp") == 0) {
 				if(++args < argc) {
 					if(argv[args][0] != '-') {
