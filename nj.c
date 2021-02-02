@@ -428,22 +428,20 @@ void * initQ_thread(void *arg) {
 
 long unsigned minD(Matrix *D, Vector *sD, unsigned *N) {
 	
-	unsigned i, j, mi, mj, Nmin;
+	unsigned i, j, mi, mj;
 	long unsigned pos;
 	double min, *Dptr;
 	
 	mi = 0;
 	mj = 0;
-	Nmin = 0;
 	Dptr = *(D->mat) - 1;
 	min = (minDchunkPtr == &minDchunk) ? 2 * **(D->mat) : -1;
 	for(i = 1; i < D->n; ++i) {
 		for(j = 0; j < i; ++j) {
-			if(0 <= *++Dptr && *Dptr <= min && (*Dptr < min || (Nmin) < (N[i] + N[j]))) {
+			if(0 <= *++Dptr && *Dptr < min) {
 				min = *Dptr;
 				mi = i;
 				mj = j;
-				Nmin = N[i] + N[j];
 			}
 		}
 	}
@@ -461,21 +459,18 @@ double minDchunk(Matrix *D, unsigned *N, double min, int *mi, int *mj, int i, in
 	
 	const int chunk = 65536;
 	int end;
-	unsigned Nmin;
 	double *Dptr;
 	
 	/* init */
 	end = (j + chunk < i) ? (j + chunk) : i;
 	Dptr = D->mat[i] + --j;
-	Nmin = 0;
 	
 	/* get chunk */
 	while(++j < end) {
-		if(0 <= *++Dptr && *Dptr <= min && (*Dptr < min || (Nmin) < (N[i] + N[j]))) {
+		if(0 <= *++Dptr && *Dptr < min) {
 			min = *Dptr;
 			*mi = i;
 			*mj = j;
-			Nmin = N[i] + N[j];
 		}
 	}
 	
@@ -484,22 +479,20 @@ double minDchunk(Matrix *D, unsigned *N, double min, int *mi, int *mj, int i, in
 
 long unsigned maxD(Matrix *D, Vector *sD, unsigned *N) {
 	
-	unsigned i, j, mi, mj, Nmin;
+	unsigned i, j, mi, mj;
 	long unsigned pos;
 	double max, *Dptr;
 	
 	mi = 0;
 	mj = 0;
-	Nmin = 0;
 	max = -1;
 	Dptr = *(D->mat) - 1;
 	for(i = 1; i < D->n; ++i) {
 		for(j = 0; j < i; ++j) {
-			if(0 <= *++Dptr && max <= *Dptr && (max < *Dptr || (Nmin) < (N[i] + N[j]))) {
+			if(0 <= *++Dptr && max < *Dptr) {
 				max = *Dptr;
 				mi = i;
 				mj = j;
-				Nmin = N[i] + N[j];
 			}
 		}
 	}
@@ -517,22 +510,18 @@ double maxDchunk(Matrix *D, unsigned *N, double max, int *mi, int *mj, int i, in
 	
 	const int chunk = 65536;
 	int end;
-	unsigned Nmin;
 	double *Dptr;
 	
 	/* init */
 	end = (j + chunk < i) ? (j + chunk) : i;
 	Dptr = D->mat[i] + --j;
-	Nmin = 0;
 	
 	/* get chunk */
 	while(++j < end) {
-		//if(0 <= *++Dptr && max <= *Dptr && (max < *Dptr || (Nmin) < (N[i] + N[j]))) {
-		if(0 <= *++Dptr && max <= *Dptr && (max < *Dptr || (Nmin <= (N[i] + N[j]) && (Nmin < (N[i] + N[j]) || (i <= *mi && (i < *mi || j < *mj)))))) {
+		if(0 <= *++Dptr && max < *Dptr) {
 			max = *Dptr;
 			*mi = i;
 			*mj = j;
-			Nmin = N[i] + N[j];
 		}
 	}
 	
