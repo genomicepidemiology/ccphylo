@@ -30,6 +30,7 @@
 #include "threader.h"
 #include "vector.h"
 
+void (*limbLengthPtr)(double*, double*, unsigned, unsigned, Vector *, unsigned*, double) = &limbLength;
 double (*initQchunkPtr)(Matrix *, double*, unsigned*, double, int*, int*, int, int) = &initQchunk;
 double (*minDchunkPtr)(Matrix *, unsigned*, double, int*, int*, int, int) = &minDchunk;
 void (*updateDptr)(Matrix *, Vector *, unsigned *, unsigned, unsigned, double, double) = &updateD;
@@ -66,7 +67,37 @@ void limbLength(double *Li, double *Lj, unsigned i, unsigned j, Vector *sD, unsi
 		*Li = 0;
 		*Lj = D_ij;
 	} else if(0 < Nj) {
+		/* i only shares similarity with j */
+		*Li = D_ij;
+		*Lj = 0;
+	} else {
+		/* i and j only share similarity with eachother */
+		*Li = (*Lj = D_ij / 2);
+	}
+}
+
+void limbLengthNeg(double *Li, double *Lj, unsigned i, unsigned j, Vector *sD, unsigned *N, double D_ij) {
+	
+	unsigned Ni, Nj;
+	double delta_ij;
+	
+	Ni = N[i] - 2;
+	Nj = N[j] - 2;
+	if(0 < Ni && 0 < Nj) {
+		/* semi-standard */
+		delta_ij = ((sD->vec[i] - D_ij) / Ni) - ((sD->vec[j] - D_ij) / Nj);
+		*Li = (D_ij + delta_ij) / 2;
+		*Lj = (D_ij - delta_ij) / 2;
+		
+		/* org:
+		delta_ij = (sD->vec[i] - sD->vec[j]) / N = (sD->vec[i] - D_ij) / N) - ((sD->vec[j] - D_ij) / N;
+		*/
+	} else if(0 < Ni) {
 		/* j only shares similarity with i */
+		*Li = 0;
+		*Lj = D_ij;
+	} else if(0 < Nj) {
+		/* i only shares similarity with j */
 		*Li = D_ij;
 		*Lj = 0;
 	} else {
@@ -315,13 +346,13 @@ void * initQ_thread(void *arg) {
 	N = thread->N;
 	if(thread->min) {
 		lock(lock);
+		wait_atomic((thread_begin != thread_num));
 		/* init start */
 		Mi = 0;
 		Mj = 0;
 		Min = (initQchunkPtr == &initQchunk) ? 1 : -1 - sD->vec[1] - sD->vec[2];
 		next_i = 1;
 		next_j = 0;
-		wait_atomic((thread_begin != thread_num));
 		thread_num = thread->num;
 		thread_wait = thread_num;
 		thread_begin = 0;
@@ -340,7 +371,7 @@ void * initQ_thread(void *arg) {
 		i = 0;
 		mi = 0;
 		mj = 0;
-		min = (initQchunkPtr == &initQchunk) ? 1 : -1 - sD->vec[1] - sD->vec[2];
+		min = (initQchunkPtr == &initQchunk) ? 1 : (-1 - sD->vec[1] - sD->vec[2]);
 		sDvec = sD->vec;
 		
 		/* fill in chunks */
@@ -368,9 +399,17 @@ void * initQ_thread(void *arg) {
 				Min = min;
 				Mi = mi;
 				Mj = mj;
+			} else if(Min == min && (mi < Mi || (mi == Mi && mj < Mj))) {
+				/* ensure reproducibility */
+				Mi = mi;
+				Mj = mj;
 			}
 		} else if(min < Min) {
 			Min = min;
+			Mi = mi;
+			Mj = mj;
+		} else if(min == Min && (mi < Mi || (mi == Mi && mj < Mj))) {
+			/* ensure reproducibility */
 			Mi = mi;
 			Mj = mj;
 		}
@@ -574,9 +613,17 @@ void * minD_thread(void *arg) {
 				Min = min;
 				Mi = mi;
 				Mj = mj;
+			} else if(Min == min && (mi < Mi || (mi == Mi && mj < Mj))) {
+				/* ensure reproducibility */
+				Mi = mi;
+				Mj = mj;
 			}
 		} else if(min < Min) {
 			Min = min;
+			Mi = mi;
+			Mj = mj;
+		} else if(min == Min && (mi < Mi || (mi == Mi && mj < Mj))) {
+			/* ensure reproducibility */
 			Mi = mi;
 			Mj = mj;
 		}
@@ -990,7 +1037,7 @@ unsigned * nj(Matrix *D, Vector *sD, unsigned *N, Qseqs **names) {
 		i = pair >> shift;
 		
 		/* get limbs */
-		limbLength(&Li, &Lj, i, j, sD, N, D->mat[i][j]);
+		limbLengthPtr(&Li, &Lj, i, j, sD, N, D->mat[i][j]);
 		
 		/* form leaf */
 		formNode(names[j], names[i], Lj, Li);
@@ -1030,7 +1077,8 @@ unsigned * nj_thread(Matrix *D, Vector *sD, unsigned *N, Qseqs **names, int thre
 	NJthread *threads, *thread;
 	Qseqs *tmp;
 	
-	if(thread_num == 1) {
+	/* here */
+	if(0 && thread_num == 1) {
 		return nj(D, sD, N, names);
 	}
 	
@@ -1065,7 +1113,7 @@ unsigned * nj_thread(Matrix *D, Vector *sD, unsigned *N, Qseqs **names, int thre
 	/* get pairs */
 	while(D->n != 2 && (minDist_thread(thread) || ((i = thread->mi) | (j = thread->mj)))) {
 		/* get limbs */
-		limbLength(&Li, &Lj, i, j, sD, N, D->mat[i][j]);
+		limbLengthPtr(&Li, &Lj, i, j, sD, N, D->mat[i][j]);
 		
 		/* form leaf */
 		formNode(names[j], names[i], Lj, Li);

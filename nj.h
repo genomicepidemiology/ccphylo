@@ -38,6 +38,7 @@ struct njThread {
 #define NJ 1
 #endif
 
+extern void (*limbLengthPtr)(double*, double*, unsigned, unsigned, Vector *, unsigned*, double);
 extern double (*initQchunkPtr)(Matrix *, double*, unsigned*, double, int*, int*, int, int);
 extern double (*minDchunkPtr)(Matrix *, unsigned*, double, int*, int*, int, int);
 extern void (*updateDptr)(Matrix *, Vector *, unsigned *, unsigned, unsigned, double, double);
@@ -45,6 +46,7 @@ extern long unsigned (*minDist)(Matrix *, Vector *, unsigned *);
 extern void * (*minDist_thread)(void *);
 
 void limbLength(double *Li, double *Lj, unsigned i, unsigned j, Vector *sD, unsigned *N, double D_ij);
+void limbLengthNeg(double *Li, double *Lj, unsigned i, unsigned j, Vector *sD, unsigned *N, double D_ij);
 unsigned * initSummaD(Vector *sD, Matrix *D, unsigned *N);
 long unsigned initQ(Matrix *D, Vector *sD, unsigned *N);
 double initQchunk(Matrix *D, double *sD, unsigned *N, double min, int *mi, int *mj, int i, int j);

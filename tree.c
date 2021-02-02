@@ -31,7 +31,7 @@
 #define missArg(opt) fprintf(stderr, "Missing argument at %s.", opt); exit(1);
 #define invaArg(opt) fprintf(stderr, "Invalid value parsed at %s.\n", opt); exit(1);
 
-void formTree(char *inputfilename, char *outputfilename, int thread_num) {
+void formTree(char *inputfilename, char *outputfilename, int flag, int thread_num) {
 	
 	unsigned i, *N;
 	FILE *outfile;
@@ -53,6 +53,15 @@ void formTree(char *inputfilename, char *outputfilename, int thread_num) {
 	++i;
 	while(--i) {
 		*--names = setQseqs(64);
+	}
+	/* set ptr according ot flag */
+	if(flag) {
+		if(flag & 1) {
+			formLastNodePtr = &formLastBiNode;
+		}
+		if(flag & 2) {
+			limbLengthPtr = &limbLengthNeg;
+		}
 	}
 	
 	/* set */
@@ -96,11 +105,12 @@ static int helpMessage(FILE *out) {
 	fprintf(out, "# %16s\t%-32s\t%s\n", "Options are:", "Desc:", "Default:");
 	fprintf(out, "# %16s\t%-32s\t%s\n", "-i", "Input file.", "stdin");
 	fprintf(out, "# %16s\t%-32s\t%s\n", "-o", "Output file", "stdout");
+	fprintf(out, "# %16s\t%-32s\t%s\n", "-f", "Output flags", "0");
+	fprintf(out, "# %16s\t%-32s\t%s\n", "-fh", "Help on option \"-f\"", "");
 	fprintf(out, "# %16s\t%-32s\t%s\n", "-m", "Tree construction method.", "nj");
 	fprintf(out, "# %16s\t%-32s\t%s\n", "-mh", "Help on option \"-m\"", "");
 	fprintf(out, "# %16s\t%-32s\t%s\n", "-mm", "Allocate matrix on the disk", "False");
 	fprintf(out, "# %16s\t%-32s\t%s\n", "-tmp", "Set directory for temporary files", "");
-	fprintf(out, "# %16s\t%-32s\t%s\n", "-b", "Strictly bifurcate root", "False");
 	fprintf(out, "# %16s\t%-32s\t%s\n", "-t", "Number of threads", "1");
 	fprintf(out, "# %16s\t%-32s\t%s\n", "-h", "Shows this helpmessage", "");
 	return (out == stderr);
@@ -108,10 +118,11 @@ static int helpMessage(FILE *out) {
 
 int main_tree(int argc, char *argv[]) {
 	
-	unsigned args, thread_num;
+	unsigned args, flag, thread_num;
 	char *arg, *inputfilename, *outputfilename, *errorMsg;
 	
 	/* set defaults */
+	flag = 0;
 	thread_num = 1;
 	inputfilename = "--";
 	outputfilename = "--";
@@ -183,6 +194,22 @@ int main_tree(int argc, char *argv[]) {
 				fprintf(stdout, "# %-8s\t%s\n", "mn", "Minimum Neighbours");
 				fprintf(stdout, "#\n");
 				return 0;
+			} else if(strcmp(arg, "f") == 0) {
+				if(++args < argc) {
+					flag = strtoul(argv[args], &errorMsg, 10);
+					if(*errorMsg != 0) {
+						invaArg("\"-f\"");
+					}
+				} else {
+					missArg("\"-f\"");
+				}
+			} else if(strcmp(arg, "fh") == 0) {
+				fprintf(stdout, "# Format flags output, add them to combine them.\n");
+				fprintf(stdout, "#\n");
+				fprintf(stdout, "#   1:\tStrictly bifurcate the root\n");
+				fprintf(stdout, "#   2:\tAllow negative branchlengths\n");
+				fprintf(stdout, "#\n");
+				return 0;
 			} else if(strcmp(arg, "t") == 0) {
 				if(++args < argc) {
 					thread_num = strtoul(argv[args], &errorMsg, 10);
@@ -194,8 +221,6 @@ int main_tree(int argc, char *argv[]) {
 				}
 			} else if(strcmp(arg, "mm") == 0) {
 				ltdMatrix_init = &ltdMatrixMinit;
-			} else if(strcmp(arg, "b") == 0) {
-				formLastNodePtr = &formLastBiNode;
 			} else if(strcmp(arg, "tmp") == 0) {
 				if(++args < argc) {
 					if(argv[args][0] != '-') {
@@ -218,7 +243,7 @@ int main_tree(int argc, char *argv[]) {
 	}
 	
 	/* make tree */
-	formTree(inputfilename, outputfilename, thread_num);
+	formTree(inputfilename, outputfilename, flag, thread_num);
 	
 	return 0;
 }
