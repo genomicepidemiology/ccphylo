@@ -1066,8 +1066,7 @@ unsigned * nj_thread(Matrix *D, Vector *sD, unsigned *N, Qseqs **names, int thre
 	NJthread *threads, *thread;
 	Qseqs *tmp;
 	
-	/* here */
-	if(0 && thread_num == 1) {
+	if(thread_num == 1) {
 		return nj(D, sD, N, names);
 	}
 	
