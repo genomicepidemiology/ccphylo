@@ -19,6 +19,7 @@
 
 #include <stdio.h>
 #include <string.h>
+#include "dbscan.h"
 #include "dist.h"
 #include "merge.h"
 #include "nwck2phy.h"
@@ -34,6 +35,7 @@ static int helpMessage(FILE *out) {
 	fprintf(out, "# %16s\t%-32s\n", "Options are:", "Desc:");
 	fprintf(out, "# %16s\t%-32s\n", "dist", "make distance matrices");
 	fprintf(out, "# %16s\t%-32s\n", "tree", "make tree(s)");
+	fprintf(out, "# %16s\t%-32s\n", "dbscan", "make DBSCAN(s)");
 	fprintf(out, "# %16s\t%-32s\n", "union", "Find union of templates between samples");
 	fprintf(out, "# %16s\t%-32s\n", "merge", "merge distance matrices");
 	fprintf(out, "# %16s\t%-32s\n", "nwck2phy", "Convert newick file to phylip distance file");
@@ -67,6 +69,8 @@ int main(int argc, char *argv[]) {
 		return main_rarify(argc, argv);
 	} else if(strcmp(arg, "trim") == 0) {
 		return main_trim(argc, argv);
+	} else if(strcmp(arg, "dbscan") == 0) {
+		return main_dbscan(argc, argv);
 	} else if(strcmp(arg, "-c") == 0) {
 		fprintf(stdout, "https://bitbucket.org/genomicepidemiology/ccphylo/src/master/\n");
 	} else if(strcmp(arg, "-v") == 0) {

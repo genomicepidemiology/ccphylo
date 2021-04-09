@@ -1,6 +1,6 @@
 CFLAGS ?= -Wall -O3
 CFLAGS += -std=c99
-LIBS = cdist.o dbparse.o dist.o fbseek.o filebuff.o fsacmp.o fsacmpthrd.o hashmapstr.o hashmapstrindex.o ltdmatrix.o ltdmatrixthrd.o matcmp.o matparse.o matrix.o merge.o meth.o methparse.o nj.o nwck.o nwck2phy.o pherror.o phy.o qseqs.o rarify.o resparse.o seqparse.o seq2fasta.o stdnuc.o stdstat.o str.o tmp.o tree.o trim.o ulist.o union.o unionparse.o vector.o
+LIBS = cdist.o dbscan.o dbparse.o dist.o fbseek.o filebuff.o fsacmp.o fsacmpthrd.o hashmapstr.o hashmapstrindex.o ltdmatrix.o ltdmatrixthrd.o matcmp.o matparse.o matrix.o merge.o meth.o methparse.o nj.o nwck.o nwck2phy.o pherror.o phy.o qseqs.o rarify.o resparse.o seqparse.o seq2fasta.o stdnuc.o stdstat.o str.o tmp.o tree.o trim.o ulist.o union.o unionparse.o vector.o
 PROGS = ccphylo
 
 .c .o:
@@ -18,6 +18,7 @@ clean:
 	$(RM) $(LIBS) $(PROGS) libccphylo.a
 
 cdist.o: cdist.h filebuff.h matrix.h meth.h pherror.h phy.h seqparse.h
+dbscan.o: dbscan.h filebuff.h matrix.h pherror.h phy.h qseqs.h tmp.h
 dbparse.o: dbparse.h pherror.h qseqs.h
 dist.o: dist.h ltdmatrix.h matcmp.h matrix.h meth.h methparse.h pherror.h phy.h unionparse.h
 fbseek.o: fbseek.h filebuff.h pherror.h

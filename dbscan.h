@@ -1,4 +1,4 @@
-/* Philip T.L.C. Clausen Jan 2017 plan@dtu.dk */
+/* Philip T.L.C. Clausen Apr 2021 plan@dtu.dk */
 
 /*
  * Copyright (c) 2017, Philip Clausen, Technical University of Denmark
@@ -17,4 +17,11 @@
  * limitations under the License.
 */
 
-#define CCPHYLO_VERSION "0.2.5"
+#include <stdio.h>
+#include "matrix.h"
+#include "qseqs.h"
+
+int dbscan(Matrix *D, int *N, int *C, double maxDist, int minN);
+void print_dbscan(Qseqs **names, int *N, int *C, int Dn, int nClust, double maxDist, int minN, FILE *out);
+void make_dbscan(char *inputfilename, char *outputfilename, double maxDist, int minN);
+int main_dbscan(int argc, char *argv[]);
