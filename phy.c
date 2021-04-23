@@ -250,8 +250,10 @@ Qseqs ** loadPhy(Matrix *src, Qseqs **names, Qseqs *header, FileBuff *infile) {
 		/* get name */
 		name = names[i];
 		seq = name->seq;
-		size = name->size;
-		while((c = (*seq++ = *buff++)) != '\t' && c != '\n') {
+		*seq++ = '\"';
+		size = name->size - 1; /* make room for trailing " */
+		do {
+			c = (*seq++ = *buff++);
 			if(--avail == 0) {
 				if((avail = buffFileBuff(infile)) == 0) {
 					fprintf(stderr, "Malformatted phylip file, name on row: %d\n", ++i);
@@ -270,23 +272,16 @@ Qseqs ** loadPhy(Matrix *src, Qseqs **names, Qseqs *header, FileBuff *infile) {
 				}
 				seq = name->seq + size;
 			}
-		}
+		} while(c != '\t' && c != '\n');
+		
 		/* chomp seq */
-		*seq = 0;
 		while(isspace(*--seq)) {
 			*seq = 0;
 			++size;
 		}
+		*++seq = '\"';
+		*++seq = 0;
 		name->len = name->size - size + 1;
-		if(--avail == 0) {
-			if((avail = buffFileBuff(infile)) == 0) {
-				fprintf(stderr, "Malformatted phylip file, name on row: %d\n", ++i);
-				errno |= 1;
-				src->n = 0;
-				return names;
-			}
-			buff = infile->buffer;
-		}
 		
 		/* get distances */
 		j = i;
