@@ -31,6 +31,7 @@ Matrix * (*ltdMatrix_init)(unsigned) = &ltdMatrixInit;
 Matrix * ltdMatrixInit(unsigned size) {
 	
 	int i;
+	long unsigned Size;
 	double **ptr, *src;
 	Matrix *dest;
 	
@@ -38,7 +39,10 @@ Matrix * ltdMatrixInit(unsigned size) {
 	dest->n = 0;
 	dest->size = size;
 	dest->mat = smalloc(size * sizeof(double *));
-	*(dest->mat) = smalloc(size * (size - 1) * sizeof(double) / 2);
+	Size = size;
+	Size *= (size - 1);
+	Size *= (sizeof(double) / 2);
+	*(dest->mat) = smalloc(Size);
 	dest->file = 0;
 	
 	/* set matrix rows */
@@ -57,7 +61,7 @@ Matrix * ltdMatrixInit(unsigned size) {
 Matrix * ltdMatrixMinit(unsigned size) {
 	
 	int i;
-	long unsigned matSize;
+	long unsigned Size;
 	double **ptr, *src;
 	FILE *tmp;
 	Matrix *dest;
@@ -68,17 +72,19 @@ Matrix * ltdMatrixMinit(unsigned size) {
 	dest->mat = smalloc(size * sizeof(double *));
 	tmp = tmpF(0);
 	dest->file = tmp;
-	matSize = size * (size - 1) * sizeof(double) / 2;
-	if(fseek(tmp, matSize - 1, SEEK_SET) || putc(0, tmp) == EOF) {
+	Size = size;
+	Size *= (size - 1);
+	Size *= (sizeof(double) / 2);
+	if(fseek(tmp, Size - 1, SEEK_SET) || putc(0, tmp) == EOF) {
 		ERROR();
 	}
 	fflush(tmp);
 	fseek(tmp, 0, SEEK_SET);
-	*(dest->mat) = mmap(0, matSize, PROT_READ | PROT_WRITE, MAP_SHARED, fileno(tmp), 0);
+	*(dest->mat) = mmap(0, Size, PROT_READ | PROT_WRITE, MAP_SHARED, fileno(tmp), 0);
 	if(*(dest->mat) == MAP_FAILED) {
 			ERROR();
 	}
-	posix_madvise(*(dest->mat), matSize, POSIX_MADV_SEQUENTIAL);
+	posix_madvise(*(dest->mat), Size, POSIX_MADV_SEQUENTIAL);
 	
 	/* set matrix rows */
 	ptr = dest->mat;
@@ -96,30 +102,34 @@ Matrix * ltdMatrixMinit(unsigned size) {
 void ltdMatrix_mrealloc(Matrix *src, unsigned size) {
 	
 	int i;
-	long unsigned matSize;
+	long unsigned Size;
 	double **ptr, *mat;
 	FILE *tmp;
 	
 	/* unmap current mapping */
-	matSize = src->size * (src->size - 1) * sizeof(int) / 2;
-	msync(*(src->mat), size, MS_SYNC);
-	munmap(*(src->mat), size);
+	Size = src->size;
+	Size *= (src->size - 1);
+	Size *= (sizeof(double) / 2);
+	msync(*(src->mat), Size, MS_SYNC);
+	munmap(*(src->mat), Size);
 	
 	/* reallocate file */
 	tmp = src->file;
-	matSize = size * (size - 1) * sizeof(double) / 2;
-	if(fseek(tmp, matSize - 1, SEEK_SET) || putc(0, tmp) == EOF) {
+	Size = size;
+	Size *= (size - 1);
+	Size *= (sizeof(double) / 2);
+	if(fseek(tmp, Size - 1, SEEK_SET) || putc(0, tmp) == EOF) {
 		ERROR();
 	}
 	fflush(tmp);
 	fseek(tmp, 0, SEEK_SET);
 	
 	/* map new size */
-	*(src->mat) = mmap(0, matSize, PROT_READ | PROT_WRITE, MAP_SHARED, fileno(tmp), 0);
+	*(src->mat) = mmap(0, Size, PROT_READ | PROT_WRITE, MAP_SHARED, fileno(tmp), 0);
 	if(*(src->mat) == MAP_FAILED) {
 			ERROR();
 	}
-	posix_madvise(*(src->mat), matSize, POSIX_MADV_SEQUENTIAL);
+	posix_madvise(*(src->mat), Size, POSIX_MADV_SEQUENTIAL);
 	
 	src->mat = realloc(src->mat, size * sizeof(double *));
 	if(!src->mat) {
@@ -141,13 +151,17 @@ void ltdMatrix_mrealloc(Matrix *src, unsigned size) {
 void ltdMatrix_realloc(Matrix *src, unsigned size) {
 	
 	int i;
+	long unsigned Size;
 	double **ptr, *mat;
 	
 	if(src->file) {
 		return ltdMatrix_mrealloc(src, size);
 	}
 	
-	*(src->mat) = realloc(*(src->mat), size * (size - 1) * sizeof(double) / 2);
+	Size = size;
+	Size *= (size - 1);
+	Size *= (sizeof(double) / 2);
+	*(src->mat) = realloc(*(src->mat), Size);
 	src->mat = realloc(src->mat, size * sizeof(double *));
 	if(!src->mat || !*(src->mat)) {
 		ERROR();
@@ -169,7 +183,9 @@ void Matrix_mdestroy(Matrix *src) {
 	
 	long unsigned size;
 	
-	size = src->size * (src->size - 1) * sizeof(int) / 2;
+	size = src->size;
+	size *= (src->size - 1);
+	size *= (sizeof(double) / 2);
 	if(src) {
 		msync(*(src->mat), size, MS_SYNC);
 		munmap(*(src->mat), size);
