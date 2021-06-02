@@ -16,8 +16,8 @@ Neighbour-Joining can be run without KMA alignments, if a Phylip distance matrix
 
 If you use CCPhylo for your published research, then please cite:
 Malte B. Hallgren, Søren Overballe-Petersen, Ole Lund, Henrik Hasman & Philip T.L.C. Clausen
-"MINTyper: A method for generating phylogenetic distance matrices with long read sequencing data",
-bioRxiv 2020.
+"MINTyper: an outbreak-detection method for accurate and rapid SNP typing of clonal clusters with noisy long reads",
+Biology, Methods & Protocols 2021.
 
 
 # Usage #
@@ -60,7 +60,7 @@ Usage and options are available with the "-h" option on all programs in the soft
 If in doubt, please mail any concerns or problems to: *plan@dtu.dk*.
 
 # Citation #
-1. Malte B. Hallgren, Søren Overballe-Petersen, Ole Lund, Henrik Hasman & Philip T.L.C. Clausen, "MINTyper: An outbreak-detection method for accurate and rapid SNP typing of clonal clusters with noisy long reads", bioRxiv 2020.
+1. Malte B. Hallgren, Søren Overballe-Petersen, Ole Lund, Henrik Hasman & Philip T.L.C. Clausen "MINTyper: an outbreak-detection method for accurate and rapid SNP typing of clonal clusters with noisy long reads", Biology, Methods & Protocols 2021.
 
 # License #
 Copyright (c) 2017, Philip Clausen, Technical University of Denmark
