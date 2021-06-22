@@ -107,14 +107,16 @@ void fsaCmpThreadOut(int tnum, void * (*func)(void*), Matrix *D, Matrix *N, int 
 void * cmpFsaThrd(void *arg) {
 	
 	/* this is the threaded version of cmpFsa */
-	static volatile int lock[1] = {0};
+	static volatile int Lock = 0;
 	static int si = 1, sj = 0, pi = 0, pj = 0, inc = 0; /* sample, position in matrix */
+	volatile int *lock = &Lock;
 	CmpFsaArg *thread = arg;
 	int n, len, Dn;
 	unsigned i, j, norm, *includes;
 	long unsigned **seqs, *seqi, *seqj, dist;
 	unsigned char *include;
 	double *Dptr, nFactor;
+	float *Dfptr;
 	FILE *diffile;
 	Matrix *D;
 	
@@ -213,7 +215,13 @@ void * cmpFsaThrd(void *arg) {
 		}
 		
 		/* get the corresponding position in distance matrix */
-		Dptr = D->mat[pi] + pj;
+		if(D->mat) {
+			Dptr = D->mat[pi] + pj;
+			Dfptr = 0;
+		} else {
+			Dptr = 0;
+			Dfptr = D->fmat[pi] + pj;
+		}
 		
 		/* update next position in D */
 		if(pi == ++pj) {
@@ -227,7 +235,11 @@ void * cmpFsaThrd(void *arg) {
 		} else {
 			dist = fsacmp(seqi, seqj, includes, len);
 		}
-		*Dptr = nFactor * dist;
+		if(Dptr) {
+			*Dptr = nFactor * dist;
+		} else {
+			*Dfptr = nFactor * dist;
+		}
 	}
 	
 	return NULL;
@@ -236,8 +248,9 @@ void * cmpFsaThrd(void *arg) {
 void * cmpairFsaThrd(void *arg) {
 	
 	/* this is the threaded version of cmpairFsa */
-	static volatile int lock[1] = {0};
+	static volatile int Lock = 0;
 	static int si = 1, sj = 0, pi = 0, pj = 0, base = 0; /* sample, position in matrix */
+	volatile int *lock = &Lock;
 	CmpFsaArg *thread = arg;
 	int n, len, Dn;
 	unsigned i, j, inc, norm, minLength, proxi;
@@ -245,6 +258,7 @@ void * cmpairFsaThrd(void *arg) {
 	long unsigned **seqs, *seqi, *seqj, dist;
 	unsigned char *include;
 	double minCov, *Dptr, *Nptr;
+	float *Dfptr, *Nfptr;
 	FILE *diffile;
 	Matrix *D, *N;
 	
@@ -349,8 +363,17 @@ void * cmpairFsaThrd(void *arg) {
 		}
 		
 		/* get the corresponding position in distance matrix */
-		Dptr = D->mat[pi] + pj;
-		Nptr = N ? N->mat[pi] + pj : 0;
+		if(D->mat) {
+			Dptr = D->mat[pi] + pj;
+			Nptr = N ? N->mat[pi] + pj : 0;
+			Dfptr = 0;
+			Nfptr = 0;
+		} else {
+			Dptr = 0;
+			Nptr = 0;
+			Dfptr = D->fmat[pi] + pj;
+			Nfptr = N ? N->fmat[pi] + pj : 0;
+		}
 		
 		/* update next position in D */
 		if(pi == ++pj) {
@@ -371,18 +394,34 @@ void * cmpairFsaThrd(void *arg) {
 		
 		/* separate distance and included bases */
 		inc = dist & UINT_MAX;
-		if(minLength <= inc) {
-			if(norm) {
-				*Dptr = (dist >> 32) * norm;
-				*Dptr /= inc;
+		if(Dptr) {
+			if(minLength <= inc) {
+				if(norm) {
+					*Dptr = (dist >> 32) * norm;
+					*Dptr /= inc;
+				} else {
+					*Dptr = (dist >> 32);
+				}
 			} else {
-				*Dptr = (dist >> 32);
+				*Dptr = -1.0;
+			}
+			if(N) {
+				*Nptr = inc;
 			}
 		} else {
-			*Dptr = -1.0;
-		}
-		if(N) {
-			*Nptr = inc;
+			if(minLength <= inc) {
+				if(norm) {
+					*Dfptr = (dist >> 32) * norm;
+					*Dfptr /= inc;
+				} else {
+					*Dfptr = (dist >> 32);
+				}
+			} else {
+				*Dfptr = -1.0;
+			}
+			if(N) {
+				*Nfptr = inc;
+			}
 		}
 	}
 	
@@ -392,8 +431,9 @@ void * cmpairFsaThrd(void *arg) {
 
 void * cmpFsaRowThrd(void *arg) {
 	
-	static volatile int lock[1] = {0};
+	static volatile int Lock = 0;
 	static int pj = 0; /* sample, position in matrix */
+	volatile int *lock = &Lock;
 	CmpFsaArg *thread = arg;
 	int n, len;
 	unsigned j, minLength, inc, proxi;

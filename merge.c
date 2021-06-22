@@ -26,6 +26,7 @@
 #include "phy.h"
 #include "qseqs.h"
 #include "ulist.h"
+#include "tmp.h"
 #define missArg(opt) fprintf(stderr, "Missing argument at %s.\n", opt); exit(1);
 #define invaArg(opt) fprintf(stderr, "Invalid value parsed at %s.\n", opt); exit(1);
 
@@ -47,16 +48,29 @@ static void normalize_ltdMatrix(Matrix *D, Matrix *N) {
 	
 	int i;
 	double *Dptr, *Nptr;
+	float *Dfptr, *Nfptr;
 	
 	/* normalize new distance matrix */
-	Dptr = *(D->mat) - 1;
-	Nptr = *(N->mat) - 1;
 	i = (D->n * (D->n - 1)) / 2 + 1;
-	while(--i) {
-		if(*++Nptr != 0) {
-			*++Dptr /= *Nptr;
-		} else {
-			*++Dptr = -1.0;
+	if(D->mat) {
+		Dptr = *(D->mat) - 1;
+		Nptr = *(N->mat) - 1;
+		while(--i) {
+			if(*++Nptr != 0) {
+				*++Dptr /= *Nptr;
+			} else {
+				*++Dptr = -1.0;
+			}
+		}
+	} else {
+		Dfptr = *(D->fmat) - 1;
+		Nfptr = *(N->fmat) - 1;
+		while(--i) {
+			if(*++Nfptr != 0) {
+				*++Dfptr /= *Nfptr;
+			} else {
+				*++Dfptr = -1.0;
+			}
 		}
 	}
 }
@@ -86,6 +100,7 @@ char ** merge(Matrix *dist, Matrix *num, FileBuff *phyfile, FileBuff *numfile) {
 	unsigned i, j, m, n;
 	unsigned *distIndex, *distIndexM, *distIndexN;
 	double *Dptr, *Nptr, **distMat, **numMat;
+	float *Dfptr, *Nfptr, **distfMat, **numfMat;
 	HashMapStr *names_index;
 	Matrix *D, *N;
 	Qseqs **names;
@@ -108,12 +123,19 @@ char ** merge(Matrix *dist, Matrix *num, FileBuff *phyfile, FileBuff *numfile) {
 	}
 	/* weigh the distances */
 	i = (dist->n * (dist->n - 1)) / 2 + 1;
-	Dptr = *(dist->mat) - 1;
-	Nptr = *(num->mat) - 1;
-	while(--i) {
-		*++Dptr *= *++Nptr;
+	if(dist->mat) {
+		Dptr = *(dist->mat) - 1;
+		Nptr = *(num->mat) - 1;
+		while(--i) {
+			*++Dptr *= *++Nptr;
+		}
+	} else {
+		Dfptr = *(dist->fmat) - 1;
+		Nfptr = *(num->fmat) - 1;
+		while(--i) {
+			*++Dfptr *= *++Nfptr;
+		}
 	}
-	
 	/* keep track of names */
 	i = -1;
 	while(++i < dist->n) {
@@ -131,26 +153,52 @@ char ** merge(Matrix *dist, Matrix *num, FileBuff *phyfile, FileBuff *numfile) {
 		syncMatrices(names_index, dist_index, names, D->n, dist, num);
 		
 		/* add new matrix to the merged matrix */
-		distMat = dist->mat;
-		numMat = num->mat;
-		Dptr = *(D->mat) - 1;
-		Nptr = *(N->mat) - 1;
-		distIndex = dist_index->list - 1;
-		distIndexM = distIndex;
-		i = 0;
-		while(i != D->n) {
-			m = *++distIndexM;
-			distIndexN = distIndex;
-			j = ++i;
-			while(--j) {
-				n = *++distIndexN;
-				/* update cell */
-				if(m < n) {
-					distMat[n][m] += *++Dptr * *++Nptr;
-					numMat[n][m] += *Nptr;
-				} else {
-					distMat[m][n] += *++Dptr * *++Nptr;
-					numMat[m][n] += *Nptr;
+		if(dist->mat) {
+			distMat = dist->mat;
+			numMat = num->mat;
+			Dptr = *(D->mat) - 1;
+			Nptr = *(N->mat) - 1;
+			distIndex = dist_index->list - 1;
+			distIndexM = distIndex;
+			i = 0;
+			while(i != D->n) {
+				m = *++distIndexM;
+				distIndexN = distIndex;
+				j = ++i;
+				while(--j) {
+					n = *++distIndexN;
+					/* update cell */
+					if(m < n) {
+						distMat[n][m] += *++Dptr * *++Nptr;
+						numMat[n][m] += *Nptr;
+					} else {
+						distMat[m][n] += *++Dptr * *++Nptr;
+						numMat[m][n] += *Nptr;
+					}
+				}
+			}
+		} else {
+			distfMat = dist->fmat;
+			numfMat = num->fmat;
+			Dfptr = *(D->fmat) - 1;
+			Nfptr = *(N->fmat) - 1;
+			distIndex = dist_index->list - 1;
+			distIndexM = distIndex;
+			i = 0;
+			while(i != D->n) {
+				m = *++distIndexM;
+				distIndexN = distIndex;
+				j = ++i;
+				while(--j) {
+					n = *++distIndexN;
+					/* update cell */
+					if(m < n) {
+						distfMat[n][m] += *++Dfptr * *++Nfptr;
+						numfMat[n][m] += *Nfptr;
+					} else {
+						distfMat[m][n] += *++Dfptr * *++Nfptr;
+						numfMat[m][n] += *Nfptr;
+					}
 				}
 			}
 		}
@@ -178,6 +226,7 @@ char ** jl_merge(Matrix *dist, Matrix *num, FileBuff *phyfile) {
 	unsigned i, j, m, n;
 	unsigned *distIndex, *distIndexM, *distIndexN;
 	double *Dptr, **distMat, **numMat;
+	float *Dfptr, **distfMat, **numfMat;
 	HashMapStr *names_index;
 	Matrix *D;
 	Qseqs **names;
@@ -193,9 +242,16 @@ char ** jl_merge(Matrix *dist, Matrix *num, FileBuff *phyfile) {
 	}
 	num->n = dist->n;
 	i = (num->n * (num->n - 1)) / 2 + 1;
-	Dptr = *(num->mat) - 1;
-	while(--i) {
-		*++Dptr = 1;
+	if(num->mat) {
+		Dptr = *(num->mat) - 1;
+		while(--i) {
+			*++Dptr = 1;
+		}
+	} else {
+		Dfptr = *(num->fmat) - 1;
+		while(--i) {
+			*++Dfptr = 1;
+		}
 	}
 	
 	/* keep track of names */
@@ -210,25 +266,50 @@ char ** jl_merge(Matrix *dist, Matrix *num, FileBuff *phyfile) {
 		syncMatrices(names_index, dist_index, names, D->n, dist, num);
 		
 		/* add new matrix to the merged matrix */
-		distMat = dist->mat;
-		numMat = num->mat;
-		Dptr = *(D->mat) - 1;
-		distIndexM = dist_index->list;
-		distIndex = distIndexM - 1;
-		i = 1;
-		while(i != D->n) {
-			m = *++distIndexM;
-			distIndexN = distIndex;
-			j = ++i;
-			while(--j) {
-				n = *++distIndexN;
-				/* update cell */
-				if(m < n) {
-					distMat[n][m] += *++Dptr;
-					++numMat[n][m];
-				} else {
-					distMat[m][n] += *++Dptr;
-					++numMat[m][n];
+		if(dist->mat) {
+			distMat = dist->mat;
+			numMat = num->mat;
+			Dptr = *(D->mat) - 1;
+			distIndexM = dist_index->list;
+			distIndex = distIndexM - 1;
+			i = 1;
+			while(i != D->n) {
+				m = *++distIndexM;
+				distIndexN = distIndex;
+				j = ++i;
+				while(--j) {
+					n = *++distIndexN;
+					/* update cell */
+					if(m < n) {
+						distMat[n][m] += *++Dptr;
+						++numMat[n][m];
+					} else {
+						distMat[m][n] += *++Dptr;
+						++numMat[m][n];
+					}
+				}
+			}
+		} else {
+			distfMat = dist->fmat;
+			numfMat = num->fmat;
+			Dfptr = *(D->fmat) - 1;
+			distIndexM = dist_index->list;
+			distIndex = distIndexM - 1;
+			i = 1;
+			while(i != D->n) {
+				m = *++distIndexM;
+				distIndexN = distIndex;
+				j = ++i;
+				while(--j) {
+					n = *++distIndexN;
+					/* update cell */
+					if(m < n) {
+						distfMat[n][m] += *++Dfptr;
+						++numfMat[n][m];
+					} else {
+						distfMat[m][n] += *++Dfptr;
+						++numfMat[m][n];
+					}
 				}
 			}
 		}
@@ -313,12 +394,16 @@ static int helpMessage(FILE *out) {
 	fprintf(out, "# %16s\t%-32s\t%s\n", "-no", "Output number of nucleotides included", "stdout");
 	fprintf(out, "# %16s\t%-32s\t%s\n", "-f", "Output format", "1");
 	fprintf(out, "# %16s\t%-32s\t%s\n", "-fh", "Help on option \"-f\"", "");
+	fprintf(out, "# %16s\t%-32s\t%s\n", "-fp", "Float precision on distance matrix", "double");
+	fprintf(out, "# %16s\t%-32s\t%s\n", "-mm", "Allocate matrix on the disk", "False");
+	fprintf(out, "# %16s\t%-32s\t%s\n", "-tmp", "Set directory for temporary files", "");
 	fprintf(out, "# %16s\t%-32s\t%s\n", "-h", "Shows this helpmessage", "");
 	return (out == stderr);
 }
 
 int main_merge(int argc, char *argv[]) {
 	
+	int size;
 	unsigned args, format;
 	char *arg, *phyfilename, *numfilename, *outphyfilename, *outnumfilename;
 	
@@ -376,6 +461,20 @@ int main_merge(int argc, char *argv[]) {
 				fprintf(stdout, "#  32:\tDistances based on fasta input\n");
 				fprintf(stdout, "#\n");
 				return 0;
+			} else if(strcmp(arg, "fp") == 0) {
+				size = sizeof(float);
+				ltdMatrixInit(-size);
+				ltdMatrixMinit(-size);
+			} else if(strcmp(arg, "mm") == 0) {
+				ltdMatrix_init = &ltdMatrixMinit;
+			} else if(strcmp(arg, "tmp") == 0) {
+				if(++args < argc) {
+					if(argv[args][0] != '-') {
+						tmpF(argv[args]);
+					} else {
+						invaArg("\"-tmp\"");
+					}
+				}
 			} else if(strcmp(arg, "h") == 0) {
 				return helpMessage(stdout);
 			} else {

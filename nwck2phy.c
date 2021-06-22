@@ -26,6 +26,7 @@
 #include "pherror.h"
 #include "phy.h"
 #include "qseqs.h"
+#include "tmp.h"
 #define missArg(opt) fprintf(stderr, "Missing argument at %s.\n", opt); exit(1);
 #define invaArg(opt) fprintf(stderr, "Invalid value parsed at %s.\n", opt); exit(1);
 
@@ -34,6 +35,7 @@ int newick2phy(char *inputfilename, char *outputfilename, unsigned format) {
 	int i, j, n, org_i, namesize;
 	unsigned char **sNames;
 	double Li, Lj, d, **Dmat, *D_i, *ptr;
+	float **Dfmat, *Df_i, *fptr;
 	FILE *outfile;
 	FileBuff *infile;
 	Matrix *D;
@@ -45,20 +47,19 @@ int newick2phy(char *inputfilename, char *outputfilename, unsigned format) {
 	if(*outputfilename == '-' && outputfilename[1] == '-' && outputfilename[2] == 0) {
 		outfile = stdout;
 	} else {
-		outfile = sfopen(outputfilename, "rb");
+		outfile = sfopen(outputfilename, "wb");
 	}
 	D = ltdMatrix_init(128);
 	name = setQseqs(1024);
 	header = setQseqs(64);
-	names = smalloc(128 * sizeof(Qseqs *));
-	i = 128;
+	names = smalloc(D->size * sizeof(Qseqs *));
+	i = D->size;
 	while(i--) {
-		names[i] = setQseqs(32);
+		names[i] = smalloc(sizeof(Qseqs));
 	}
-	namesize = 128;
-	sNames = smalloc(128 * sizeof(char *));
+	namesize = D->size;
+	sNames = smalloc(D->size * sizeof(char *));
 	
-	Dmat = D->mat;
 	while(getNwck(infile, name, header)) {
 		n = getSizeNwck(name);
 		
@@ -72,6 +73,13 @@ int newick2phy(char *inputfilename, char *outputfilename, unsigned format) {
 			}
 			ltdMatrix_realloc(D, n);
 		}
+		if(D->mat) {
+			Dmat = D->mat;
+			Dfmat = 0;
+		} else {
+			Dmat = 0;
+			Dfmat = D->fmat;
+		}
 		
 		/* get distances */
 		(*names)->seq = name->seq;
@@ -79,70 +87,135 @@ int newick2phy(char *inputfilename, char *outputfilename, unsigned format) {
 		(*names)->size = name->size;
 		org_i = 0;
 		D->n = 1;
-		while(D->n != n) {
-			/* slpit */
-			if(splitNwck(names[org_i], names[D->n], &Li, &Lj)) {
-				/* 
-				update last / new row,
-				new dist is: dist to previous node + limblength
-				*/
-				ptr = Dmat[D->n] - 1;
-				if(Lj < 0) {
-					j = D->n + 2;
-					while(--j) {
-						*++ptr = Lj;
-					}
-				} else {
-					i = org_i;
-					D_i = Dmat[i] - 1;
-					j = i + 1;
-					while(--j) {
-						*++ptr = *++D_i < 0 ? -1.0 : Lj + *D_i;
-					}
-					*++ptr = Lj + Li;
-					for(j = i + 1; j <= D->n; ++j) {
-						*++ptr = (d = Dmat[j][i]) < 0 ? -1.0 : Lj + d;
-					}
-				}
-				
-				/* update originating row */
-				if(Li < 0) {
-					i = org_i;
-					D_i = Dmat[i] - 1;
-					j = i + 1;
-					while(--j) {
-						*++D_i = Li;
-					}
-					
-					/* update originating column */
-					for(i = org_i + 1; i < D->n; ++i) {
-						Dmat[i][org_i] = Li;
-					}
-				} else {
-					i = org_i;
-					D_i = Dmat[i] - 1;
-					j = i + 1;
-					while(--j) {
-						if(0 <= *++D_i) {
-							*D_i += Li;
+		if(Dmat) {
+			while(D->n != n) {
+				/* slpit */
+				if(splitNwck(names[org_i], names[D->n], &Li, &Lj)) {
+					/* 
+					update last / new row,
+					new dist is: dist to previous node + limblength
+					*/
+					ptr = Dmat[D->n] - 1;
+					if(Lj < 0) {
+						j = D->n + 2;
+						while(--j) {
+							*++ptr = Lj;
+						}
+					} else {
+						i = org_i;
+						D_i = Dmat[i] - 1;
+						j = i + 1;
+						while(--j) {
+							*++ptr = *++D_i < 0 ? -1.0 : Lj + *D_i;
+						}
+						*++ptr = Lj + Li;
+						for(j = i + 1; j <= D->n; ++j) {
+							*++ptr = (d = Dmat[j][i]) < 0 ? -1.0 : Lj + d;
 						}
 					}
 					
-					/* update originating column */
-					for(i = org_i + 1; i < D->n; ++i) {
-						if(0 <= *(D_i = Dmat[i] + org_i)) {
-							*D_i += Li;
+					/* update originating row */
+					if(Li < 0) {
+						i = org_i;
+						D_i = Dmat[i] - 1;
+						j = i + 1;
+						while(--j) {
+							*++D_i = Li;
+						}
+						
+						/* update originating column */
+						for(i = org_i + 1; i < D->n; ++i) {
+							Dmat[i][org_i] = Li;
+						}
+					} else {
+						i = org_i;
+						D_i = Dmat[i] - 1;
+						j = i + 1;
+						while(--j) {
+							if(0 <= *++D_i) {
+								*D_i += Li;
+							}
+						}
+						
+						/* update originating column */
+						for(i = org_i + 1; i < D->n; ++i) {
+							if(0 <= *(D_i = Dmat[i] + org_i)) {
+								*D_i += Li;
+							}
 						}
 					}
+					
+					/* update matrix size */
+					++D->n;
+				} else {
+					++org_i;
 				}
-				
-				/* update matrix size */
-				++D->n;
-			} else {
-				++org_i;
+			}
+		} else {
+			while(D->n != n) {
+				/* slpit */
+				if(splitNwck(names[org_i], names[D->n], &Li, &Lj)) {
+					/* 
+					update last / new row,
+					new dist is: dist to previous node + limblength
+					*/
+					fptr = Dfmat[D->n] - 1;
+					if(Lj < 0) {
+						j = D->n + 2;
+						while(--j) {
+							*++fptr = Lj;
+						}
+					} else {
+						i = org_i;
+						Df_i = Dfmat[i] - 1;
+						j = i + 1;
+						while(--j) {
+							*++fptr = *++Df_i < 0 ? -1.0 : Lj + *Df_i;
+						}
+						*++fptr = Lj + Li;
+						for(j = i + 1; j <= D->n; ++j) {
+							*++fptr = (d = Dfmat[j][i]) < 0 ? -1.0 : Lj + d;
+						}
+					}
+					
+					/* update originating row */
+					if(Li < 0) {
+						i = org_i;
+						Df_i = Dfmat[i] - 1;
+						j = i + 1;
+						while(--j) {
+							*++Df_i = Li;
+						}
+						
+						/* update originating column */
+						for(i = org_i + 1; i < D->n; ++i) {
+							Dfmat[i][org_i] = Li;
+						}
+					} else {
+						i = org_i;
+						Df_i = Dfmat[i] - 1;
+						j = i + 1;
+						while(--j) {
+							if(0 <= *++Df_i) {
+								*Df_i += Li;
+							}
+						}
+						
+						/* update originating column */
+						for(i = org_i + 1; i < D->n; ++i) {
+							if(0 <= *(Df_i = Dfmat[i] + org_i)) {
+								*Df_i += Li;
+							}
+						}
+					}
+					
+					/* update matrix size */
+					++D->n;
+				} else {
+					++org_i;
+				}
 			}
 		}
-		
 		/* convert Qseqs* to char* */
 		if(namesize < D->n) {
 			namesize = D->n;
@@ -156,7 +229,6 @@ int newick2phy(char *inputfilename, char *outputfilename, unsigned format) {
 		
 		/* print new phylip matrix */
 		printphy(outfile, D, (char **) sNames, 0, (char *) header->seq, format);
-		
 	}
 	
 	closeFileBuff(infile);
@@ -174,12 +246,16 @@ static int helpMessage(FILE *out) {
 	fprintf(out, "# %16s\t%-32s\t%s\n", "Options are:", "Desc:", "Default:");
 	fprintf(out, "# %16s\t%-32s\t%s\n", "-i", "Input file", "stdin");
 	fprintf(out, "# %16s\t%-32s\t%s\n", "-o", "Output file", "stdout");
+	fprintf(out, "# %16s\t%-32s\t%s\n", "-fp", "Float precision on distance matrix", "double");
+	fprintf(out, "# %16s\t%-32s\t%s\n", "-mm", "Allocate matrix on the disk", "False");
+	fprintf(out, "# %16s\t%-32s\t%s\n", "-tmp", "Set directory for temporary files", "");
 	fprintf(out, "# %16s\t%-32s\t%s\n", "-h", "Shows this helpmessage", "");
 	return (out == stderr);
 }
 
 int main_nwck2phy(int argc, char *argv[]) {
 	
+	int size;
 	unsigned args, format;
 	char *arg, *inputfilename, *outputfilename;
 	
@@ -218,6 +294,20 @@ int main_nwck2phy(int argc, char *argv[]) {
 				fprintf(stdout, "# 1:\tRelaxed Phylip\n");
 				fprintf(stdout, "#\n");
 				return 0;
+			} else if(strcmp(arg, "fp") == 0) {
+				size = sizeof(float);
+				ltdMatrixInit(-size);
+				ltdMatrixMinit(-size);
+			} else if(strcmp(arg, "mm") == 0) {
+				ltdMatrix_init = &ltdMatrixMinit;
+			} else if(strcmp(arg, "tmp") == 0) {
+				if(++args < argc) {
+					if(argv[args][0] != '-') {
+						tmpF(argv[args]);
+					} else {
+						invaArg("\"-tmp\"");
+					}
+				}
 			} else if(strcmp(arg, "h") == 0) {
 				return helpMessage(stdout);
 			} else {

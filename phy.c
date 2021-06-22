@@ -46,25 +46,42 @@ void printphy(FILE *outfile, Matrix *src, char **names, unsigned char *include, 
 	
 	int i, j, jStart;
 	double d, *ptr;
+	float *fptr;
+	char *name;
 	
 	/* printf comment */
 	if(format & 4) {
 		fprintf(outfile, "#%s\n", comment);
 	}
 	fprintf(outfile, "%10d\n", src->n);
-	ptr = *(src->mat);
+	if(src->mat) {
+		ptr = *(src->mat) - 1;
+		fptr = 0;
+	} else {
+		ptr = 0;
+		fptr = *(src->fmat) - 1;
+	}
 	jStart = 0;
 	for(i = 0; jStart != src->n; ++i) {
 		if(include == 0 || include[i]) {
+			/* strip name */
+			name = names[i];
+			if(*name == '"' && name[(j = (strlen(name) - 1))] == '"') {
+				*(name++ + j) = 0;
+			}
+			name = stripDir(name);
+			
+			/* print entry name */
 			if(format & 1) {
-				fprintf(outfile, "%s", stripDir(names[i]));
+				fprintf(outfile, "%s", name);
 			} else {
-				fprintf(outfile, "%-10.10s", stripDir(names[i]));
+				fprintf(outfile, "%-10.10s", name);
 			}
 			
+			/* print distance */
 			j = jStart++;
 			while(j--) {
-				d = *ptr++;
+				d = ptr ? *++ptr : *++fptr;
 				if(d == (int) d) {
 					fprintf(outfile, "\t%d", (int) d);
 				} else {
@@ -88,16 +105,23 @@ void printphyUpdate(FILE *outfile, int n, char *name, double *D, unsigned format
 		ungetc(c, outfile);
 	}
 	/* print new size */
-	fseek(outfile, 0, SEEK_SET);
+	sfseek(outfile, 0, SEEK_SET);
 	fprintf(outfile, "%10d", n);
 	fflush(outfile);
 	
 	/* print new row */
-	fseek(outfile, 0, SEEK_END);
+	sfseek(outfile, 0, SEEK_END);
+	
+	/* strip name */
+	if(*name == '"' && name[(c = (strlen(name) - 1))] == '"') {
+		*(name++ + c) = 0;
+	}
+	name = stripDir(name);
+	
 	if(format & 1) {
-		fprintf(outfile, "%s", stripDir(name));
+		fprintf(outfile, "%s", name);
 	} else {
-		fprintf(outfile, "%-10.10s", stripDir(name));
+		fprintf(outfile, "%-10.10s", name);
 	}
 	--D;
 	while(--n) {
@@ -118,6 +142,7 @@ Qseqs ** loadPhy(Matrix *src, Qseqs **names, Qseqs *header, FileBuff *infile) {
 	char *msg, strbuff[32];
 	unsigned char c, stop, *buff, *seq;
 	double *mat;
+	float *fmat;
 	Qseqs *name;
 	
 	/* init */
@@ -245,7 +270,13 @@ Qseqs ** loadPhy(Matrix *src, Qseqs **names, Qseqs *header, FileBuff *infile) {
 	}
 	
 	/* load rows */
-	mat = *(src->mat);
+	if(src->mat) {
+		mat = *(src->mat);
+		fmat = 0;
+	} else {
+		mat = 0;
+		fmat = *(src->fmat);
+	}
 	for(i = 0; i < n; ++i) {
 		/* get name */
 		name = names[i];
@@ -304,7 +335,11 @@ Qseqs ** loadPhy(Matrix *src, Qseqs **names, Qseqs *header, FileBuff *infile) {
 			}
 			*seq = 0;
 			
-			*mat++ = strtod(strbuff, &msg);
+			if(mat) {
+				*mat++ = strtod(strbuff, &msg);
+			} else {
+				*fmat++ = strtod(strbuff, &msg);
+			}
 			if(*msg != 0) {
 				++i;
 				fprintf(stderr, "Malformatted distance as pos:\t(%d,%d)\n", i, i - j);

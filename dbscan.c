@@ -30,8 +30,9 @@
 
 int dbscan(Matrix *D, int *N, int *C, double maxDist, int minN) {
 	
-	int i, j, c, N_i, nClust, *Nptr, *Cptr;
-	double **Dmat, *Dptr;
+	int i, j, c, floatPrecision, N_i, nClust, *Nptr, *Cptr;
+	double d, **Dmat, *Dptr;
+	float **Dfmat, *Dfptr;
 	
 	/*
 	D	Distance matrix, given
@@ -40,14 +41,23 @@ int dbscan(Matrix *D, int *N, int *C, double maxDist, int minN) {
 	*/
 	
 	/* get number of neighbours pr. node */
-	Dptr = *(D->mat) - 1;
+	if(D->mat) {
+		floatPrecision = 0;
+		Dptr = *(D->mat) - 1;
+		Dfptr = 0;
+	} else {
+		floatPrecision = 1;
+		Dptr = 0;
+		Dfptr = *(D->fmat) - 1;
+	}
 	i = -1;
 	while(++i < D->n) {
 		N_i = 0;
 		Nptr = N - 1;
 		j = -1;
 		while(++j < i) {
-			if(*++Dptr <= maxDist) {
+			d = floatPrecision ? *++Dfptr : *++Dptr;
+			if(d <= maxDist) {
 				++N_i;
 				++*++Nptr;
 			} else {
@@ -60,17 +70,28 @@ int dbscan(Matrix *D, int *N, int *C, double maxDist, int minN) {
 	
 	/* assign cluster numbers to nodes */
 	nClust = 1;
-	Dmat = D->mat;
-	Dptr = *(D->mat) - 1;
+	if(floatPrecision) {
+		Dmat = D->mat;
+		Dfmat = 0;
+	} else {
+		Dmat = 0;
+		Dfmat = D->fmat;
+	}
 	Nptr = N - 1;
 	Cptr = C - 1;
 	i = -1;
 	while(++i < D->n) {
 		c = i;
 		if(minN <= *++Nptr) {
+			if(floatPrecision) {
+				Dfptr = Dfmat[i] - 1;
+			} else {
+				Dptr = Dmat[i] - 1;
+			}
 			j = -1;
 			while(++j < c) {
-				if(Dmat[i][j] <= maxDist) {
+				d = floatPrecision ? *++Dfptr : *++Dptr;
+				if(d <= maxDist) {
 					/* assign node i to the same cluster as node j */
 					c = C[j];
 				}
@@ -162,6 +183,8 @@ static int helpMessage(FILE *out) {
 	fprintf(out, "# %16s\t%-32s\t%s\n", "-o", "Output file", "stdout");
 	fprintf(out, "# %16s\t%-32s\t%s\n", "-n", "Minimum neighbours", "1");
 	fprintf(out, "# %16s\t%-32s\t%s\n", "-d", "Maximum distance", "10.0");
+	fprintf(out, "# %16s\t%-32s\t%s\n", "-fp", "Float precision on distance matrix", "double");
+	fprintf(out, "# %16s\t%-32s\t%s\n", "-mm", "Allocate matrix on the disk", "False");
 	fprintf(out, "# %16s\t%-32s\t%s\n", "-tmp", "Set directory for temporary files", "");
 	fprintf(out, "# %16s\t%-32s\t%s\n", "-h", "Shows this helpmessage", "");
 	return (out == stderr);
@@ -169,7 +192,7 @@ static int helpMessage(FILE *out) {
 
 int main_dbscan(int argc, char *argv[]) {
 	
-	int args, minNum;
+	int args, minNum, size;
 	double maxDist;
 	char *arg, *inputfilename, *outputfilename, *errorMsg;
 	
@@ -213,6 +236,12 @@ int main_dbscan(int argc, char *argv[]) {
 				} else {
 					missArg("\"-d\"");
 				}
+			} else if(strcmp(arg, "fp") == 0) {
+				size = sizeof(float);
+				ltdMatrixInit(-size);
+				ltdMatrixMinit(-size);
+			} else if(strcmp(arg, "mm") == 0) {
+				ltdMatrix_init = &ltdMatrixMinit;
 			} else if(strcmp(arg, "tmp") == 0) {
 				if(++args < argc) {
 					if(argv[args][0] != '-') {

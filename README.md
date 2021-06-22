@@ -28,6 +28,16 @@ mv ccphylo ~/bin/
 ```
 
 # Examples #
+CCPhylo tree has a variety of options to construct hierarchical clusterings in newick format, including the Dynamic 
+Neighbor-Joining (dnj, default) algorithm that produces exact Neighbor-Joining trees in near quadric time, other 
+methods may be applied using the "-m" option. Both relaxed and strict Phylip format are accepted in both lower 
+triangular and full matrix form, all is auto detected (please note that tabs are not allowed in the entry names, 
+while spaces are accepted).
+Example of creating dnj tree, where "distances.phy" is the phylip distance matrix.
+```
+ccphylo tree -i distances.phy
+```
+
 Generate a distance matrix and a tree between the samples, using "CP015990.1" as a reference, and include a matrix 
 describing how many nucleotide positions that were used between each sample.
 ```

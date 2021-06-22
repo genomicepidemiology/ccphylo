@@ -77,7 +77,7 @@ TimeStamp * timeStampFileBuff(FileBuff *src, TimeStamp *dest) {
 
 int seekFileBiff(FileBuff *src, TimeStamp *dest) {
 	
-	fseek(src->file, dest->filePos, SEEK_SET);
+	sfseek(src->file, dest->filePos, SEEK_SET);
 	if(src->buffFileBuff == &BuffgzFileBuff) {
 		/* gz file */
 		deflateEnd(src->strm);

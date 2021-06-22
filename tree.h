@@ -17,5 +17,5 @@
  * limitations under the License.
 */
 
-void formTree(char *inputfilename, char *outputfilename, int flag, int thread_num);
+void formTree(char *inputfilename, char *outputfilename, int flag, char m, int thread_num);
 int main_tree(int argc, char *argv[]);

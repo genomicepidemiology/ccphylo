@@ -80,7 +80,7 @@ void printFastas(char *filename, int *template_lengths) {
 		ERROR();
 	}
 	for(i = 1; i < DB_size; ++i) {
-		fread(compseq, sizeof(long unsigned), (template_lengths[i] >> 5) + 1, seqfile);
+		sfread(compseq, sizeof(long unsigned), (template_lengths[i] >> 5) + 1, seqfile);
 		
 		j = template_lengths[i];
 		*(seq += j) = '\n';
@@ -143,8 +143,8 @@ void printFastaList(FILE *outfile, char *filename, int *template_lengths, int *s
 	for(i = 1; n && i < DB_size; ++i) {
 		if(i == *seqlist) {
 			/* get seq */
-			fseek(seqfile, skip, SEEK_CUR);
-			fread(compseq, sizeof(long unsigned), (template_lengths[i] >> 5) + 1, seqfile);
+			sfseek(seqfile, skip, SEEK_CUR);
+			sfread(compseq, sizeof(long unsigned), (template_lengths[i] >> 5) + 1, seqfile);
 			
 			j = template_lengths[i];
 			*(seq += j) = '\n';
@@ -154,7 +154,7 @@ void printFastaList(FILE *outfile, char *filename, int *template_lengths, int *s
 			
 			/* print seq */
 			fprintf(outfile, ">%s\n", nameLoad(template_name, namefile));
-			fwrite(seq, 1, template_lengths[i] + 1, outfile);
+			cfwrite(seq, 1, template_lengths[i] + 1, outfile);
 			
 			/* get next target */
 			while(--n && i == *++seqlist);

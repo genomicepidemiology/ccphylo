@@ -33,13 +33,24 @@ void ltdMatrix_get(Matrix *dest, Matrix *nDest, MatrixCounts *mat1, NucCount *ma
 	int i, j, n, srtd;
 	char **filename;
 	double dist, *mat, *nMat;
+	float *fmat, *nfMat;
 	TimeStamp **targetStamp;
 	
 	/* get distances */
 	srtd = 1;
 	dest->n = 0;
-	mat = *(dest->mat);
-	nMat = *(nDest->mat);
+	if(dest->mat) {
+		mat = *(dest->mat);
+		nMat = *(nDest->mat);
+		fmat = 0;
+		nfMat = 0;
+	} else {
+		mat = 0;
+		nMat = 0;
+		fmat = *(dest->fmat);
+		nfMat = *(nDest->fmat);
+	}
+	
 	for(i = 1; i < numFile; ++i) {
 		if(include[i]) {
 			/* open matrix file, and find target */
@@ -61,7 +72,7 @@ void ltdMatrix_get(Matrix *dest, Matrix *nDest, MatrixCounts *mat1, NucCount *ma
 			if(FileBuffLoadMat(mat1, infile, minDepth) == 0) {
 				fprintf(stderr, "Input is not DB sorted.\n");
 				/* reset strm */
-				fseek(infile->file, 0, SEEK_SET);
+				sfseek(infile->file, 0, SEEK_SET);
 				while(FileBuffSkipTemplate(infile, mat2) && !(strcmp2(targetTemplate, (char *) mat2->name)));
 				
 				if(strcmp2(targetTemplate, (char *) mat2->name)) {
@@ -107,7 +118,7 @@ void ltdMatrix_get(Matrix *dest, Matrix *nDest, MatrixCounts *mat1, NucCount *ma
 							while(FileBuffSkipTemplate(infile, mat2) && !(strcmp2(targetTemplate, (char *) mat2->name)));
 							if(!(strcmp2(targetTemplate, (char *) mat2->name))) {
 								srtd = 0;
-								fseek(infile->file, 0, SEEK_SET);
+								sfseek(infile->file, 0, SEEK_SET);
 								while(FileBuffSkipTemplate(infile, mat2) && !(strcmp2(targetTemplate, (char *) mat2->name)));
 							}
 						} else {
@@ -137,8 +148,13 @@ void ltdMatrix_get(Matrix *dest, Matrix *nDest, MatrixCounts *mat1, NucCount *ma
 					}
 					
 					if(-1.0 <= dist) {
-						*mat++ = dist;
-						*nMat++ = mat2->total;
+						if(mat) {
+							*mat++ = dist;
+							*nMat++ = mat2->total;
+						} else {
+							*fmat++ = dist;
+							*nfMat++ = mat2->total;
+						}
 					} else {
 						include[n] = 0;
 					}

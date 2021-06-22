@@ -18,6 +18,7 @@
 */
 
 #define _XOPEN_SOURCE 600
+#include <float.h>
 #include <limits.h>
 #include <pthread.h>
 #include <stdlib.h>
@@ -30,16 +31,16 @@
 #include "threader.h"
 #include "vector.h"
 
-void (*limbLengthPtr)(double*, double*, unsigned, unsigned, Vector *, unsigned*, double) = &limbLength;
-double (*initQchunkPtr)(Matrix *, double*, unsigned*, double, int*, int*, int, int) = &initQchunk;
-double (*minDchunkPtr)(Matrix *, unsigned*, double, int*, int*, int, int) = &minDchunk;
-void (*updateDptr)(Matrix *, Vector *, unsigned *, unsigned, unsigned, double, double) = &updateD;
-long unsigned (*minDist)(Matrix *, Vector *, unsigned *) = &initQ;
+void (*limbLengthPtr)(double*, double*, int, int, Vector *, int*, double) = &limbLength;
+double (*initQchunkPtr)(Matrix *, double*, int*, double, int*, int*, int, int) = &initQchunk;
+double (*minDchunkPtr)(Matrix *, int*, double, int*, int*, int, int) = &minDchunk;
+void (*updateDptr)(Matrix *, Vector *, int*, int, int, double, double) = &updateD;
+long unsigned (*minDist)(Matrix *, Vector *, int*) = &initQ;
 void * (*minDist_thread)(void *) = &initQ_thread;
 
-void limbLength(double *Li, double *Lj, unsigned i, unsigned j, Vector *sD, unsigned *N, double D_ij) {
+void limbLength(double *Li, double *Lj, int i, int j, Vector *sD, int *N, double D_ij) {
 	
-	unsigned Ni, Nj;
+	int Ni, Nj;
 	double delta_ij;
 	
 	Ni = N[i] - 2;
@@ -76,9 +77,9 @@ void limbLength(double *Li, double *Lj, unsigned i, unsigned j, Vector *sD, unsi
 	}
 }
 
-void limbLengthNeg(double *Li, double *Lj, unsigned i, unsigned j, Vector *sD, unsigned *N, double D_ij) {
+void limbLengthNeg(double *Li, double *Lj, int i, int j, Vector *sD, int *N, double D_ij) {
 	
-	unsigned Ni, Nj;
+	int Ni, Nj;
 	double delta_ij;
 	
 	Ni = N[i] - 2;
@@ -106,11 +107,11 @@ void limbLengthNeg(double *Li, double *Lj, unsigned i, unsigned j, Vector *sD, u
 	}
 }
 
-unsigned * initSummaD(Vector *sD, Matrix *D, unsigned *N) {
+int * initSummaD(Vector *sD, Matrix *D, int *N) {
 	
-	int i, j;
-	unsigned *Nptr;
-	double dist, *sDptr, *sDvec;
+	int i, j, *Nptr, *Nvec;
+	double dist, *sDptr, *sDvec, *Dptr;
+	float *Dfptr;
 	
 	/*
 	sD(i) = summa(d(i,k));
@@ -119,7 +120,7 @@ unsigned * initSummaD(Vector *sD, Matrix *D, unsigned *N) {
 	/* alloc */
 	if(sD->size < (sD->n = D->n)) {
 		vector_realloc(sD, sD->n);
-		if(!(N = realloc(N, sD->n * sizeof(unsigned)))) {
+		if(!(N = realloc(N, sD->n * sizeof(int)))) {
 				ERROR();
 		}
 	}
@@ -134,28 +135,47 @@ unsigned * initSummaD(Vector *sD, Matrix *D, unsigned *N) {
 	}
 	
 	/* compute sum's */
-	sDptr = *(D->mat) - 1;
-	sDvec = sD->vec;
-	for(i = 1; i < sD->n; ++i) {
-		for(j = 0; j < i; j++) {
-			if(0 <= (dist = *++sDptr)) {
-				sDvec[i] += dist;
-				sDvec[j] += dist;
-				++N[i];
-				++N[j];
+	if(D->mat) {
+		Dptr = *(D->mat) - 1;
+		Dfptr = 0;
+	} else {
+		Dptr = 0;
+		Dfptr = *(D->fmat) - 1;
+	}
+	sDptr = sD->vec--;
+	Nptr = N--;
+	i = 1;
+	while(i < D->n) {
+		++sDptr;
+		sDvec = sD->vec;
+		++Nptr;
+		Nvec = N;
+		j = ++i;
+		while(--j) {
+			dist = Dptr ? *++Dptr : *++Dfptr;
+			if(0 <= dist) {
+				*sDptr += dist;
+				*++sDvec += dist;
+				++*Nptr;
+				++*++Nvec;
+			} else {
+				++sDvec;
+				++Nvec;
 			}
 		}
 	}
+	++sD->vec;
+	++N;
 	
 	return N;
 }
 
-long unsigned initQ(Matrix *D, Vector *sD, unsigned *N) {
+long unsigned initQ(Matrix *D, Vector *sD, int *N) {
 	
-	int i, j, mi, mj;
-	unsigned N_i, *Ni, *Nj;
+	int i, j, mi, mj, N_i, *Ni, *Nj;
 	long unsigned pos;
-	double dist, min, Q, sD_i, *sDi, *sDj, *Dptr;
+	double min, q, sD_i, *sDi, *sDj, *Dptr;
+	float *Dfptr;
 	
 	/*
 	Q(i,j) = (n(i) + n(j) - 4) / 2 * D(i,j) - summa(d(i,k)) - summa(d(k,j));
@@ -168,7 +188,13 @@ long unsigned initQ(Matrix *D, Vector *sD, unsigned *N) {
 	mi = 0;
 	mj = 0;
 	min = 1;
-	Dptr = *(D->mat) - 1;
+	if(D->mat) {
+		Dptr = *(D->mat) - 1;
+		Dfptr = 0;
+	} else {
+		Dptr = 0;
+		Dfptr = *(D->fmat) - 1;
+	}
 	sDi = sD->vec;
 	Ni = N;
 	i = 0;
@@ -179,17 +205,18 @@ long unsigned initQ(Matrix *D, Vector *sD, unsigned *N) {
 		sDj = sD->vec - 1;
 		j = -1;
 		while(++j < i) {
-			if(0 <= (dist = *++Dptr)) {
-				dist *= ((N_i + *++Nj - 4) >> 1);
-				if((Q = dist - sD_i - *++sDj) < min) {
-					min = Q;
+			q = Dptr ? *++Dptr : *++Dfptr;
+			if(0 <= q) {
+				q = ((N_i + *++Nj - 4) >> 1) * q - sD_i - *++sDj;
+				if(q <= min) {
+					min = q;
 					mi = i;
 					mj = j;
 				}
-			} /* else {
-				// missing
-				Q = 1;
-			} */
+			} else {
+				++Nj;
+				++sDj;
+			}
 		}
 	}
 	
@@ -202,12 +229,12 @@ long unsigned initQ(Matrix *D, Vector *sD, unsigned *N) {
 	return pos;
 }
 
-double initQchunk(Matrix *D, double *sD, unsigned *N, double min, int *mi, int *mj, int i, int j) {
+double initQchunk(Matrix *D, double *sD, int *N, double min, int *mi, int *mj, int i, int j) {
 	
 	const int chunk = 65536;
-	int end;
-	unsigned N_i;
-	double sD_i, dist, Q, *Dptr;
+	int end, N_i;
+	double sD_i, Q, *Dptr;
+	float *Dfptr;
 	
 	/* init */
 	end = (j + chunk < i) ? (j + chunk) : i;
@@ -215,29 +242,39 @@ double initQchunk(Matrix *D, double *sD, unsigned *N, double min, int *mi, int *
 	N += --j;
 	sD_i = sD[i];
 	sD += j;
-	Dptr = D->mat[i] + j;
+	if(D->mat) {
+		Dptr = D->mat[i] + j;
+		Dfptr = 0;
+	} else {
+		Dptr = 0;
+		Dfptr = D->fmat[i] + j;
+	}
 	
 	/* get chunk */
 	while(++j < end) {
-		if(0 <= (dist = *++Dptr)) {
-			dist *= ((N_i + *++N - 4) >> 1);
-			if((Q = dist - sD_i - *++sD) < min) {
+		Q = Dptr ? *++Dptr : *++Dfptr;
+		if(0 <= Q) {
+			Q = ((N_i + *++N - 4) >> 1) * Q - sD_i - *++sD;
+			if(Q <= min) {
 				min = Q;
 				*mi = i;
 				*mj = j;
 			}
+		} else {
+			++N;
+			++sD;
 		}
 	}
 	
 	return min;
 }
 
-long unsigned initQ_MN(Matrix *D, Vector *sD, unsigned *N) {
+long unsigned initQ_MN(Matrix *D, Vector *sD, int *N) {
 	
-	int i, j, mi, mj;
-	unsigned N_i, *Ni, *Nj;
+	int i, j, mi, mj, N_i, *Ni, *Nj;
 	long unsigned pos;
-	double dist, max, Q, sD_i, *sDi, *sDj, *Dptr;
+	double max, Q, sD_i, *sDi, *sDj, *Dptr;
+	float *Dfptr;
 	
 	/*
 	Q(i,j) = (n(i) + n(j) - 4) / 2 * D(i,j) - summa(d(i,k)) - summa(d(k,j));
@@ -249,8 +286,14 @@ long unsigned initQ_MN(Matrix *D, Vector *sD, unsigned *N) {
 	/* init */
 	mi = 0;
 	mj = 0;
-	max = -1 - sD->vec[1] - sD->vec[2];
-	Dptr = *(D->mat) - 1;
+	max = -DBL_MAX;
+	if(D->mat) {
+		Dptr = *(D->mat) - 1;
+		Dfptr = 0;
+	} else {
+		Dptr = 0;
+		Dfptr = *(D->fmat) - 1;
+	}
 	sDi = sD->vec;
 	Ni = N;
 	i = 0;
@@ -261,17 +304,18 @@ long unsigned initQ_MN(Matrix *D, Vector *sD, unsigned *N) {
 		sDj = sD->vec - 1;
 		j = -1;
 		while(++j < i) {
-			if(0 <= (dist = *++Dptr)) {
-				dist *= ((N_i + *++Nj - 4) >> 1);
-				if(max < (Q = dist - sD_i - *++sDj)) {
+			Q = Dptr ? *++Dptr : *++Dfptr;
+			if(0 <= Q) {
+				Q = ((N_i + *++Nj - 4) >> 1) * Q - sD_i - *++sDj;
+				if(max <= Q) {
 					max = Q;
 					mi = i;
 					mj = j;
 				}
-			} /* else {
-				// missing
-				Q = 1;
-			} */
+			} else {
+				++Nj;
+				++sDj;
+			}
 		}
 	}
 	
@@ -284,12 +328,12 @@ long unsigned initQ_MN(Matrix *D, Vector *sD, unsigned *N) {
 	return pos;
 }
 
-double initQ_MNchunk(Matrix *D, double *sD, unsigned *N, double max, int *mi, int *mj, int i, int j) {
+double initQ_MNchunk(Matrix *D, double *sD, int *N, double max, int *mi, int *mj, int i, int j) {
 	
 	const int chunk = 65536;
-	int end;
-	unsigned N_i;
-	double sD_i, dist, Q, *Dptr;
+	int end, N_i;
+	double sD_i, Q, *Dptr;
+	float *Dfptr;
 	
 	/* init */
 	end = (j + chunk < i) ? (j + chunk) : i;
@@ -297,17 +341,27 @@ double initQ_MNchunk(Matrix *D, double *sD, unsigned *N, double max, int *mi, in
 	N += --j;
 	sD_i = sD[i];
 	sD += j;
-	Dptr = D->mat[i] + j;
+	if(D->mat) {
+		Dptr = D->mat[i] + j;
+		Dfptr = 0;
+	} else {
+		Dptr = 0;
+		Dfptr = D->fmat[i] + j;
+	}
 	
 	/* get chunk */
 	while(++j < end) {
-		if(0 <= (dist = *++Dptr)) {
-			dist *= ((N_i + *++N - 4) >> 1);
-			if(max < (Q = dist - sD_i - *++sD)) {
+		Q = Dptr ? *++Dptr : *++Dfptr;
+		if(0 <= Q) {
+			Q = ((N_i + *++N - 4) >> 1) * Q - sD_i - *++sD;
+			if(max <= Q) {
 				max = Q;
 				*mi = i;
 				*mj = j;
 			}
+		} else {
+			++N;
+			++sD;
 		}
 	}
 	
@@ -317,12 +371,12 @@ double initQ_MNchunk(Matrix *D, double *sD, unsigned *N, double max, int *mi, in
 void * initQ_thread(void *arg) {
 	
 	const int chunk = 65536;
-	static volatile int thread_begin = 1, thread_wait, lock[1] = {0};
+	static volatile int thread_begin = 1, thread_wait, Lock = 0;
 	static int thread_num = 1, next_i, next_j, Mi, Mj;
 	static double Min;
+	volatile int *lock = &Lock;
 	NJthread *thread = arg;
-	int i, j, mi, mj;
-	unsigned *N;
+	int i, j, mi, mj, *N;
 	double min, *sDvec;
 	Matrix *D;
 	Vector *sD;
@@ -350,7 +404,7 @@ void * initQ_thread(void *arg) {
 		/* init start */
 		Mi = 0;
 		Mj = 0;
-		Min = (initQchunkPtr == &initQchunk) ? 1 : -1 - sD->vec[1] - sD->vec[2];
+		Min = (initQchunkPtr == &initQchunk) ? 1 : -DBL_MAX;
 		next_i = 1;
 		next_j = 0;
 		thread_num = thread->num;
@@ -371,7 +425,7 @@ void * initQ_thread(void *arg) {
 		i = 0;
 		mi = 0;
 		mj = 0;
-		min = (initQchunkPtr == &initQchunk) ? 1 : (-1 - sD->vec[1] - sD->vec[2]);
+		min = (initQchunkPtr == &initQchunk) ? 1 : -DBL_MAX;
 		sDvec = sD->vec;
 		
 		/* fill in chunks */
@@ -399,7 +453,7 @@ void * initQ_thread(void *arg) {
 				Min = min;
 				Mi = mi;
 				Mj = mj;
-			} else if(Min == min && (mi < Mi || (mi == Mi && mj < Mj))) {
+			} else if(Min == min && (Mi < mi || (Mi == mi && Mj < mj))) {
 				/* ensure reproducibility */
 				Mi = mi;
 				Mj = mj;
@@ -408,7 +462,7 @@ void * initQ_thread(void *arg) {
 			Min = min;
 			Mi = mi;
 			Mj = mj;
-		} else if(min == Min && (mi < Mi || (mi == Mi && mj < Mj))) {
+		} else if(min == Min && (Mi < mi || (Mi == mi && Mj < mj))) {
 			/* ensure reproducibility */
 			Mi = mi;
 			Mj = mj;
@@ -426,20 +480,28 @@ void * initQ_thread(void *arg) {
 	return NULL;
 }
 
-long unsigned minD(Matrix *D, Vector *sD, unsigned *N) {
+long unsigned minD(Matrix *D, Vector *sD, int *N) {
 	
-	unsigned i, j, mi, mj;
+	int i, j, mi, mj;
 	long unsigned pos;
-	double min, *Dptr;
+	double min, dist, *Dptr;
+	float *Dfptr;
 	
 	mi = 0;
 	mj = 0;
-	Dptr = *(D->mat) - 1;
-	min = (minDchunkPtr == &minDchunk) ? 2 * **(D->mat) : -1;
+	if(D->mat) {
+		Dptr = *(D->mat) - 1;
+		Dfptr = 0;
+	} else {
+		Dptr = 0;
+		Dfptr = *(D->fmat) - 1;
+	}
+	min = (minDchunkPtr == &minDchunk) ? DBL_MAX : -DBL_MAX;
 	for(i = 1; i < D->n; ++i) {
 		for(j = 0; j < i; ++j) {
-			if(0 <= *++Dptr && *Dptr < min) {
-				min = *Dptr;
+			dist = Dptr ? *++Dptr : *++Dfptr;
+			if(0 <= dist && dist <= min) {
+				min = dist;
 				mi = i;
 				mj = j;
 			}
@@ -455,20 +517,28 @@ long unsigned minD(Matrix *D, Vector *sD, unsigned *N) {
 	return pos;
 }
 
-double minDchunk(Matrix *D, unsigned *N, double min, int *mi, int *mj, int i, int j) {
+double minDchunk(Matrix *D, int *N, double min, int *mi, int *mj, int i, int j) {
 	
 	const int chunk = 65536;
 	int end;
-	double *Dptr;
+	double dist, *Dptr;
+	float *Dfptr;
 	
 	/* init */
 	end = (j + chunk < i) ? (j + chunk) : i;
-	Dptr = D->mat[i] + --j;
+	if(D->mat) {
+		Dptr = D->mat[i] + --j;
+		Dfptr = 0;
+	} else {
+		Dptr = 0;
+		Dfptr = D->fmat[i] + --j;
+	}
 	
 	/* get chunk */
 	while(++j < end) {
-		if(0 <= *++Dptr && *Dptr < min) {
-			min = *Dptr;
+		dist = Dptr ? *++Dptr : *++Dfptr;
+		if(0 <= dist && dist <= min) {
+			min = dist;
 			*mi = i;
 			*mj = j;
 		}
@@ -477,20 +547,28 @@ double minDchunk(Matrix *D, unsigned *N, double min, int *mi, int *mj, int i, in
 	return min;
 }
 
-long unsigned maxD(Matrix *D, Vector *sD, unsigned *N) {
+long unsigned maxD(Matrix *D, Vector *sD, int *N) {
 	
-	unsigned i, j, mi, mj;
+	int i, j, mi, mj;
 	long unsigned pos;
-	double max, *Dptr;
+	double max, dist, *Dptr;
+	float *Dfptr;
 	
 	mi = 0;
 	mj = 0;
-	max = -1;
-	Dptr = *(D->mat) - 1;
+	max = -DBL_MAX;
+	if(D->mat) {
+		Dptr = *(D->mat) - 1;
+		Dfptr = 0;
+	} else {
+		Dptr = 0;
+		Dfptr = *(D->fmat) - 1;
+	}
 	for(i = 1; i < D->n; ++i) {
 		for(j = 0; j < i; ++j) {
-			if(0 <= *++Dptr && max < *Dptr) {
-				max = *Dptr;
+			dist = Dptr ? *++Dptr : *++Dfptr;
+			if(0 <= dist && max <= dist) {
+				max = dist;
 				mi = i;
 				mj = j;
 			}
@@ -506,20 +584,28 @@ long unsigned maxD(Matrix *D, Vector *sD, unsigned *N) {
 	return pos;
 }
 
-double maxDchunk(Matrix *D, unsigned *N, double max, int *mi, int *mj, int i, int j) {
+double maxDchunk(Matrix *D, int *N, double max, int *mi, int *mj, int i, int j) {
 	
 	const int chunk = 65536;
 	int end;
-	double *Dptr;
+	double dist, *Dptr;
+	float *Dfptr;
 	
 	/* init */
 	end = (j + chunk < i) ? (j + chunk) : i;
-	Dptr = D->mat[i] + --j;
+	if(D->mat) {
+		Dptr = D->mat[i] + --j;
+		Dfptr = 0;
+	} else {
+		Dptr = 0;
+		Dfptr = D->fmat[i] + --j;
+	}
 	
 	/* get chunk */
 	while(++j < end) {
-		if(0 <= *++Dptr && max < *Dptr) {
-			max = *Dptr;
+		dist = Dptr ? *++Dptr : *++Dfptr;
+		if(0 <= dist && max <= dist) {
+			max = dist;
 			*mi = i;
 			*mj = j;
 		}
@@ -531,12 +617,12 @@ double maxDchunk(Matrix *D, unsigned *N, double max, int *mi, int *mj, int i, in
 void * minD_thread(void *arg) {
 	
 	const int chunk = 65536;
-	static volatile int thread_begin = 1, thread_wait, lock[1] = {0};
+	static volatile int thread_begin = 1, thread_wait, Lock = 0;
 	static int thread_num = 1, next_i, next_j, Mi, Mj;
 	static double Min;
+	volatile int *lock = &Lock;
 	NJthread *thread = arg;
-	int i, j, mi, mj;
-	unsigned *N;
+	int i, j, mi, mj, *N;
 	double min;
 	Matrix *D;
 	
@@ -554,7 +640,7 @@ void * minD_thread(void *arg) {
 		/* init start */
 		Mi = 0;
 		Mj = 0;
-		Min = (minDchunkPtr == &minDchunk) ? 2 * **(D->mat) : -1;
+		Min = (minDchunkPtr == &minDchunk) ? DBL_MAX : -2;
 		next_i = 1;
 		next_j = 0;
 		wait_atomic((thread_begin != thread_num));
@@ -575,7 +661,7 @@ void * minD_thread(void *arg) {
 		i = 0;
 		mi = 0;
 		mj = 0;
-		min = (minDchunkPtr == &minDchunk) ? (2 * **(D->mat)) : -1;
+		min = (minDchunkPtr == &minDchunk) ? DBL_MAX : -2;
 		
 		/* fill in chunks */
 		while(i < D->n) {
@@ -602,7 +688,7 @@ void * minD_thread(void *arg) {
 				Min = min;
 				Mi = mi;
 				Mj = mj;
-			} else if(Min == min && (mi < Mi || (mi == Mi && mj < Mj))) {
+			} else if(Min == min && (Mi < mi || (Mi == mi && Mj < mj))) {
 				/* ensure reproducibility */
 				Mi = mi;
 				Mj = mj;
@@ -611,7 +697,7 @@ void * minD_thread(void *arg) {
 			Min = min;
 			Mi = mi;
 			Mj = mj;
-		} else if(min == Min && (mi < Mi || (mi == Mi && mj < Mj))) {
+		} else if(min == Min && (Mi < mi || (Mi == mi && Mj < mj))) {
 			/* ensure reproducibility */
 			Mi = mi;
 			Mj = mj;
@@ -631,18 +717,26 @@ void * minD_thread(void *arg) {
 
 long unsigned minPair(Matrix *Q) {
 	
-	unsigned i, j, mi, mj;
+	int i, j, mi, mj;
 	long unsigned pos;
-	double min, *Qptr;
+	double min, q, *Qptr;
+	float *Qfptr;
 	
 	mi = 0;
 	mj = 0;
 	min = 1;
-	Qptr = *(Q->mat) - 1;
+	if(Q->mat) {
+		Qptr = *(Q->mat) - 1;
+		Qfptr = 0;
+	} else {
+		Qptr = 0;
+		Qfptr = *(Q->fmat) - 1;
+	}
 	for(i = 1; i < Q->n; ++i) {
 		for(j = 0; j < i; j++) {
-			if(*++Qptr < min) {
-				min = *Qptr;
+			q = Qptr ? *++Qptr : *++Qfptr;
+			if(q <= min) {
+				min = q;
 				mi = i;
 				mj = j;
 			}
@@ -658,359 +752,546 @@ long unsigned minPair(Matrix *Q) {
 	return pos;
 }
 
-void updateD(Matrix *D, Vector *sD, unsigned *N, unsigned i, unsigned j, double Li, double Lj) {
+void updateD(Matrix *D, Vector *sD, int *N, int i, int j, double Li, double Lj) {
 	
-	unsigned k, n, Dn;
+	int k, n, Dn, *Nptr;
 	double dist, sd, D_ik, D_kj, D_ij, *D_i, *D_j, **Dmat, *sDvec;
+	float *Df_i, *Df_j, **Dfmat;
 	
 	/*
 	D(i,j) = D(j,i) <-> ltd -> j < i
-	D(k,m) = D(i,k) + D(k,j) - D(i,j)
+	D(k,m) = (D(i,k) + D(k,j) - D(i,j))/2
 	! D(i,k) -> D(k,m) = D(k,j) - L(j)
 	! D(k,j) -> D(k,m) = D(i,k) - L(i)
 	*/
 	
 	/* init */
-	Dmat = D->mat;
-	D_i = Dmat[i];
-	D_j = Dmat[j];
-	D_ij = D_i[j];
-	sDvec = sD->vec;
+	if(D->mat) {
+		Dmat = D->mat;
+		D_i = Dmat[i] - 1;
+		D_j = Dmat[j] - 1;
+		D_ij = Dmat[i][j];
+		Dfmat = 0;
+		Df_i = 0;
+		Df_j = 0;
+	} else {
+		Dmat = 0;
+		D_i = 0;
+		D_j = 0;
+		Dfmat = D->fmat;
+		Df_i = Dfmat[i] - 1;
+		Df_j = Dfmat[j] - 1;
+		D_ij = Dfmat[i][j];
+	}
+	sDvec = sD->vec - 1;
+	Nptr = N - 1;
 	
 	/* prepare upadate on N and sD */
 	n = 1;
 	sd = 0;
 	
 	/* update (first) row */
-	for(k = 0; k < j; ++k) {
-		D_ik = D_i[k];
-		D_kj = D_j[k];
+	k = j + 1;
+	while(--k) {
+		D_ik = D_i ? *++D_i : *++Df_i;
+		D_kj = D_j ? *++D_j : *++Df_j;
 		if(0 <= D_ik && 0 <= D_kj) {
 			dist = (D_ik + D_kj - D_ij) / 2;
-			D_j[k] = dist;
+			dist = dist < 0 ? 0 : dist; /* hnj approx-error */
+			if(D_j) {
+				*D_j = dist;
+			} else {
+				*Df_j = dist;
+			}
 			/* update N and sD */
-			sDvec[k] -= (D_kj - dist);
+			*++sDvec -= (D_ik + D_kj - dist);
 			sd += dist;
-			--N[k];
+			--*++Nptr;
 			++n;
 		} else if(0 <= D_ik) {
 			dist = D_ik - Li;
-			D_j[k] = dist;
+			if(D_j) {
+				*D_j = dist;
+			} else {
+				*Df_j = dist;
+			}
 			/* update N and sD, sD(k) is new */
-			sDvec[k] += dist;
+			*++sDvec -= Li;
+			++Nptr;
 			sd += dist;
 			++n;
 		} else if(0 <= D_kj) {
-			dist = (D_j[k] -= Lj);
+			dist = D_j ? (*D_j -= Lj) : (*Df_j -= Lj);
 			/* update N and sD */
-			sDvec[k] += (dist - D_kj);
-			--N[k];
+			*++sDvec += (dist - D_kj);
+			--*++Nptr;
 			sd += dist;
 			++n;
 		}
-		sDvec[k] -= D_ik;
 	}
 	
 	/* update jth column */
+	if(D_j) {
+		D_j = Dmat[j];
+		Df_j = 0;
+	} else {
+		D_j = 0;
+		Df_j = Dfmat[j];
+	}
+	++sDvec;
+	++Nptr;
 	Dn = i;
+	k = j;
 	while(Dn != D->n) {
 		if(k == Dn) {
+			/* skip ith row */
 			Dn = D->n;
+			++sDvec;
+			++Nptr;
 		}
 		while(++k < Dn) {
-			D_ik = k < i ? Dmat[i][k] : Dmat[k][i];
-			D_kj = Dmat[k][j];
+			if(Dmat) {
+				D_ik = k < i ? Dmat[i][k] : Dmat[k][i];
+				D_kj = Dmat[k][j];
+			} else {
+				D_ik = k < i ? Dfmat[i][k] : Dfmat[k][i];
+				D_kj = Dfmat[k][j];
+			}
 			if(0 <= D_ik && 0 <= D_kj) {
 				dist = (D_kj + D_ik - D_ij) / 2;
-				Dmat[k][j] = dist < 0 ? 0 : dist;
-				
+				dist = dist < 0 ? 0 : dist; /* hnj approx-error */
+				if(Dmat) {
+					Dmat[k][j] = dist;
+				} else {
+					Dfmat[k][j] = dist;
+				}
 				/* update N and sD */
-				sDvec[k] -= (D_kj - dist);
+				*++sDvec -= (D_ik + D_kj - dist);
+				--*++Nptr;
 				sd += dist;
-				--N[k];
 				++n;
 			} else if(0 <= D_ik) {
 				dist = D_ik - Li;
-				Dmat[k][j] = dist;
+				if(Dmat) {
+					Dmat[k][j] = dist;
+				} else {
+					Dfmat[k][j] = dist;
+				}
 				/* update N and sD, sD(k) is new */
-				sDvec[k] += dist;
+				*++sDvec -= Li;
+				++Nptr;
 				sd += dist;
 				++n;
 			} else if(0 <= D_kj) {
-				dist = (Dmat[k][j] -= Lj);
+				dist = Dmat ? (Dmat[k][j] -= Lj) : (Dmat[k][j] -= Lj);
+				dist -= D_j ? D_j[k] : Df_j[k];
 				/* update N and sD */
-				sDvec[k] += (dist - D_j[k]);
-				--N[k];
+				*++sDvec += dist;
+				--*++Nptr;
 				sd += dist;
 				++n;
 			}
-			sDvec[k] -= D_ik;
 		}
 	}
 	
 	/* update N and sD for row j*/
 	N[j] = n;
-	sDvec[j] = sd;
+	sD->vec[j] = sd;
 }
 
-void updateD_UPGMA(Matrix *D, Vector *sD, unsigned *N, unsigned i, unsigned j, double Li, double Lj) {
+void updateD_UPGMA(Matrix *D, Vector *sD, int *N, int i, int j, double Li, double Lj) {
 	
-	unsigned k, n, Dn;
+	int k, n, Dn, *Nptr;
 	double dist, sd, D_ik, D_kj, *D_i, *D_j, **Dmat, *sDvec;
+	float *Df_i, *Df_j, **Dfmat;
 	
 	/*
 	UPGMA
 	*/
 	
 	/* init */
-	Dmat = D->mat;
-	D_i = Dmat[i];
-	D_j = Dmat[j];
-	sDvec = sD->vec;
+	if(D->mat) {
+		Dmat = D->mat;
+		D_i = Dmat[i] - 1;
+		D_j = Dmat[j] - 1;
+		Dfmat = 0;
+		Df_i = 0;
+		Df_j = 0;
+	} else {
+		Dmat = 0;
+		D_i = 0;
+		D_j = 0;
+		Dfmat = D->fmat;
+		Df_i = Dfmat[i] - 1;
+		Df_j = Dfmat[j] - 1;
+	}
+	sDvec = sD->vec - 1;
+	Nptr = N - 1;
 	
 	/* prepare upadate on N and sD */
 	n = 1;
 	sd = 0;
 	
 	/* update (first) row */
-	for(k = 0; k < j; ++k) {
-		D_ik = D_i[k];
-		D_kj = D_j[k];
+	k = j + 1;
+	while(--k) {
+		D_ik = D_i ? *++D_i : *++Df_i;
+		D_kj = D_j ? *++D_j : *++Df_j;
 		if(0 <= D_ik && 0 <= D_kj) {
 			dist = (D_ik + D_kj) / 2;
-			D_j[k] = dist;
+			if(D_j) {
+				*D_j = dist;
+			} else {
+				*Df_j = dist;
+			}
 			/* update N and sD */
-			sDvec[k] -= (D_kj - dist);
+			*++sDvec -= (D_ik + D_kj - dist);
 			sd += dist;
-			--N[k];
+			--*++Nptr;
 			++n;
 		} else if(0 <= D_ik) {
-			D_j[k] = D_ik;
+			if(D_j) {
+				*D_j = D_ik;
+			} else {
+				*Df_j = D_ik;
+			}
 			/* update N and sD, sD(k) is new */
-			sDvec[k] += D_ik;
+			++sDvec;
+			++Nptr;
 			sd += D_ik;
 			++n;
 		} else if(0 <= D_kj) {
 			/* update N and sD */
-			--N[k];
+			++sDvec;
+			--*++Nptr;
 			sd += D_kj;
 			++n;
 		}
-		sDvec[k] -= D_ik;
 	}
 	
 	/* update jth column */
+	if(D_j) {
+		D_j = Dmat[j];
+	} else {
+		Df_j = Dfmat[j];
+	}
+	++sDvec;
+	++Nptr;
 	Dn = i;
+	k = j;
 	while(Dn != D->n) {
 		if(k == Dn) {
+			/* skip ith row */
 			Dn = D->n;
+			++sDvec;
+			++Nptr;
 		}
 		while(++k < Dn) {
-			D_ik = k < i ? Dmat[i][k] : Dmat[k][i];
-			D_kj = Dmat[k][j];
+			if(Dmat) {
+				D_ik = k < i ? Dmat[i][k] : Dmat[k][i];
+				D_kj = Dmat[k][j];
+			} else {
+				D_ik = k < i ? Dfmat[i][k] : Dfmat[k][i];
+				D_kj = Dfmat[k][j];
+			}
 			if(0 <= D_ik && 0 <= D_kj) {
 				dist = (D_kj + D_ik) / 2;
-				Dmat[k][j] = dist;
-				
+				if(Dmat) {
+					Dmat[k][j] = dist;
+				} else {
+					Dfmat[k][j] = dist;
+				}
 				/* update N and sD */
-				sDvec[k] -= (D_kj - dist);
+				*++sDvec -= (D_ik + D_kj - dist);
+				--*++Nptr;
 				sd += dist;
-				--N[k];
 				++n;
 			} else if(0 <= D_ik) {
-				Dmat[k][j] = D_ik;
+				if(Dmat) {
+					Dmat[k][j] = D_ik;
+				} else {
+					Dfmat[k][j] = D_ik;
+				}
 				/* update N and sD, sD(k) is new */
-				sDvec[k] += D_ik;
+				++sDvec;
+				++Nptr;
 				sd += D_ik;
 				++n;
 			} else if(0 <= D_kj) {
 				/* update N and sD */
-				--N[k];
+				++sDvec;
+				--*++Nptr;
 				sd += D_kj;
 				++n;
 			}
-			sDvec[k] -= D_ik;
 		}
 	}
 	
 	/* update N and sD for row j*/
 	N[j] = n;
-	sDvec[j] = sd;
+	sD->vec[j] = sd;
 }
 
-void updateD_FF(Matrix *D, Vector *sD, unsigned *N, unsigned i, unsigned j, double Li, double Lj) {
+void updateD_FF(Matrix *D, Vector *sD, int *N, int i, int j, double Li, double Lj) {
 	
-	unsigned k, n, Dn;
+	int k, n, Dn, *Nptr;
 	double dist, sd, D_ik, D_kj, *D_i, *D_j, **Dmat, *sDvec;
+	float *Df_i, *Df_j, **Dfmat;
 	
 	/*
 	Furthest First
 	*/
 	
 	/* init */
-	Dmat = D->mat;
-	D_i = Dmat[i];
-	D_j = Dmat[j];
-	sDvec = sD->vec;
+	if(D->mat) {
+		Dmat = D->mat;
+		D_i = Dmat[i] - 1;
+		D_j = Dmat[j] - 1;
+		Dfmat = 0;
+		Df_i = 0;
+		Df_j = 0;
+	} else {
+		Dmat = 0;
+		D_i = 0;
+		D_j = 0;
+		Dfmat = D->fmat;
+		Df_i = Dfmat[i] - 1;
+		Df_j = Dfmat[j] - 1;
+	}
+	sDvec = sD->vec - 1;
+	Nptr = N - 1;
 	
 	/* prepare upadate on N and sD */
 	n = 1;
 	sd = 0;
 	
 	/* update (first) row */
-	for(k = 0; k < j; ++k) {
-		D_ik = D_i[k];
-		D_kj = D_j[k];
+	k = j + 1;
+	while(--k) {
+		D_ik = D_i ? *++D_i : *++Df_i;
+		D_kj = D_j ? *++D_j : *++Df_j;
 		if(0 <= D_ik && 0 <= D_kj) {
 			dist = D_ik < D_kj ? D_kj : D_ik;
-			D_j[k] = dist;
+			if(D_j) {
+				*D_j = dist;
+			} else {
+				*Df_j = dist;
+			}
 			/* update N and sD */
-			sDvec[k] -= (D_kj - dist);
+			*++sDvec -= (D_ik + D_kj - dist);
 			sd += dist;
-			--N[k];
+			--*++Nptr;
 			++n;
 		} else if(0 <= D_ik) {
-			D_j[k] = D_ik;
+			if(D_j) {
+				*D_j = D_ik;
+			} else {
+				*Df_j = D_ik;
+			}
 			/* update N and sD, sD(k) is new */
-			sDvec[k] += D_ik;
+			++sDvec;
+			++Nptr;
 			sd += D_ik;
 			++n;
 		} else if(0 <= D_kj) {
 			/* update N and sD */
-			--N[k];
+			++sDvec;
+			--*++Nptr;
 			sd += D_kj;
 			++n;
 		}
-		sDvec[k] -= D_ik;
 	}
 	
 	/* update jth column */
+	++sDvec;
+	++Nptr;
 	Dn = i;
+	k = j;
 	while(Dn != D->n) {
 		if(k == Dn) {
+			/* skip ith row */
 			Dn = D->n;
+			++sDvec;
+			++Nptr;
 		}
 		while(++k < Dn) {
-			D_ik = k < i ? Dmat[i][k] : Dmat[k][i];
-			D_kj = Dmat[k][j];
+			if(Dmat) {
+				D_ik = k < i ? Dmat[i][k] : Dmat[k][i];
+				D_kj = Dmat[k][j];
+			} else {
+				D_ik = k < i ? Dfmat[i][k] : Dfmat[k][i];
+				D_kj = Dfmat[k][j];
+			}
 			if(0 <= D_ik && 0 <= D_kj) {
 				dist = D_ik < D_kj ? D_kj : D_ik;
-				Dmat[k][j] = dist;
-				
+				if(Dmat) {
+					Dmat[k][j] = dist;
+				} else {
+					Dfmat[k][j] = dist;
+				}
 				/* update N and sD */
-				sDvec[k] -= (D_kj - dist);
+				*++sDvec -= (D_ik + D_kj - dist);
 				sd += dist;
-				--N[k];
+				--*++Nptr;
 				++n;
 			} else if(0 <= D_ik) {
-				Dmat[k][j] = D_ik;
+				if(Dmat) {
+					Dmat[k][j] = D_ik;
+				} else {
+					Dfmat[k][j] = D_ik;
+				}
 				/* update N and sD, sD(k) is new */
-				sDvec[k] += D_ik;
+				++sDvec;
+				++Nptr;
 				sd += D_ik;
 				++n;
 			} else if(0 <= D_kj) {
 				/* update N and sD */
-				--N[k];
+				++sDvec;
+				--*++Nptr;
 				sd += D_kj;
 				++n;
 			}
-			sDvec[k] -= D_ik;
 		}
 	}
 	
 	/* update N and sD for row j*/
 	N[j] = n;
-	sDvec[j] = sd;
+	sD->vec[j] = sd;
 }
 
-void updateD_CF(Matrix *D, Vector *sD, unsigned *N, unsigned i, unsigned j, double Li, double Lj) {
+void updateD_CF(Matrix *D, Vector *sD, int *N, int i, int j, double Li, double Lj) {
 	
-	unsigned k, n, Dn;
+	int k, n, Dn, *Nptr;
 	double dist, sd, D_ik, D_kj, *D_i, *D_j, **Dmat, *sDvec;
+	float *Df_i, *Df_j, **Dfmat;
 	
 	/*
 	Closest First
 	*/
 	
 	/* init */
-	Dmat = D->mat;
-	D_i = Dmat[i];
-	D_j = Dmat[j];
-	sDvec = sD->vec;
+	if(D->mat) {
+		Dmat = D->mat;
+		D_i = Dmat[i] - 1;
+		D_j = Dmat[j] - 1;
+		Dfmat = 0;
+		Df_i = 0;
+		Df_j = 0;
+	} else {
+		Dmat = 0;
+		D_i = 0;
+		D_j = 0;
+		Dfmat = D->fmat;
+		Df_i = Dfmat[i] - 1;
+		Df_j = Dfmat[j] - 1;
+	}
+	sDvec = sD->vec - 1;
+	Nptr = N - 1;
 	
 	/* prepare upadate on N and sD */
 	n = 1;
 	sd = 0;
 	
 	/* update (first) row */
-	for(k = 0; k < j; ++k) {
-		D_ik = D_i[k];
-		D_kj = D_j[k];
+	k = j + 1;
+	while(--k) {
+		D_ik = D_i ? *++D_i : *++Df_i;
+		D_kj = D_j ? *++D_j : *++Df_j;
+		
 		if(0 <= D_ik && 0 <= D_kj) {
 			dist = D_ik < D_kj ? D_ik : D_kj;
-			D_j[k] = dist;
+			if(D_j) {
+				*D_j = dist;
+			} else {
+				*Df_j = dist;
+			}
 			/* update N and sD */
-			sDvec[k] -= (D_kj - dist);
+			*++sDvec -= (D_ik + D_kj - dist);
 			sd += dist;
-			--N[k];
+			--*++Nptr;
 			++n;
 		} else if(0 <= D_ik) {
-			D_j[k] = D_ik;
+			if(D_j) {
+				*D_j = D_ik;
+			} else {
+				*Df_j = D_ik;
+			}
 			/* update N and sD, sD(k) is new */
-			sDvec[k] += D_ik;
+			++sDvec;
+			++N;
 			sd += D_ik;
 			++n;
 		} else if(0 <= D_kj) {
 			/* update N and sD */
-			--N[k];
+			++sDvec;
+			--*++Nptr;
 			sd += D_kj;
 			++n;
 		}
-		sDvec[k] -= D_ik;
 	}
 	
 	/* update jth column */
+	++sDvec;
+	++Nptr;
 	Dn = i;
+	k = j;
 	while(Dn != D->n) {
 		if(k == Dn) {
+			/* skip ith row */
 			Dn = D->n;
+			++sDvec;
+			++Nptr;
 		}
 		while(++k < Dn) {
-			D_ik = k < i ? Dmat[i][k] : Dmat[k][i];
-			D_kj = Dmat[k][j];
+			if(Dmat) {
+				D_ik = k < i ? Dmat[i][k] : Dmat[k][i];
+				D_kj = Dmat[k][j];
+			} else {
+				D_ik = k < i ? Dfmat[i][k] : Dfmat[k][i];
+				D_kj = Dfmat[k][j];
+			}
 			if(0 <= D_ik && 0 <= D_kj) {
 				dist = D_ik < D_kj ? D_ik : D_kj;
-				Dmat[k][j] = dist < 0 ? 0 : dist;
-				
+				if(Dmat) {
+					Dmat[k][j] = dist < 0 ? 0 : dist;
+				} else {
+					Dfmat[k][j] = dist < 0 ? 0 : dist;
+				}
 				/* update N and sD */
-				sDvec[k] -= (D_kj - dist);
+				*++sDvec -= (D_ik + D_kj - dist);
+				--*++Nptr;
 				sd += dist;
-				--N[k];
 				++n;
 			} else if(0 <= D_ik) {
-				Dmat[k][j] = D_ik;
+				if(Dmat) {
+					Dmat[k][j] = D_ik;
+				} else {
+					Dfmat[k][j] = D_ik;
+				}
 				/* update N and sD, sD(k) is new */
-				sDvec[k] += D_ik;
+				++sDvec;
+				++N;
 				sd += D_ik;
 				++n;
 			} else if(0 <= D_kj) {
 				/* update N and sD */
-				--N[k];
+				++sDvec;
+				--*++Nptr;
 				sd += D_kj;
 				++n;
 			}
-			sDvec[k] -= D_ik;
 		}
 	}
 	
 	/* update N and sD for row j*/
 	N[j] = n;
-	sDvec[j] = sd;
+	sD->vec[j] = sd;
 }
 
-unsigned * nj(Matrix *D, Vector *sD, unsigned *N, Qseqs **names) {
+int * nj(Matrix *D, Vector *sD, int *N, Qseqs **names) {
 	
-	unsigned i, j, mask, shift;
+	int i, j, mask, shift;
 	long unsigned pair;
 	double Li, Lj;
 	Qseqs *tmp;
@@ -1026,7 +1307,7 @@ unsigned * nj(Matrix *D, Vector *sD, unsigned *N, Qseqs **names) {
 		i = pair >> shift;
 		
 		/* get limbs */
-		limbLengthPtr(&Li, &Lj, i, j, sD, N, D->mat[i][j]);
+		limbLengthPtr(&Li, &Lj, i, j, sD, N, (D->mat ? D->mat[i][j] : D->fmat[i][j]));
 		
 		/* form leaf */
 		formNode(names[j], names[i], Lj, Li);
@@ -1039,10 +1320,11 @@ unsigned * nj(Matrix *D, Vector *sD, unsigned *N, Qseqs **names) {
 		sD->vec[i] = sD->vec[--sD->n];
 		N[i] = N[D->n];
 		exchange(names[i], names[D->n], tmp);	
+		ltdMatrixShrink(D, D->size - 1);
 	}
 	
 	if(D->n == 2) {
-		formLastNodePtr(*names, names[1], **(D->mat));
+		formLastNodePtr(*names, names[1], (D->mat ? **(D->mat) : **(D->fmat)));
 	} else {
 		/* form remaining nodes with undefined distance */
 		while(D->n != 1) {
@@ -1059,9 +1341,9 @@ unsigned * nj(Matrix *D, Vector *sD, unsigned *N, Qseqs **names) {
 	return N;
 }
 
-unsigned * nj_thread(Matrix *D, Vector *sD, unsigned *N, Qseqs **names, int thread_num) {
+int * nj_thread(Matrix *D, Vector *sD, int *N, Qseqs **names, int thread_num) {
 	
-	unsigned i, j;
+	int i, j;
 	double Li, Lj;
 	NJthread *threads, *thread;
 	Qseqs *tmp;
@@ -1101,7 +1383,7 @@ unsigned * nj_thread(Matrix *D, Vector *sD, unsigned *N, Qseqs **names, int thre
 	/* get pairs */
 	while(D->n != 2 && (minDist_thread(thread) || ((i = thread->mi) | (j = thread->mj)))) {
 		/* get limbs */
-		limbLengthPtr(&Li, &Lj, i, j, sD, N, D->mat[i][j]);
+		limbLengthPtr(&Li, &Lj, i, j, sD, N, (D->mat ? D->mat[i][j] : D->fmat[i][j]));
 		
 		/* form leaf */
 		formNode(names[j], names[i], Lj, Li);
@@ -1114,12 +1396,12 @@ unsigned * nj_thread(Matrix *D, Vector *sD, unsigned *N, Qseqs **names, int thre
 		sD->vec[i] = sD->vec[--sD->n];
 		N[i] = N[D->n];
 		exchange(names[i], names[D->n], tmp);
-		
+		ltdMatrixShrink(D, D->size - 1);
 		threads->min = 1;
 	}
 	
 	if(D->n == 2) {
-		formLastNodePtr(*names, names[1], **(D->mat));
+		formLastNodePtr(*names, names[1], (D->mat ? **(D->mat) : **(D->fmat)));
 	} else {
 		/* form remaining nodes with undefined distance */
 		while(D->n != 1) {

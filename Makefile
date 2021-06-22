@@ -1,6 +1,6 @@
 CFLAGS ?= -Wall -O3
 CFLAGS += -std=c99
-LIBS = cdist.o dbscan.o dbparse.o dist.o fbseek.o filebuff.o fsacmp.o fsacmpthrd.o hashmapstr.o hashmapstrindex.o ltdmatrix.o ltdmatrixthrd.o matcmp.o matparse.o matrix.o merge.o meth.o methparse.o nj.o nwck.o nwck2phy.o pherror.o phy.o qseqs.o rarify.o resparse.o seqparse.o seq2fasta.o stdnuc.o stdstat.o str.o tmp.o tree.o trim.o ulist.o union.o unionparse.o vector.o
+LIBS = cdist.o dbscan.o dbparse.o dnj.o dist.o fbseek.o filebuff.o fsacmp.o fsacmpthrd.o hashmapstr.o hashmapstrindex.o hclust.o ltdmatrix.o ltdmatrixthrd.o matcmp.o matparse.o matrix.o merge.o meth.o methparse.o nj.o nwck.o nwck2phy.o pherror.o phy.o qseqs.o rarify.o resparse.o seqparse.o seq2fasta.o stdnuc.o stdstat.o str.o tmp.o tree.o trim.o ulist.o union.o unionparse.o vector.o
 PROGS = ccphylo
 
 .c .o:
@@ -12,7 +12,7 @@ ccphylo: main.c libccphylo.a
 	$(CC) $(CFLAGS) -o $@ main.c libccphylo.a -lm -lpthread -lz
 
 libccphylo.a: $(LIBS)
-	$(AR) -csru $@ $(LIBS)
+	$(AR) -csr $@ $(LIBS)
 
 clean:
 	$(RM) $(LIBS) $(PROGS) libccphylo.a
@@ -20,6 +20,7 @@ clean:
 cdist.o: cdist.h filebuff.h matrix.h meth.h pherror.h phy.h seqparse.h
 dbscan.o: dbscan.h filebuff.h matrix.h pherror.h phy.h qseqs.h tmp.h
 dbparse.o: dbparse.h pherror.h qseqs.h
+dnj.o: dnj.h hclust.h matrix.h nj.h nwck.h qseqs.h pherror.h str.h threader.h vector.h
 dist.o: dist.h ltdmatrix.h matcmp.h matrix.h meth.h methparse.h pherror.h phy.h unionparse.h
 fbseek.o: fbseek.h filebuff.h pherror.h
 filebuff.o: filebuff.h pherror.h
@@ -27,6 +28,7 @@ fsacmp.o: fsacmp.h matrix.h pherror.h qseqs.h threader.h
 fsacmpthrd.o: fsacmpthrd.h fsacmp.h matrix.h pherror.h threader.h
 hashmapstr.o: hashmapstr.h pherror.h
 hashmapstrindex.o: hashmapstrindex.h hashmapstr.h pherror.h
+hclust.o: hclust.h matrix.h nj.h nwck.h qseqs.h pherror.h str.h vector.h
 ltdmatrix.o: ltdmatrix.h filebuff.h ltdmatrix.h matcmp.h matparse.h pherror.h
 ltdmatrixthrd.o: ltdmatrixthrd.h filebuff.h matcmp.h matparse.h matrix.h pherror.h threader.h
 matcmp.o: matcmp.h filebuff.h matparse.h stdstat.h

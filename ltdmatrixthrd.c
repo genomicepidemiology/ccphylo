@@ -109,8 +109,9 @@ void matCmpThreadOut(int tnum, void * (*func)(void*), Matrix *D, Matrix *N, Matr
 
 void * cmpMatRowThrd(void *arg) {
 	
-	static volatile int lock[1] = {0};
+	static volatile int Lock = 0;
 	static int pj = 0; /* sample, position in matrix */
+	volatile int *lock = &Lock;
 	CmpMatArg *thread = arg;
 	char *targetTemplate, *filename;
 	unsigned j, n, norm, minDepth, minLength;
@@ -179,14 +180,16 @@ void * cmpMatRowThrd(void *arg) {
 
 void * cmpMatThrd(void *arg) {
 	
-	static volatile int pi = 0, cellFinish = 0, purge = 1, lock[1] = {0};
+	static volatile int pi = 0, cellFinish = 0, purge = 1, Lock = 0;
 	static int pj = 0, sj = 0, srtd = 1; /* sample, position in matrix */
+	volatile int *lock = &Lock;
 	CmpMatArg *thread = arg;
 	char *targetTemplate, *filename, **filenames;
 	unsigned char *include;
 	unsigned i, j, n, s, norm, minDepth, minLength;
 	double *Dptr, *Nptr, minCov, dist;
 	double (*veccmp)(short unsigned*, short unsigned*, int, int);
+	float *Dfptr, *Nfptr;
 	FileBuff *infile;
 	Matrix *D, *N;
 	MatrixCounts *mat1;
@@ -259,8 +262,17 @@ void * cmpMatThrd(void *arg) {
 		unlock(lock);
 		
 		/* init */
-		Dptr = D->mat[i];
-		Nptr = N ? N->mat[i] : 0;
+		if(D->mat) {
+			Dptr = D->mat[i];
+			Nptr = N ? N->mat[i] : 0;
+			Dfptr = 0;
+			Nfptr = 0;
+		} else {
+			Dptr = 0;
+			Nptr = 0;
+			Dfptr = D->fmat[i];
+			Nfptr = N ? N->fmat[i] : 0;
+		}
 		targetTemplate = (char *) mat1->name->seq;
 		
 		/* calculate distances */
@@ -302,9 +314,16 @@ void * cmpMatThrd(void *arg) {
 				}
 			}
 			
-			Dptr[j] = dist;
-			if(N) {
-				Nptr[j] = mat2->total;
+			if(Dptr) {
+				Dptr[j] = dist;
+				if(N) {
+					Nptr[j] = mat2->total;
+				}
+			} else {
+				Dfptr[j] = dist;
+				if(N) {
+					Nfptr[j] = mat2->total;
+				}
 			}
 			
 			/* close mtrix file */
@@ -384,7 +403,7 @@ void ltdMatrixThrd(Matrix *D, Matrix *N, MatrixCounts *mat1, TimeStamp **targetS
 				while(FileBuffSkipTemplate(infile, mat2) && !(strcmp2(targetTemplate, (char *) mat2->name)));
 				if(!(strcmp2(targetTemplate, (char *) mat2->name))) {
 					/* reset strm */
-					fseek(infile->file, 0, SEEK_SET);
+					sfseek(infile->file, 0, SEEK_SET);
 					while(FileBuffSkipTemplate(infile, mat2) && !(strcmp2(targetTemplate, (char *) mat2->name)));
 					srtd = 0;
 				}
@@ -434,7 +453,7 @@ void ltdMatrixThrd(Matrix *D, Matrix *N, MatrixCounts *mat1, TimeStamp **targetS
 				while(FileBuffSkipTemplate(infile, mat2) && !(strcmp2(targetTemplate, (char *) mat2->name)));
 				if(!(strcmp2(targetTemplate, (char *) mat2->name))) {
 					/* reset strm */
-					fseek(infile->file, 0, SEEK_SET);
+					sfseek(infile->file, 0, SEEK_SET);
 					while(FileBuffSkipTemplate(infile, mat2) && !(strcmp2(targetTemplate, (char *) mat2->name)));
 					srtd = 0;
 				}
@@ -453,7 +472,7 @@ void ltdMatrixThrd(Matrix *D, Matrix *N, MatrixCounts *mat1, TimeStamp **targetS
 				if(FileBuffLoadMat(mat1, infile, minDepth) == 0) {
 					fprintf(stderr, "Input is not DB sorted.\n");
 					/* reset strm */
-					fseek(infile->file, 0, SEEK_SET);
+					sfseek(infile->file, 0, SEEK_SET);
 					while(FileBuffSkipTemplate(infile, mat2) && !(strcmp2(targetTemplate, (char *) mat2->name)));
 					
 					if(strcmp2(targetTemplate, (char *) mat2->name)) {

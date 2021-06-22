@@ -584,7 +584,8 @@ long unsigned fsacmpair(long unsigned *seq1, long unsigned *seq2, unsigned *incl
 
 void printDiff(FILE *outfile, int samplei, int samplej, int nuci, int pos, int nucj) {
 	
-	static volatile int lock[1] = {0};
+	static volatile int Lock = 0;
+	volatile int *lock = &Lock;
 	char bases[4] = "ACGT";
 	
 	lock(lock);
@@ -691,6 +692,7 @@ unsigned cmpFsa(Matrix *D, int n, int len, long unsigned **seqs, unsigned char *
 	long unsigned **seqi, **seqj, dist;
 	unsigned char *includei, *includej;
 	double *Dptr, nFactor;
+	float *Dfptr;
 	
 	/* init */
 	includesPtr = *includes;
@@ -711,7 +713,13 @@ unsigned cmpFsa(Matrix *D, int n, int len, long unsigned **seqs, unsigned char *
 		}
 	}
 	seqi = seqs;
-	Dptr = *(D->mat) - 1;
+	if(D->mat) {
+		Dptr = *(D->mat) - 1;
+		Dfptr = 0;
+	} else {
+		Dptr = 0;
+		Dfptr = *(D->fmat) - 1;
+	}
 	includei = include;
 	
 	/* get distances */
@@ -726,7 +734,11 @@ unsigned cmpFsa(Matrix *D, int n, int len, long unsigned **seqs, unsigned char *
 				for(j = 0; j < i; ++j) {
 					if(*++includej) {
 						dist = fsacmprint(diffile, i, j, *seqi, *++seqj, includesPtr, len);
-						*++Dptr = nFactor * dist;
+						if(Dptr) {
+							*++Dptr = nFactor * dist;
+						} else {
+							*++Dfptr = nFactor * dist;
+						}
 					} else {
 						++seqj;
 					}
@@ -745,7 +757,11 @@ unsigned cmpFsa(Matrix *D, int n, int len, long unsigned **seqs, unsigned char *
 				while(--j) {
 					if(*++includej) {
 						dist = fsacmp(*seqi, *++seqj, includesPtr, len);
-						*++Dptr = nFactor * dist;
+						if(Dptr) {
+							*++Dptr = nFactor * dist;
+						} else {
+							*++Dfptr = nFactor * dist;
+						}
 					} else {
 						++j;
 						++seqj;
@@ -765,11 +781,21 @@ void cmpairFsa(Matrix *D, Matrix *N, int n, int len, long unsigned **seqs, unsig
 	long unsigned **seqi, **seqj, dist;
 	unsigned char *includei, *includej;
 	double *Dptr, *Nptr;
+	float *Dfptr, *Nfptr;
 	
 	/* init */
 	minLength = minLength < minCov * len ? minCov * len : minLength;
-	Dptr = *(D->mat) - 1;
-	Nptr = N ? *(N->mat) - 1 : 0;
+	if(D->mat) {
+		Dptr = *(D->mat) - 1;
+		Nptr = N ? *(N->mat) - 1 : 0;
+		Dfptr = 0;
+		Nfptr = 0;
+	} else {
+		Dptr = 0;
+		Nptr = 0;
+		Dfptr = *(D->fmat) - 1;
+		Nfptr = N ? *(N->fmat) - 1 : 0;
+	}
 	
 	/* seek first incuded sample */
 	while(n && *include == 0) {
@@ -803,18 +829,34 @@ void cmpairFsa(Matrix *D, Matrix *N, int n, int len, long unsigned **seqs, unsig
 						dist = fsacmpairint(diffile, i, j, *seqi, *seqj, includePair, len);
 						
 						/* separate distance and included bases */
-						if(minLength <= (inc = dist & UINT_MAX)) {
-							if(norm) {
-								*++Dptr = (dist >> 32);
+						if(Dptr) {
+							if(minLength <= (inc = dist & UINT_MAX)) {
+								if(norm) {
+									*++Dptr = (dist >> 32);
+								} else {
+									*++Dptr = (dist >> 32) * norm;
+									*Dptr /= inc;
+								}
 							} else {
-								*++Dptr = (dist >> 32) * norm;
-								*Dptr /= inc;
+								*++Dptr = -1.0;
+							}
+							if(N) {
+								*++Nptr = inc;
 							}
 						} else {
-							*++Dptr = -1.0;
-						}
-						if(N) {
-							*++Nptr = inc;
+							if(minLength <= (inc = dist & UINT_MAX)) {
+								if(norm) {
+									*++Dfptr = (dist >> 32);
+								} else {
+									*++Dfptr = (dist >> 32) * norm;
+									*Dfptr /= inc;
+								}
+							} else {
+								*++Dfptr = -1.0;
+							}
+							if(N) {
+								*++Nfptr = inc;
+							}
 						}
 					} else {
 						++seqj;
@@ -843,18 +885,34 @@ void cmpairFsa(Matrix *D, Matrix *N, int n, int len, long unsigned **seqs, unsig
 						dist = fsacmpair(*seqi, *seqj, includePair, len);
 						
 						/* separate distance and included bases */
-						if(minLength <= (inc = dist & UINT_MAX)) {
-							if(norm) {
-								*++Dptr = (dist >> 32);
+						if(Dptr) {
+							if(minLength <= (inc = dist & UINT_MAX)) {
+								if(norm) {
+									*++Dptr = (dist >> 32);
+								} else {
+									*++Dptr = (dist >> 32) * norm;
+									*Dptr /= inc;
+								}
 							} else {
-								*++Dptr = (dist >> 32) * norm;
-								*Dptr /= inc;
+								*++Dptr = -1.0;
+							}
+							if(N) {
+								*++Nptr = inc;
 							}
 						} else {
-							*++Dptr = -1.0;
-						}
-						if(N) {
-							*++Nptr = inc;
+							if(minLength <= (inc = dist & UINT_MAX)) {
+								if(norm) {
+									*++Dfptr = (dist >> 32);
+								} else {
+									*++Dfptr = (dist >> 32) * norm;
+									*Dfptr /= inc;
+								}
+							} else {
+								*++Dfptr = -1.0;
+							}
+							if(N) {
+								*++Nfptr = inc;
+							}
 						}
 					} else {
 						++seqj;

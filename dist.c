@@ -34,6 +34,7 @@
 #include "pherror.h"
 #include "phy.h"
 #include "str.h"
+#include "tmp.h"
 #include "unionparse.h"
 #define missArg(opt) fprintf(stderr, "Missing argument at %s.\n", opt); exit(1);
 #define invaArg(opt) fprintf(stderr, "Invalid value parsed at %s.\n", opt); exit(1);
@@ -350,14 +351,12 @@ static int add2Matrix(char *path, char *addfilename, char *outputfilename, char 
 	destroyFileBuff(infile);
 	
 	if(informat == '>') {
-		//if(ltdFsaRow_get(D, N, infile, targetTemplate, addfilename, diffilename, names, n, norm, minLength, minCov, flag, proxi)) {
 		if(ltdFsaRowThrd(D, N, targetTemplate, addfilename, diffilename, names, n, norm, minLength, minCov, flag, proxi, tnum)) {
 			fprintf(stderr, "Distance measures failed and thus the matrix was not updated.\n");
 			return 1;
 		}
 	} else {
 		/* calculate new row */
-		//if(ltdRow_get(D, N, targetTemplate, addfilename, names, n, norm, minDepth, minLength, minCov, veccmp)) {
 		if(ltdRowThrd(D, N, targetTemplate, addfilename, names, n, norm, minDepth, minLength, minCov, veccmp, tnum)) {
 			fprintf(stderr, "Distance measures failed and thus the matrix was not updated.\n");
 			return 1;
@@ -407,6 +406,9 @@ static int helpMessage(FILE *out) {
 	fprintf(out, "# %16s\t%-32s\t%s\n", "-d", "Distance method", "cos");
 	fprintf(out, "# %16s\t%-32s\t%s\n", "-dh", "Help on option \"-d\"", "");
 	fprintf(out, "# %16s\t%-32s\t%s\n", "-p", "Minimum lvl. of signifiacnce", "0.05");
+	fprintf(out, "# %16s\t%-32s\t%s\n", "-fp", "Float precision on distance matrix", "double");
+	fprintf(out, "# %16s\t%-32s\t%s\n", "-mm", "Allocate matrix on the disk", "False");
+	fprintf(out, "# %16s\t%-32s\t%s\n", "-tmp", "Set directory for temporary files", "");
 	fprintf(out, "# %16s\t%-32s\t%s\n", "-t", "Number of threads", "1");
 	fprintf(out, "# %16s\t%-32s\t%s\n", "-h", "Shows this helpmessage", "");
 	return (out == stderr);
@@ -414,6 +416,7 @@ static int helpMessage(FILE *out) {
 
 int main_dist(int argc, char *argv[]) {
 	
+	int size;
 	unsigned args, numFile, flag, norm, minDepth, minLength, proxi, n, t;
 	char *arg, *targetTemplate, **filenames, *addfilename, *errorMsg;
 	char *outputfilename, *noutputfilename, *methfilename, *diffilename;
@@ -633,6 +636,20 @@ int main_dist(int argc, char *argv[]) {
 				fprintf(stdout, "# nlinf:\tCalculate distance between positions as the normalized l_infinity distance between the count vectors.\n");
 				fprintf(stdout, "#\n");
 				return 0;
+			}  else if(strcmp(arg, "fp") == 0) {
+				size = sizeof(float);
+				ltdMatrixInit(-size);
+				ltdMatrixMinit(-size);
+			} else if(strcmp(arg, "mm") == 0) {
+				ltdMatrix_init = &ltdMatrixMinit;
+			} else if(strcmp(arg, "tmp") == 0) {
+				if(++args < argc) {
+					if(argv[args][0] != '-') {
+						tmpF(argv[args]);
+					} else {
+						invaArg("\"-tmp\"");
+					}
+				}
 			} else if(strcmp(arg, "t") == 0) {
 				if(++args < argc) {
 					t = strtoul(argv[args], &errorMsg, 10);

@@ -18,7 +18,9 @@
 */
 
 #include <stdio.h>
+#include "dnj.h"
 #include "filebuff.h"
+#include "hclust.h"
 #include "matrix.h"
 #include "nj.h"
 #include "nwck.h"
@@ -31,14 +33,14 @@
 #define missArg(opt) fprintf(stderr, "Missing argument at %s.", opt); exit(1);
 #define invaArg(opt) fprintf(stderr, "Invalid value parsed at %s.\n", opt); exit(1);
 
-void formTree(char *inputfilename, char *outputfilename, int flag, int thread_num) {
+void formTree(char *inputfilename, char *outputfilename, int flag, char m, int thread_num) {
 	
-	unsigned i, *N;
+	int i, *N;
 	FILE *outfile;
 	FileBuff *infile;
 	Matrix *D;
 	Qseqs **names, *header;
-	Vector *sD;
+	Vector *sD, *Q;
 	
 	/* init */
 	outfile = (*outputfilename == '-' && outputfilename[1] == '-' && outputfilename[2] == 0) ? stdout : sfopen(outputfilename, "wb");
@@ -47,12 +49,18 @@ void formTree(char *inputfilename, char *outputfilename, int flag, int thread_nu
 	i = 32;
 	D = ltdMatrix_init(i);
 	sD = vector_init(i);
-	N = smalloc(i * sizeof(unsigned));
+	if(m == 'e') {
+		Q = 0;
+		N = smalloc(i * sizeof(int));
+	} else {
+		Q = vector_init(i);
+		N = smalloc(2 * i * sizeof(int));
+	}
 	names = smalloc(i * sizeof(Qseqs *));
 	names += i;
 	++i;
 	while(--i) {
-		*--names = setQseqs(64);
+		*--names = setQseqs(4);
 	}
 	/* set ptr according ot flag */
 	if(flag) {
@@ -71,7 +79,13 @@ void formTree(char *inputfilename, char *outputfilename, int flag, int thread_nu
 	while((names = loadPhy(D, names, header, infile)) && D->n) {
 		if(2 < D->n) {
 			/* make tree */
-			N = nj_thread(D, sD, N, names, thread_num);
+			if(m == 'd') {
+				N = dnj_thread(D, sD, Q, N, names, thread_num);
+			} else if(m == 'e') {
+				N = nj_thread(D, sD, N, names, thread_num);
+			} else { /* m == 'h' */
+				N = hclust(D, sD, Q, N, names);
+			}
 			
 			/* output tree */
 			if(header->len) {
@@ -107,8 +121,10 @@ static int helpMessage(FILE *out) {
 	fprintf(out, "# %16s\t%-32s\t%s\n", "-o", "Output file", "stdout");
 	fprintf(out, "# %16s\t%-32s\t%s\n", "-f", "Output flags", "0");
 	fprintf(out, "# %16s\t%-32s\t%s\n", "-fh", "Help on option \"-f\"", "");
-	fprintf(out, "# %16s\t%-32s\t%s\n", "-m", "Tree construction method.", "nj");
+	fprintf(out, "# %16s\t%-32s\t%s\n", "-m", "Tree construction method.", "dnj");
 	fprintf(out, "# %16s\t%-32s\t%s\n", "-mh", "Help on option \"-m\"", "");
+	fprintf(out, "# %16s\t%-32s\t%s\n", "-fp", "Float precision on distance matrix", "double");
+	fprintf(out, "# %16s\t%-32s\t%s\n", "-gf", "Gradually free up D", "False");
 	fprintf(out, "# %16s\t%-32s\t%s\n", "-mm", "Allocate matrix on the disk", "False");
 	fprintf(out, "# %16s\t%-32s\t%s\n", "-tmp", "Set directory for temporary files", "");
 	fprintf(out, "# %16s\t%-32s\t%s\n", "-t", "Number of threads", "1");
@@ -118,14 +134,17 @@ static int helpMessage(FILE *out) {
 
 int main_tree(int argc, char *argv[]) {
 	
+	int size;
 	unsigned args, flag, thread_num;
-	char *arg, *inputfilename, *outputfilename, *errorMsg;
+	char *arg, *inputfilename, *outputfilename, *method, *errorMsg, m;
 	
 	/* set defaults */
 	flag = 0;
 	thread_num = 1;
 	inputfilename = "--";
 	outputfilename = "--";
+	method = "dnj";
+	m = 'd';
 	
 	args = 1;
 	while(args < argc) {
@@ -145,55 +164,12 @@ int main_tree(int argc, char *argv[]) {
 				}
 			} else if(strcmp(arg, "m") == 0) {
 				if(++args < argc) {
-					arg = argv[args];
-					if(strcmp(arg, "nj") == 0) {
-						updateDptr = &updateD;
-						minDist = &initQ;
-						minDist_thread = &initQ_thread;
-						initQchunkPtr = &initQchunk;
-					} else if(strcmp(arg, "upgma") == 0) {
-						updateDptr = &updateD_UPGMA;
-						minDist = &minD;
-						minDist_thread = &minD_thread;
-						minDchunkPtr = &minDchunk;
-					} else if(strcmp(arg, "cf") == 0) {
-						updateDptr = &updateD_CF;
-						minDist = &minD;
-						minDist_thread = &minD_thread;
-						minDchunkPtr = &minDchunk;
-					} else if(strcmp(arg, "ff") == 0) {
-						updateDptr = &updateD_FF;
-						minDist = &minD;
-						minDist_thread = &minD_thread;
-						minDchunkPtr = &minDchunk;
-					} else if(strcmp(arg, "mn") == 0) {
-						updateDptr = &updateD;
-						minDist = &initQ_MN;
-						minDist_thread = &initQ_thread;
-						initQchunkPtr = &initQ_MNchunk;
-					} else if(strcmp(arg, "frank") == 0) {
-						/* here */
-						/* not frank, and add to -mh */
-						updateDptr = &updateD_CF;
-						minDist = &maxD;
-						minDist_thread = &minD_thread;
-						minDchunkPtr = &maxDchunk;
-					} else {
-						invaArg("\"-m\"");
-					}
+					method = argv[args];
 				} else {
 					missArg("\"-m\"");
 				}
 			} else if(strcmp(arg, "mh") == 0) {
-				fprintf(stdout, "# Tree construction methods:\n");
-				fprintf(stdout, "#\n");
-				fprintf(stdout, "# %-8s\t%s\n", "nj", "Neighbour-Joining");
-				fprintf(stdout, "# %-8s\t%s\n", "upgma", "UPGMA");
-				fprintf(stdout, "# %-8s\t%s\n", "cf", "K-means Closest First");
-				fprintf(stdout, "# %-8s\t%s\n", "ff", "K-means Furthest First");
-				fprintf(stdout, "# %-8s\t%s\n", "mn", "Minimum Neighbours");
-				fprintf(stdout, "#\n");
-				return 0;
+				method = "mh";
 			} else if(strcmp(arg, "f") == 0) {
 				if(++args < argc) {
 					flag = strtoul(argv[args], &errorMsg, 10);
@@ -219,6 +195,12 @@ int main_tree(int argc, char *argv[]) {
 				} else {
 					missArg("\"-t\"");
 				}
+			} else if(strcmp(arg, "fp") == 0) {
+				size = sizeof(float);
+				ltdMatrixInit(-size);
+				ltdMatrixMinit(-size);
+			} else if(strcmp(arg, "gf") == 0) {
+				ltdMatrixShrink = &ltdMatrix_shrink;
 			} else if(strcmp(arg, "mm") == 0) {
 				ltdMatrix_init = &ltdMatrixMinit;
 			} else if(strcmp(arg, "tmp") == 0) {
@@ -242,8 +224,150 @@ int main_tree(int argc, char *argv[]) {
 		++args;
 	}
 	
+	/* set ptrs according to method */
+	if(strcmp(method, "nj") == 0) {
+		/* neighbor-joining */
+		m = 'e';
+		updateDptr = &updateD;
+		minDist = &initQ;
+		minDist_thread = &initQ_thread;
+		initQchunkPtr = &initQchunk;
+	} else if(strcmp(method, "upgma") == 0) {
+		/* upgma */
+		m = 'd';
+		Qpair = &UPGMApair;
+		minDist_thread = &minQ_thread;
+		Qrow = &UPGMArow;
+		nextQrow = &nextQminRow;
+		Qbool = &minQbool;
+		initDsDQN = &initDmin;
+		pairQ = &minQ;
+		updateDsDQNPtr = &updateUPGMA;
+		popArrangePtr = &UPGMA_popArrange;
+		qPos = &minPos;
+		/*
+		m = 'e';
+		updateDptr = &updateD_UPGMA;
+		minDist = &minD;
+		minDist_thread = &minD_thread;
+		minDchunkPtr = &minDchunk;
+		*/
+	} else if(strcmp(method, "cf") == 0) {
+		/* closest first */
+		m = 'h';
+		initDsDQN = &initDmin;
+		pairQ = &minQ;
+		updateDsDQNPtr = &updateCF;
+		popArrangePtr = &UPGMA_popArrange;
+		/*
+		m = 'e';
+		updateDptr = &updateD_CF;
+		minDist = &minD;
+		minDist_thread = &minD_thread;
+		minDchunkPtr = &minDchunk;
+		*/
+	} else if(strcmp(method, "ff") == 0) {
+		/* furthest first */
+		m = 'd';
+		Qpair = &UPGMApair;
+		minDist_thread = &minQ_thread;
+		Qrow = &UPGMArow;
+		nextQrow = &nextQminRow;
+		Qbool = &minQbool;
+		initDsDQN = &initDmin;
+		pairQ = &minQ;
+		updateDsDQNPtr = &updateFF;
+		popArrangePtr = &UPGMA_popArrange;
+		qPos = &minPos;
+		/*
+		m = 'e';
+		updateDptr = &updateD_FF;
+		minDist = &minD;
+		minDist_thread = &minD_thread;
+		minDchunkPtr = &minDchunk;
+		*/
+	} else if(strcmp(method, "mn") == 0) {
+		/* minimum neighbours */
+		m = 'e';
+		updateDptr = &updateD;
+		minDist = &initQ_MN;
+		minDist_thread = &initQ_thread;
+		initQchunkPtr = &initQ_MNchunk;
+	} else if(strcmp(method, "frank") == 0) {
+		/* not frank, and add to -mh */
+		/* wrong assumptions, should be moved to dnj for threading and similar workflow */
+		/*
+		m = 'h';
+		initDsDQN = &initDmin;
+		pairQ = &maxQ;
+		updateDsDQNPtr = &updateCF;
+		popArrangePtr = &UPGMA_popArrange;
+		*/
+		m = 'e';
+		updateDptr = &updateD_CF;
+		minDist = &maxD;
+		minDist_thread = &minD_thread;
+		minDchunkPtr = &maxDchunk;
+	} else if(strcmp(method, "hnj") == 0) {
+		/* heuristic neighbor-joining */
+		m = 'h';
+		initDsDQN = &initHNJ;
+		pairQ = &minQ;
+		updateDsDQNPtr = &updateHNJ;
+		popArrangePtr = &HNJ_popArrange;
+	} else if(0 && strcmp(method, "hmn") == 0) {
+		/* wrong, will never work */
+		m = 'h';
+		initDsDQN = &initHMN;
+		pairQ = &maxQ;
+		updateDsDQNPtr = &updateHMN;
+		popArrangePtr = &HMN_popArrange;
+	} else if(strcmp(method, "dnj") == 0) {
+		/* dynamic neighbor-joining */
+		m = 'd';
+		Qpair = &minQpair;
+		minDist_thread = &minQ_thread;
+		Qrow = &minQrow;
+		nextQrow = &nextQminRow;
+		Qbool = &minQbool;
+		initDsDQN = &initHNJ;
+		pairQ = &minQ;
+		updateDsDQNPtr = &updateDNJ;
+		popArrangePtr = &DNJ_popArrange;
+		qPos = &minPos;
+	} else if(0 && strcmp(method, "dmn") == 0) {
+		/* wrong, will never work */
+		m = 'd';
+		Qpair = &maxQpair;
+		minDist_thread = &minQ_thread;
+		Qrow = &maxQrow;
+		nextQrow = &nextQmaxRow;
+		Qbool = &maxQbool;
+		initDsDQN = &initHMN;
+		pairQ = &maxQ;
+		updateDsDQNPtr = &updateDMN;
+		popArrangePtr = &HMN_popArrange;
+		qPos = &maxPos;
+	} else if(strcmp(method, "mh") == 0) {
+		fprintf(stdout, "# Tree construction methods:\n");
+		fprintf(stdout, "#\n");
+		fprintf(stdout, "# %-8s\t%s\n", "nj", "Neighbor-Joining");
+		fprintf(stdout, "# %-8s\t%s\n", "upgma", "UPGMA");
+		fprintf(stdout, "# %-8s\t%s\n", "cf", "K-means Closest First");
+		fprintf(stdout, "# %-8s\t%s\n", "ff", "K-means Furthest First");
+		fprintf(stdout, "# %-8s\t%s\n", "mn", "Minimum Neighbors");
+		fprintf(stdout, "# %-8s\t%s\n", "hnj", "Heuristic Neighbor-Joining");
+		//fprintf(stdout, "# %-8s\t%s\n", "hmn", "Heuristic Minimum Neighbors");
+		fprintf(stdout, "# %-8s\t%s\n", "dnj", "Dynamic Neighbor-Joining");
+		//fprintf(stdout, "# %-8s\t%s\n", "dmn", "Dynamic Minimum Neighbors");
+		fprintf(stdout, "#\n");
+		return 0;
+	} else {
+		invaArg("\"-m\"");
+	}
+	
 	/* make tree */
-	formTree(inputfilename, outputfilename, flag, thread_num);
+	formTree(inputfilename, outputfilename, flag, m, thread_num);
 	
 	return 0;
 }

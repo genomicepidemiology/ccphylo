@@ -59,7 +59,7 @@ void printTrimFsa(char *filename, unsigned char *seq, int len, unsigned *include
 	*seqPtr = '\n';
 	
 	fprintf(stdout, ">%s\n", stripDir(filename));
-	fwrite(seq, 1, len + 1, stdout);
+	cfwrite(seq, 1, len + 1, stdout);
 }
 
 void fsaTrim(int numFile, char *targetTemplate, char **filenames, unsigned minLength, double minCov, unsigned flag, unsigned proxi, char *methfilename) {

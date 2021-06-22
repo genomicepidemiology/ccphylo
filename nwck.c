@@ -170,7 +170,7 @@ int getNwck(FileBuff *infile, Qseqs *dest, Qseqs *header) {
 			if(!(header->seq = realloc(header->seq, header->size))) {
 				ERROR();
 			}
-			seq = header->seq + size;
+			seq = header->seq + size - 1;
 		}
 	}
 	*seq = 0;
@@ -199,7 +199,7 @@ int getNwck(FileBuff *infile, Qseqs *dest, Qseqs *header) {
 			if(!(dest->seq = realloc(dest->seq, dest->size))) {
 				ERROR();
 			}
-			seq = dest->seq + size;
+			seq = dest->seq + size - 1;
 		}
 	}
 	len = dest->size - size;
@@ -287,16 +287,18 @@ int splitNwck(Qseqs *node_i, Qseqs *node_j, double *Li, double *Lj) {
 	seq = node_i->seq + len;
 	
 	/* check if split is possible */
-	if(!len--) {
+	if(!len) {
 		return 0;
 	}
 	
 	/* find start of last sub-node in node */
 	stop = 0;
-	while(stop <= 0 && --len) {
+	while(stop <= 0 && 0 <= --len) {
 		if(*--seq == ')') {
 			--stop;
-		} else if(*seq == ',') {
+		} else if(*seq == '(') {
+			++stop;
+		} else if(*seq == ',' && stop == 0) {
 			++stop;
 		}
 	}
@@ -314,13 +316,16 @@ int splitNwck(Qseqs *node_i, Qseqs *node_j, double *Li, double *Lj) {
 	
 	/* check if node is not bifurcating */
 	stop = 0;
-	while(stop <= 0 && --len) {
+	while(stop <= 0 && 0 <= --len) {
 		if(*--seq == ')') {
 			--stop;
-		} else if(*seq == ',') {
+		} else if(*seq == '(') {
+			++stop;
+		} else if(*seq == ',' && stop == 0) {
 			++stop;
 		}
 	}
+	
 	if(stop != 0) {
 		/* not bifurcating */
 		*Li = 0;
@@ -333,5 +338,6 @@ int splitNwck(Qseqs *node_i, Qseqs *node_j, double *Li, double *Lj) {
 			*Lj = 0;
 		}
 	}
+	
 	return 1;
 }

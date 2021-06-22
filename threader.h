@@ -20,16 +20,16 @@
 #define _XOPEN_SOURCE 600
 #if _POSIX_C_SOURCE >= 199309L
 #include <time.h>
-#define sleepSpec(time)((struct timespec[]){{0, time}})
-#define lock(exclude) while(__sync_lock_test_and_set(exclude, 1)) {while(*exclude) {nanosleep(sleepSpec(100000),NULL);}}
-#define lockTime(exclude, time) while(__sync_lock_test_and_set(exclude, 1)) {while(*exclude) {nanosleep(sleepSpec(1000 * time),NULL);}}
+#define sleepSpec(time)((const struct timespec[]){{0, time}})
+#define lock(exclude) while(__sync_lock_test_and_set(exclude, 1)) {while(*exclude) {nanosleep(sleepSpec(10000),NULL);}}
+#define lockTime(exclude, time) while(__sync_lock_test_and_set(exclude, 1)) {while(*exclude) {nanosleep(sleepSpec((time << 10)),NULL);}}
 #define unlock(exclude) (__sync_lock_release(exclude))
-#define wait_atomic(src) while(src) {nanosleep(sleepSpec(100000),NULL);}
+#define wait_atomic(src) while(src) {nanosleep(sleepSpec(10000),NULL);}
 #else
 #include <time.h>
 #include <unistd.h>
-#define lock(exclude) while(__sync_lock_test_and_set(exclude, 1)) {while(*exclude) {usleep(100);}}
+#define lock(exclude) while(__sync_lock_test_and_set(exclude, 1)) {while(*exclude) {usleep(10);}}
 #define lockTime(exclude, spin) while(__sync_lock_test_and_set(exclude, 1)) {while(*exclude) {usleep(spin);}}
 #define unlock(exclude) (__sync_lock_release(exclude))
-#define wait_atomic(src) while(src) {usleep(100);}
+#define wait_atomic(src) while(src) {usleep(10);}
 #endif

@@ -25,18 +25,22 @@ struct matrix {
 	int n;
 	int size;
 	double **mat;
+	float **fmat;
 	FILE *file;
 };
 #define MATRIX 1
 #endif
 
-extern Matrix * (*ltdMatrix_init)(unsigned);
+extern Matrix * (*ltdMatrix_init)(int);
+extern void (*ltdMatrixShrink)(Matrix *, int);
 
-Matrix * ltdMatrixInit(unsigned size);
-Matrix * ltdMatrixMinit(unsigned size);
-void ltdMatrix_mrealloc(Matrix *src, unsigned size);
-void ltdMatrix_realloc(Matrix *src, unsigned size);
+Matrix * ltdMatrixInit(int size);
+Matrix * ltdMatrixMinit(int size);
+void ltdMatrix_mrealloc(Matrix *src, int size);
+void ltdMatrix_realloc(Matrix *src, int size);
 void Matrix_mdestroy(Matrix *src);
 void Matrix_destroy(Matrix *src);
 void ltdMatrix_popArrange(Matrix *mat, unsigned pos);
 int ltdMatrix_add(Matrix *src);
+void ltdMatrix_shrink(Matrix *src, int size);
+void ltdMatrix_nullInt(Matrix *src, int size);
