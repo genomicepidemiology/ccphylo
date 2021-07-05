@@ -18,6 +18,7 @@
 */
 
 #include <stdio.h>
+#include "bytescale.h"
 #include "dbscan.h"
 #include "filebuff.h"
 #include "matrix.h"
@@ -30,9 +31,10 @@
 
 int dbscan(Matrix *D, int *N, int *C, double maxDist, int minN) {
 	
-	int i, j, c, floatPrecision, N_i, nClust, *Nptr, *Cptr;
+	int i, j, c, N_i, nClust, *Nptr, *Cptr;
 	double d, **Dmat, *Dptr;
 	float **Dfmat, *Dfptr;
+	unsigned char **Dbmat, *Dbptr;
 	
 	/*
 	D	Distance matrix, given
@@ -42,13 +44,17 @@ int dbscan(Matrix *D, int *N, int *C, double maxDist, int minN) {
 	
 	/* get number of neighbours pr. node */
 	if(D->mat) {
-		floatPrecision = 0;
 		Dptr = *(D->mat) - 1;
 		Dfptr = 0;
-	} else {
-		floatPrecision = 1;
+		Dbptr = 0;
+	} else if(D->fmat) {
 		Dptr = 0;
 		Dfptr = *(D->fmat) - 1;
+		Dbptr = 0;
+	} else {
+		Dptr = 0;
+		Dfptr = 0;
+		Dbptr = *(D->bmat) - 1;
 	}
 	i = -1;
 	while(++i < D->n) {
@@ -56,7 +62,7 @@ int dbscan(Matrix *D, int *N, int *C, double maxDist, int minN) {
 		Nptr = N - 1;
 		j = -1;
 		while(++j < i) {
-			d = floatPrecision ? *++Dfptr : *++Dptr;
+			d = Dptr ? *++Dptr : Dfptr ? *++Dfptr : uctod(*++Dbptr);
 			if(d <= maxDist) {
 				++N_i;
 				++*++Nptr;
@@ -70,12 +76,18 @@ int dbscan(Matrix *D, int *N, int *C, double maxDist, int minN) {
 	
 	/* assign cluster numbers to nodes */
 	nClust = 1;
-	if(floatPrecision) {
+	if(Dptr) {
 		Dmat = D->mat;
 		Dfmat = 0;
-	} else {
+		Dbmat = 0;
+	} else if(Dfptr) {
 		Dmat = 0;
 		Dfmat = D->fmat;
+		Dbmat = 0;
+	} else {
+		Dmat = 0;
+		Dfmat = 0;
+		Dbmat = D->bmat;
 	}
 	Nptr = N - 1;
 	Cptr = C - 1;
@@ -83,14 +95,17 @@ int dbscan(Matrix *D, int *N, int *C, double maxDist, int minN) {
 	while(++i < D->n) {
 		c = i;
 		if(minN <= *++Nptr) {
-			if(floatPrecision) {
+			if(Dmat) {
+				Dptr = Dmat[i] - 1;
+			} else if(Dfmat) {
 				Dfptr = Dfmat[i] - 1;
 			} else {
-				Dptr = Dmat[i] - 1;
+				Dbptr = Dbmat[i] - 1;
 			}
+			
 			j = -1;
 			while(++j < c) {
-				d = floatPrecision ? *++Dfptr : *++Dptr;
+				d = Dptr ? *++Dptr : Dfptr ? *++Dfptr : uctod(*++Dbptr);
 				if(d <= maxDist) {
 					/* assign node i to the same cluster as node j */
 					c = C[j];
@@ -184,6 +199,7 @@ static int helpMessage(FILE *out) {
 	fprintf(out, "# %16s\t%-32s\t%s\n", "-n", "Minimum neighbours", "1");
 	fprintf(out, "# %16s\t%-32s\t%s\n", "-d", "Maximum distance", "10.0");
 	fprintf(out, "# %16s\t%-32s\t%s\n", "-fp", "Float precision on distance matrix", "double");
+	fprintf(out, "# %16s\t%-32s\t%s\n", "-bp", "Byte precision on distance matrix", "double / 1e0");
 	fprintf(out, "# %16s\t%-32s\t%s\n", "-mm", "Allocate matrix on the disk", "False");
 	fprintf(out, "# %16s\t%-32s\t%s\n", "-tmp", "Set directory for temporary files", "");
 	fprintf(out, "# %16s\t%-32s\t%s\n", "-h", "Shows this helpmessage", "");
@@ -197,6 +213,7 @@ int main_dbscan(int argc, char *argv[]) {
 	char *arg, *inputfilename, *outputfilename, *errorMsg;
 	
 	/* set defaults */
+	size = sizeof(double);
 	minNum = 1;
 	maxDist = 10.0;
 	inputfilename = "--";
@@ -238,8 +255,16 @@ int main_dbscan(int argc, char *argv[]) {
 				}
 			} else if(strcmp(arg, "fp") == 0) {
 				size = sizeof(float);
-				ltdMatrixInit(-size);
-				ltdMatrixMinit(-size);
+			} else if(strcmp(arg, "bp") == 0) {
+				if(++args < argc && argv[args][0] != '-') {
+					ByteScale = strtod(argv[args], &errorMsg);
+					if(*errorMsg != 0 || ByteScale == 0) {
+						invaArg("\"-bp\"");
+					}
+				} else {
+					--args;
+				}
+				size = sizeof(unsigned char);
 			} else if(strcmp(arg, "mm") == 0) {
 				ltdMatrix_init = &ltdMatrixMinit;
 			} else if(strcmp(arg, "tmp") == 0) {
@@ -262,6 +287,10 @@ int main_dbscan(int argc, char *argv[]) {
 		}
 		++args;
 	}
+	
+	/* set precision */
+	ltdMatrixInit(-size);
+	ltdMatrixMinit(-size);
 	
 	/* make tree */
 	make_dbscan(inputfilename, outputfilename, maxDist, minNum);

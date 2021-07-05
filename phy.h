@@ -22,7 +22,10 @@
 #include "matrix.h"
 #include "qseqs.h"
 
+extern char * (*stripEntry)(char *);
+
 char * stripDir(char *str);
+char * noStripDir(char *str);
 void printphy(FILE *outfile, Matrix *src, char **names, unsigned char *include, char *comment, unsigned format);
 void printphyUpdate(FILE *outfile, int n, char *name, double *D, unsigned format);
 Qseqs ** loadPhy(Matrix *src, Qseqs **names, Qseqs *header, FileBuff *infile);

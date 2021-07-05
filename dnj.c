@@ -22,6 +22,7 @@
 #include <limits.h>
 #include <pthread.h>
 #include <stdlib.h>
+#include "bytescale.h"
 #include "dnj.h"
 #include "hclust.h"
 #include "matrix.h"
@@ -45,6 +46,7 @@ long unsigned minQpair(Matrix *D, Vector *sD, Vector *Q, int *N, int *P, int i) 
 	long unsigned pos;
 	double min, q, updateQ, sD_i, *sDj, *Dptr, *Qptr;
 	float *Dfptr;
+	unsigned char *Dbptr;
 	
 	/*
 	Q(i,j) = (n(i) + n(j) - 4) / 2 * D(i,j) - summa(d(i,k)) - summa(d(k,j));
@@ -83,13 +85,19 @@ long unsigned minQpair(Matrix *D, Vector *sD, Vector *Q, int *N, int *P, int i) 
 			if(D->mat) {
 				Dptr = D->mat[i] - 1;
 				Dfptr = 0;
-			} else {
-				Dfptr = D->fmat[i] - 1;
+				Dbptr = 0;
+			} else if(D->fmat) {
 				Dptr = 0;
+				Dfptr = D->fmat[i] - 1;
+				Dbptr = 0;
+			} else {
+				Dptr = 0;
+				Dfptr = 0;
+				Dbptr = D->bmat[i] - 1;
 			}
 			j = -1;
 			while(++j < i) {
-				q = Dptr ? *++Dptr : *++Dfptr;
+				q = Dptr ? *++Dptr : Dfptr ? *++Dfptr : uctod(*++Dbptr);
 				if(0 <= q) {
 					q = ((N_i + *++Nj - 4) >> 1) * q - sD_i - *++sDj;
 					if(q <= updateQ) {
@@ -124,6 +132,7 @@ long unsigned maxQpair(Matrix *D, Vector *sD, Vector *Q, int *N, int *P, int i) 
 	long unsigned pos;
 	double max, q, updateQ, sD_i, *sDj, *Dptr, *Qptr;
 	float *Dfptr;
+	unsigned char *Dbptr;
 	
 	/*
 	Q(i,j) = (n(i) + n(j) - 4) / 2 * D(i,j) - summa(d(i,k)) - summa(d(k,j));
@@ -162,13 +171,19 @@ long unsigned maxQpair(Matrix *D, Vector *sD, Vector *Q, int *N, int *P, int i) 
 			if(D->mat) {
 				Dptr = D->mat[i] - 1;
 				Dfptr = 0;
-			} else {
-				Dfptr = D->fmat[i] - 1;
+				Dbptr = 0;
+			} else if(D->fmat) {
 				Dptr = 0;
+				Dfptr = D->fmat[i] - 1;
+				Dbptr = 0;
+			} else {
+				Dptr = 0;
+				Dfptr = 0;
+				Dbptr = D->bmat[i] - 1;
 			}
 			j = -1;
 			while(++j < i) {
-				q = Dptr ? *++Dptr : *++Dfptr;
+				q = Dptr ? *++Dptr : Dfptr ? *++Dfptr : uctod(*++Dbptr);
 				if(0 <= q) {
 					q = ((N_i + *++Nj - 4) >> 1) * q - sD_i - *++sDj;
 					if(updateQ <= q) {
@@ -203,6 +218,7 @@ long unsigned UPGMApair(Matrix *D, Vector *sD, Vector *Q, int *N, int *P, int i)
 	long unsigned pos;
 	double min, q, updateQ, *Dptr, *Qptr;
 	float *Dfptr;
+	unsigned char *Dbptr;
 	
 	/* init */
 	pos = 0;
@@ -231,13 +247,19 @@ long unsigned UPGMApair(Matrix *D, Vector *sD, Vector *Q, int *N, int *P, int i)
 				if(D->mat) {
 					Dptr = D->mat[i] - 1;
 					Dfptr = 0;
-				} else {
-					Dfptr = D->fmat[i] - 1;
+					Dbptr = 0;
+				} else if(D->fmat) {
 					Dptr = 0;
+					Dfptr = D->fmat[i] - 1;
+					Dbptr = 0;
+				} else {
+					Dptr = 0;
+					Dfptr = 0;
+					Dbptr = D->bmat[i] - 1;
 				}
 				j = -1;
 				while(++j < i) {
-					q = Dptr ? *++Dptr : *++Dfptr;
+					q = Dptr ? *++Dptr : Dfptr ? *++Dfptr : uctod(*++Dbptr);
 					if(0 <= q && q <= updateQ) {
 						updateQ = q;
 						mj = j;
@@ -293,6 +315,7 @@ long unsigned minQrow(Matrix *D, Vector *sD, Vector *Q, int *N, int *P, double *
 	long unsigned pos;
 	double q, Q_i, sD_i, *sDj, *Dptr;
 	float *Dfptr;
+	unsigned char *Dbptr;
 	
 	/* init */
 	pos = 0;
@@ -306,15 +329,21 @@ long unsigned minQrow(Matrix *D, Vector *sD, Vector *Q, int *N, int *P, double *
 		if(D->mat) {
 			Dptr = D->mat[i] - 1;
 			Dfptr = 0;
-		} else {
-			Dfptr = D->fmat[i] - 1;
+			Dbptr = 0;
+		} else if(D->fmat) {
 			Dptr = 0;
+			Dfptr = D->fmat[i] - 1;
+			Dbptr = 0;
+		} else {
+			Dptr = 0;
+			Dfptr = 0;
+			Dbptr = D->bmat[i] - 1;
 		}
 		Q_i = DBL_MAX;
 		mj = 0;
 		j = -1;
 		while(++j < i) {
-			q = Dptr ? *++Dptr : *++Dfptr;
+			q = Dptr ? *++Dptr : Dfptr ? *++Dfptr : uctod(*++Dbptr);
 			if(0 <= q) {
 				q = ((N_i + *++N - 4) >> 1) * q  - sD_i - *++sDj;
 				if(q <= Q_i) {
@@ -347,6 +376,7 @@ long unsigned maxQrow(Matrix *D, Vector *sD, Vector *Q, int *N, int *P, double *
 	long unsigned pos;
 	double q, Q_i, sD_i, *sDj, *Dptr;
 	float *Dfptr;
+	unsigned char *Dbptr;
 	
 	/* init */
 	pos = 0;
@@ -360,15 +390,21 @@ long unsigned maxQrow(Matrix *D, Vector *sD, Vector *Q, int *N, int *P, double *
 		if(D->mat) {
 			Dptr = D->mat[i] - 1;
 			Dfptr = 0;
-		} else {
-			Dfptr = D->fmat[i] - 1;
+			Dbptr = 0;
+		} else if(D->fmat) {
 			Dptr = 0;
+			Dfptr = D->fmat[i] - 1;
+			Dbptr = 0;
+		} else {
+			Dptr = 0;
+			Dfptr = 0;
+			Dbptr = D->bmat[i] - 1;
 		}
 		Q_i = -DBL_MAX;
 		mj = 0;
 		j = -1;
 		while(++j < i) {
-			q = Dptr ? *++Dptr : *++Dfptr;
+			q = Dptr ? *++Dptr : Dfptr ? *++Dfptr : uctod(*++Dbptr);
 			if(0 <= q) {
 				q = ((N_i + *++N - 4) >> 1) * q  - sD_i - *++sDj;
 				if(Q_i <= q) {
@@ -400,6 +436,7 @@ long unsigned UPGMArow(Matrix *D, Vector *sD, Vector *Q, int *N, int *P, double 
 	long unsigned pos;
 	double d, Q_i, *Dptr;
 	float *Dfptr;
+	unsigned char *Dbptr;
 	
 	/* init */
 	pos = 0;
@@ -410,15 +447,21 @@ long unsigned UPGMArow(Matrix *D, Vector *sD, Vector *Q, int *N, int *P, double 
 			if(D->mat) {
 				Dptr = D->mat[i] - 1;
 				Dfptr = 0;
-			} else {
-				Dfptr = D->fmat[i] - 1;
+				Dbptr = 0;
+			} else if(D->fmat) {
 				Dptr = 0;
+				Dfptr = D->fmat[i] - 1;
+				Dbptr = 0;
+			} else {
+				Dptr = 0;
+				Dfptr = 0;
+				Dbptr = D->bmat[i] - 1;
 			}
 			Q_i = DBL_MAX;
 			mj = -1;
 			j = -1;
 			while(++j < i) {
-				d = Dptr ? *++Dptr : *++Dfptr;
+				d = Dptr ? *++Dptr : Dfptr ? *++Dfptr : uctod(*++Dbptr);
 				if(0 <= d && d <= Q_i) {
 					Q_i = d;
 					mj = j;
@@ -560,6 +603,7 @@ int updateDNJ(Matrix *D, Vector *sD, Vector *Q, int *N, int *P, int i, int j, do
 	int k, p, Dn, N_j;
 	double q, min, sD_j, *D_j, **Dmat, *sDvec, *Qvec;
 	float *Df_j, **Dfmat;
+	unsigned char *Db_j, **Dbmat;
 	
 	/* update D, sD and N */
 	updateD(D, sD, N, i, j, Li, Lj);
@@ -569,23 +613,28 @@ int updateDNJ(Matrix *D, Vector *sD, Vector *Q, int *N, int *P, int i, int j, do
 	*Qvec = DBL_MAX;
 	P += j;
 	*P = 0;
+	Dmat = 0;
+	D_j = 0;
+	Dfmat = 0;
+	Df_j = 0;
+	Dbmat = 0;
+	Db_j = 0;
 	if(D->mat) {
 		Dmat = D->mat;
 		D_j = Dmat[j] - 1;
-		Dfmat = 0;
-		Df_j = 0;
-	} else {
-		Dmat = 0;
-		D_j = 0;
+	} else if(D->fmat) {
 		Dfmat = D->fmat;
 		Df_j = Dfmat[j] - 1;
+	} else {
+		Dbmat = D->bmat;
+		Db_j = Dbmat[j] - 1;
 	}
 	sDvec = sD->vec - 1;
 	sD_j = sD->vec[j];
 	N_j = N[j];
 	--N;
 	for(k = 0; k < j; ++k) {
-		q = D_j ? *++D_j : *++Df_j;
+		q = D_j ? *++D_j : Df_j ? *++Df_j : uctod(*++Db_j);
 		if(0 <= q) {
 			q = ((N_j + *++N - 4) >> 1) * q - sD_j - *++sDvec;
 			if(q <= *Qvec) {
@@ -616,7 +665,7 @@ int updateDNJ(Matrix *D, Vector *sD, Vector *Q, int *N, int *P, int i, int j, do
 			++N;
 		}
 		while(++k < Dn) {
-			q = Dmat ? Dmat[k][j] : Dfmat[k][j];
+			q = Dmat ? Dmat[k][j] : Dfmat ? Dfmat[k][j] : uctod(Dbmat[k][j]);
 			if(0 <= q) {
 				q = ((N_j + *++N - 4) >> 1) * q - sD_j - *++sDvec;
 				/* check if new node is better */
@@ -653,6 +702,7 @@ int updateDMN(Matrix *D, Vector *sD, Vector *Q, int *N, int *P, int i, int j, do
 	int k, p, Dn, N_j;
 	double q, max, sD_j, *D_j, **Dmat, *sDvec, *Qvec;
 	float *Df_j, **Dfmat;
+	unsigned char *Db_j, **Dbmat;
 	
 	/* update D, sD and N */
 	updateD(D, sD, N, i, j, Li, Lj);
@@ -662,23 +712,28 @@ int updateDMN(Matrix *D, Vector *sD, Vector *Q, int *N, int *P, int i, int j, do
 	*Qvec = -DBL_MAX;
 	P += j;
 	*P = 0;
+	Dmat = 0;
+	D_j = 0;
+	Dfmat = 0;
+	Df_j = 0;
+	Dbmat = 0;
+	Db_j = 0;
 	if(D->mat) {
 		Dmat = D->mat;
 		D_j = Dmat[j] - 1;
-		Dfmat = 0;
-		Df_j = 0;
-	} else {
-		Dmat = 0;
-		D_j = 0;
+	} else if(D->fmat) {
 		Dfmat = D->fmat;
 		Df_j = Dfmat[j] - 1;
+	} else {
+		Dbmat = D->bmat;
+		Db_j = Dbmat[j] - 1;
 	}
 	sDvec = sD->vec - 1;
 	sD_j = sD->vec[j];
 	N_j = N[j];
 	--N;
 	for(k = 0; k < j; ++k) {
-		q = D_j ? *++D_j : *++Df_j;
+		q = D_j ? *++D_j : Df_j ? *++Df_j : uctod(*++Db_j);
 		if(0 <= q) {
 			q = ((N_j + *++N - 4) >> 1) * q - sD_j - *++sDvec;
 			if(*Qvec <= q) {
@@ -709,7 +764,7 @@ int updateDMN(Matrix *D, Vector *sD, Vector *Q, int *N, int *P, int i, int j, do
 			++N;
 		}
 		while(++k < Dn) {
-			q = Dmat ? Dmat[k][j] : Dfmat[k][j];
+			q = Dmat ? Dmat[k][j] : Dfmat ? Dfmat[k][j] : uctod(Dbmat[k][j]);
 			if(0 <= q) {
 				q = ((N_j + *++N - 4) >> 1) * q - sD_j - *++sDvec;
 				/* check if new node is better */
@@ -746,6 +801,7 @@ int DNJ_popArrange(Matrix *D, Vector *sD, Vector *Q, int *N, int *P, int pos) {
 	int i, n, p, N_i, *Nptr;
 	double q, min, sD_i, *dest, *src, **mat, *sDvec, *Qptr;
 	float *fdest, *fsrc, **fmat;
+	unsigned char *bdest, *bsrc, **bmat;
 	
 	n = --D->n;
 	--sD->n;
@@ -758,24 +814,33 @@ int DNJ_popArrange(Matrix *D, Vector *sD, Vector *Q, int *N, int *P, int pos) {
 		P += pos;
 		*P = 0;
 		
+		mat = 0;
+		fmat = 0;
+		bmat = 0;
+		dest = 0;
+		fdest = 0;
+		bdest = 0;
+		src = 0;
+		fsrc = 0;
+		bsrc = 0;
 		if(D->mat) {
 			mat = D->mat;
-			fmat = 0;
 			/* row to be emptied */
 			dest = mat[pos] - 1;
-			fdest = 0;
 			/* row to be moved up */
 			src = mat[n] - 1;
-			fsrc = 0;
-		} else {
+		} else if(D->fmat) {
 			fmat = D->fmat;
-			mat = 0;
 			/* row to be emptied */
 			fdest = fmat[pos] - 1;
-			dest = 0;
 			/* row to be moved up */
 			fsrc = fmat[n] - 1;
-			src = 0;
+		} else {
+			bmat = D->bmat;
+			/* row to be emptied */
+			bdest = bmat[pos] - 1;
+			/* row to be moved up */
+			bsrc = bmat[n] - 1;
 		}
 		
 		/* copy last row into "first" row */
@@ -785,7 +850,7 @@ int DNJ_popArrange(Matrix *D, Vector *sD, Vector *Q, int *N, int *P, int pos) {
 		N_i = N[pos];
 		i = -1;
 		while(++i < pos) {
-			q = dest ? (*++dest = *++src) : (*++fdest = *++fsrc);
+			q = dest ? (*++dest = *++src) : fdest ? (*++fdest = *++fsrc) : uctod((*++bdest = *++bsrc));
 			if(0 <= q) {
 				q = q * ((N_i + *++Nptr - 4) >> 1) - sD_i - *++sDvec;
 				if(q <= *Qptr) {
@@ -813,7 +878,7 @@ int DNJ_popArrange(Matrix *D, Vector *sD, Vector *Q, int *N, int *P, int pos) {
 		
 		/* tilt remaining part of last row into column "pos" */
 		while(++i < n) {
-			q = mat ? (mat[i][pos] = *++src) : (fmat[i][pos] = *++fsrc);
+			q = mat ? (mat[i][pos] = *++src) : fmat ? (fmat[i][pos] = *++fsrc) : uctod((bmat[i][pos] = *++bsrc));
 			if(0 <= q) {
 				q = q * ((N_i + *++Nptr - 4) >> 1) - sD_i - *++sDvec;
 				if(q <= *++Qptr) {
@@ -875,7 +940,7 @@ int * dnj(Matrix *D, Vector *sD, Vector *Q, int *N, Qseqs **names) {
 		i = pos >> shift;
 		
 		/* get limbs */
-		limbLengthPtr(&Li, &Lj, i, j, sD, N, (D->mat ? D->mat[i][j] : D->fmat[i][j]));
+		limbLengthPtr(&Li, &Lj, i, j, sD, N, (D->mat ? D->mat[i][j] : D->fmat ? D->fmat[i][j] : uctod(D->bmat[i][j])));
 		
 		/* form leaf */
 		formNode(names[j], names[i], Lj, Li);
@@ -892,7 +957,7 @@ int * dnj(Matrix *D, Vector *sD, Vector *Q, int *N, Qseqs **names) {
 	}
 	
 	if(D->n == 2) {
-		formLastNodePtr(*names, names[1], (D->mat ? **(D->mat) : **(D->fmat)));
+		formLastNodePtr(*names, names[1], (D->mat ? **(D->mat) : D->fmat ? **(D->fmat) : uctod(**(D->bmat))));
 	} else {
 		/* form remaining nodes with undefined distance */
 		while(D->n != 1) {
@@ -963,7 +1028,7 @@ int * dnj_thread(Matrix *D, Vector *sD, Vector *Q, int *N, Qseqs **names, int th
 		i = thread->pos >> shift;
 		
 		/* get limbs */
-		limbLengthPtr(&Li, &Lj, i, j, sD, N, (D->mat ? D->mat[i][j] : D->fmat[i][j]));
+		limbLengthPtr(&Li, &Lj, i, j, sD, N, (D->mat ? D->mat[i][j] : D->fmat ? D->fmat[i][j] : uctod(D->bmat[i][j])));
 		
 		/* form leaf */
 		formNode(names[j], names[i], Lj, Li);
@@ -983,7 +1048,7 @@ int * dnj_thread(Matrix *D, Vector *sD, Vector *Q, int *N, Qseqs **names, int th
 	}
 	
 	if(D->n == 2) {
-		formLastNodePtr(*names, names[1], (D->mat ? **(D->mat) : **(D->fmat)));
+		formLastNodePtr(*names, names[1], (D->mat ? **(D->mat) : D->fmat ? **(D->fmat) : uctod(**(D->bmat))));
 	} else {
 		/* form remaining nodes with undefined distance */
 		while(D->n != 1) {

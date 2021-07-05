@@ -20,6 +20,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include "bytescale.h"
 #include "cdist.h"
 #include "dist.h"
 #include "fbseek.h"
@@ -407,6 +408,7 @@ static int helpMessage(FILE *out) {
 	fprintf(out, "# %16s\t%-32s\t%s\n", "-dh", "Help on option \"-d\"", "");
 	fprintf(out, "# %16s\t%-32s\t%s\n", "-p", "Minimum lvl. of signifiacnce", "0.05");
 	fprintf(out, "# %16s\t%-32s\t%s\n", "-fp", "Float precision on distance matrix", "double");
+	fprintf(out, "# %16s\t%-32s\t%s\n", "-bp", "Byte precision on distance matrix", "double / 1e0");
 	fprintf(out, "# %16s\t%-32s\t%s\n", "-mm", "Allocate matrix on the disk", "False");
 	fprintf(out, "# %16s\t%-32s\t%s\n", "-tmp", "Set directory for temporary files", "");
 	fprintf(out, "# %16s\t%-32s\t%s\n", "-t", "Number of threads", "1");
@@ -424,6 +426,7 @@ int main_dist(int argc, char *argv[]) {
 	double (*veccmp)(short unsigned*, short unsigned*, int, int);
 	
 	/* set defaults */
+	size = sizeof(double);
 	numFile = 0;
 	flag = 1;
 	norm = 1000000;
@@ -638,8 +641,16 @@ int main_dist(int argc, char *argv[]) {
 				return 0;
 			}  else if(strcmp(arg, "fp") == 0) {
 				size = sizeof(float);
-				ltdMatrixInit(-size);
-				ltdMatrixMinit(-size);
+			} else if(strcmp(arg, "bp") == 0) {
+				if(++args < argc && argv[args][0] != '-') {
+					ByteScale = strtod(argv[args], &errorMsg);
+					if(*errorMsg != 0 || ByteScale == 0) {
+						invaArg("\"-bp\"");
+					}
+				} else {
+					--args;
+				}
+				size = sizeof(unsigned char);
 			} else if(strcmp(arg, "mm") == 0) {
 				ltdMatrix_init = &ltdMatrixMinit;
 			} else if(strcmp(arg, "tmp") == 0) {
@@ -680,6 +691,10 @@ int main_dist(int argc, char *argv[]) {
 		}
 		++args;
 	}
+	
+	/* set precision */
+	ltdMatrixInit(-size);
+	ltdMatrixMinit(-size);
 	
 	/* set function variables */
 	zcmp(0, (short unsigned *)(&alpha), 0, 0);

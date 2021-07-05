@@ -17,4 +17,7 @@
  * limitations under the License.
 */
 
-#define CCPHYLO_VERSION "0.4.0"
+extern double ByteScale;
+
+#define dtouc(src) (src * ByteScale + 0.5)
+#define uctod(src) (src / ByteScale)

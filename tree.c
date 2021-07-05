@@ -18,6 +18,8 @@
 */
 
 #include <stdio.h>
+#include <time.h>
+#include "bytescale.h"
 #include "dnj.h"
 #include "filebuff.h"
 #include "hclust.h"
@@ -41,6 +43,7 @@ void formTree(char *inputfilename, char *outputfilename, int flag, char m, int t
 	Matrix *D;
 	Qseqs **names, *header;
 	Vector *sD, *Q;
+	time_t t0, t1;
 	
 	/* init */
 	outfile = (*outputfilename == '-' && outputfilename[1] == '-' && outputfilename[2] == 0) ? stdout : sfopen(outputfilename, "wb");
@@ -76,7 +79,11 @@ void formTree(char *inputfilename, char *outputfilename, int flag, char m, int t
 	openAndDetermine(infile, inputfilename);
 	
 	/* generate trees */
+	t0 = clock();
 	while((names = loadPhy(D, names, header, infile)) && D->n) {
+		t1 = clock();
+		fprintf(stderr, "# Total time used loading matrix: %.2f s.\n", difftime(t1, t0) / 1000000);
+		t0 = t1;
 		if(2 < D->n) {
 			/* make tree */
 			if(m == 'd') {
@@ -101,6 +108,9 @@ void formTree(char *inputfilename, char *outputfilename, int flag, char m, int t
 				fprintf(outfile, "(%s,%s:%.2f);\n", (*names)->seq, names[1]->seq, **(D->mat));
 			}
 		}
+		t1 = clock();
+		fprintf(stderr, "# Total time used Constructing tree: %.2f s.\n", difftime(t1, t0) / 1000000);
+		t0 = t1;
 	}
 	
 	/* clean */
@@ -124,6 +134,7 @@ static int helpMessage(FILE *out) {
 	fprintf(out, "# %16s\t%-32s\t%s\n", "-m", "Tree construction method.", "dnj");
 	fprintf(out, "# %16s\t%-32s\t%s\n", "-mh", "Help on option \"-m\"", "");
 	fprintf(out, "# %16s\t%-32s\t%s\n", "-fp", "Float precision on distance matrix", "double");
+	fprintf(out, "# %16s\t%-32s\t%s\n", "-bp", "Byte precision on distance matrix", "double / 1e0");
 	fprintf(out, "# %16s\t%-32s\t%s\n", "-gf", "Gradually free up D", "False");
 	fprintf(out, "# %16s\t%-32s\t%s\n", "-mm", "Allocate matrix on the disk", "False");
 	fprintf(out, "# %16s\t%-32s\t%s\n", "-tmp", "Set directory for temporary files", "");
@@ -139,6 +150,7 @@ int main_tree(int argc, char *argv[]) {
 	char *arg, *inputfilename, *outputfilename, *method, *errorMsg, m;
 	
 	/* set defaults */
+	size = sizeof(double);
 	flag = 0;
 	thread_num = 1;
 	inputfilename = "--";
@@ -197,8 +209,16 @@ int main_tree(int argc, char *argv[]) {
 				}
 			} else if(strcmp(arg, "fp") == 0) {
 				size = sizeof(float);
-				ltdMatrixInit(-size);
-				ltdMatrixMinit(-size);
+			} else if(strcmp(arg, "bp") == 0) {
+				if(++args < argc && argv[args][0] != '-') {
+					ByteScale = strtod(argv[args], &errorMsg);
+					if(*errorMsg != 0 || ByteScale == 0) {
+						invaArg("\"-bp\"");
+					}
+				} else {
+					--args;
+				}
+				size = sizeof(unsigned char);
 			} else if(strcmp(arg, "gf") == 0) {
 				ltdMatrixShrink = &ltdMatrix_shrink;
 			} else if(strcmp(arg, "mm") == 0) {
@@ -223,6 +243,10 @@ int main_tree(int argc, char *argv[]) {
 		}
 		++args;
 	}
+	
+	/* set precision */
+	ltdMatrixInit(-size);
+	ltdMatrixMinit(-size);
 	
 	/* set ptrs according to method */
 	if(strcmp(method, "nj") == 0) {

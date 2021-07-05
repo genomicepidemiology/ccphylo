@@ -180,7 +180,7 @@ int ltdFsaMatrix_get(Matrix *D, Matrix *N, int numFile, long unsigned **seqs, in
 }
 
 int ltdFsaRow_get(double *D, double *N, FileBuff *infile, char *targetTemplate, char *addfilename, char *diffilename, Qseqs **filenames, int n, unsigned norm, unsigned minLength, double minCov, unsigned flag, unsigned proxi) {
-	/* does work with floats, but its deprecated and unused anyway */
+	/* doesn't work with floats, but its deprecated and unused anyway */
 	char *filename;
 	unsigned char *trans;
 	unsigned *includeseq, *includeadd;

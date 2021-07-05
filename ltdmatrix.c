@@ -20,6 +20,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include "bytescale.h"
 #include "fbseek.h"
 #include "filebuff.h"
 #include "matcmp.h"
@@ -34,21 +35,27 @@ void ltdMatrix_get(Matrix *dest, Matrix *nDest, MatrixCounts *mat1, NucCount *ma
 	char **filename;
 	double dist, *mat, *nMat;
 	float *fmat, *nfMat;
+	unsigned char *bmat, *nbMat;
 	TimeStamp **targetStamp;
 	
 	/* get distances */
 	srtd = 1;
 	dest->n = 0;
+	mat = 0;
+	nMat = 0;
+	fmat = 0;
+	nfMat = 0;
+	bmat = 0;
+	nbMat = 0;
 	if(dest->mat) {
 		mat = *(dest->mat);
 		nMat = *(nDest->mat);
-		fmat = 0;
-		nfMat = 0;
-	} else {
-		mat = 0;
-		nMat = 0;
+	} else if(dest->fmat) {
 		fmat = *(dest->fmat);
 		nfMat = *(nDest->fmat);
+	} else {
+		bmat = *(dest->bmat);
+		nbMat = *(nDest->bmat);
 	}
 	
 	for(i = 1; i < numFile; ++i) {
@@ -151,9 +158,12 @@ void ltdMatrix_get(Matrix *dest, Matrix *nDest, MatrixCounts *mat1, NucCount *ma
 						if(mat) {
 							*mat++ = dist;
 							*nMat++ = mat2->total;
-						} else {
+						} else if(fmat) {
 							*fmat++ = dist;
 							*nfMat++ = mat2->total;
+						} else {
+							*bmat++ = dtouc(dist);
+							*nbMat++ = dtouc(mat2->total);
 						}
 					} else {
 						include[n] = 0;

@@ -22,6 +22,7 @@
 #include <pthread.h>
 #include <stdio.h>
 #include <string.h>
+#include "bytescale.h"
 #include "filebuff.h"
 #include "fsacmp.h"
 #include "fsacmpthrd.h"
@@ -117,6 +118,7 @@ void * cmpFsaThrd(void *arg) {
 	unsigned char *include;
 	double *Dptr, nFactor;
 	float *Dfptr;
+	unsigned char *Dbptr;
 	FILE *diffile;
 	Matrix *D;
 	
@@ -218,9 +220,15 @@ void * cmpFsaThrd(void *arg) {
 		if(D->mat) {
 			Dptr = D->mat[pi] + pj;
 			Dfptr = 0;
-		} else {
+			Dbptr = 0;
+		} else if(D->fmat) {
 			Dptr = 0;
 			Dfptr = D->fmat[pi] + pj;
+			Dbptr = 0;
+		} else {
+			Dptr = 0;
+			Dfptr = 0;
+			Dbptr = D->bmat[pi] + pj;
 		}
 		
 		/* update next position in D */
@@ -237,8 +245,10 @@ void * cmpFsaThrd(void *arg) {
 		}
 		if(Dptr) {
 			*Dptr = nFactor * dist;
-		} else {
+		} else if(Dfptr) {
 			*Dfptr = nFactor * dist;
+		} else {
+			*Dbptr = dtouc(nFactor * dist);
 		}
 	}
 	
@@ -256,7 +266,7 @@ void * cmpairFsaThrd(void *arg) {
 	unsigned i, j, inc, norm, minLength, proxi;
 	unsigned **includes, *includesi, *includesj, *includesPair;
 	long unsigned **seqs, *seqi, *seqj, dist;
-	unsigned char *include;
+	unsigned char *include, *Dbptr, *Nbptr;
 	double minCov, *Dptr, *Nptr;
 	float *Dfptr, *Nfptr;
 	FILE *diffile;
@@ -363,16 +373,21 @@ void * cmpairFsaThrd(void *arg) {
 		}
 		
 		/* get the corresponding position in distance matrix */
+		Dptr = 0;
+		Nptr = 0;
+		Dfptr = 0;
+		Nfptr = 0;
+		Dbptr = 0;
+		Nbptr = 0;
 		if(D->mat) {
 			Dptr = D->mat[pi] + pj;
 			Nptr = N ? N->mat[pi] + pj : 0;
-			Dfptr = 0;
-			Nfptr = 0;
-		} else {
-			Dptr = 0;
-			Nptr = 0;
+		} else if(D->fmat) {
 			Dfptr = D->fmat[pi] + pj;
 			Nfptr = N ? N->fmat[pi] + pj : 0;
+		} else {
+			Dbptr = D->bmat[pi] + pj;
+			Nbptr = N ? N->bmat[pi] + pj : 0;
 		}
 		
 		/* update next position in D */
@@ -408,7 +423,7 @@ void * cmpairFsaThrd(void *arg) {
 			if(N) {
 				*Nptr = inc;
 			}
-		} else {
+		} else if(Dfptr) {
 			if(minLength <= inc) {
 				if(norm) {
 					*Dfptr = (dist >> 32) * norm;
@@ -421,6 +436,19 @@ void * cmpairFsaThrd(void *arg) {
 			}
 			if(N) {
 				*Nfptr = inc;
+			}
+		} else {
+			if(minLength <= inc) {
+				if(norm) {
+					*Dbptr = (dtouc((dist >> 32) * norm)) / inc;
+				} else {
+					*Dbptr = dtouc((dist >> 32));
+				}
+			} else {
+				*Dbptr = dtouc(-1.0);
+			}
+			if(N) {
+				*Nbptr = dtouc(inc);
 			}
 		}
 	}

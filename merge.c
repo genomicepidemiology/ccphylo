@@ -18,6 +18,7 @@
 */
 
 #include <stdio.h>
+#include "bytescale.h"
 #include "filebuff.h"
 #include "hashmapstr.h"
 #include "hashmapstrindex.h"
@@ -49,6 +50,7 @@ static void normalize_ltdMatrix(Matrix *D, Matrix *N) {
 	int i;
 	double *Dptr, *Nptr;
 	float *Dfptr, *Nfptr;
+	unsigned char *Dbptr, *Nbptr;
 	
 	/* normalize new distance matrix */
 	i = (D->n * (D->n - 1)) / 2 + 1;
@@ -62,7 +64,7 @@ static void normalize_ltdMatrix(Matrix *D, Matrix *N) {
 				*++Dptr = -1.0;
 			}
 		}
-	} else {
+	} else if(D->fmat) {
 		Dfptr = *(D->fmat) - 1;
 		Nfptr = *(N->fmat) - 1;
 		while(--i) {
@@ -70,6 +72,17 @@ static void normalize_ltdMatrix(Matrix *D, Matrix *N) {
 				*++Dfptr /= *Nfptr;
 			} else {
 				*++Dfptr = -1.0;
+			}
+		}
+	} else {
+		Dbptr = *(D->bmat) - 1;
+		Nbptr = *(N->bmat) - 1;
+		while(--i) {
+			if(*++Nbptr != 0) {
+				++Dbptr;
+				*Dbptr = dtouc(((uctod(*Dbptr)) / (uctod(*Nbptr))));
+			} else {
+				*++Dbptr = uctod(-1.0);
 			}
 		}
 	}
@@ -97,10 +110,10 @@ static char ** getOrderedNames(HashMapStr *names_index) {
 
 char ** merge(Matrix *dist, Matrix *num, FileBuff *phyfile, FileBuff *numfile) {
 	
-	unsigned i, j, m, n;
-	unsigned *distIndex, *distIndexM, *distIndexN;
+	unsigned i, j, m, n, *distIndex, *distIndexM, *distIndexN;
 	double *Dptr, *Nptr, **distMat, **numMat;
 	float *Dfptr, *Nfptr, **distfMat, **numfMat;
+	unsigned char *Dbptr, *Nbptr, **distbMat, **numbMat;
 	HashMapStr *names_index;
 	Matrix *D, *N;
 	Qseqs **names;
@@ -129,11 +142,17 @@ char ** merge(Matrix *dist, Matrix *num, FileBuff *phyfile, FileBuff *numfile) {
 		while(--i) {
 			*++Dptr *= *++Nptr;
 		}
-	} else {
+	} else if(dist->fmat) {
 		Dfptr = *(dist->fmat) - 1;
 		Nfptr = *(num->fmat) - 1;
 		while(--i) {
 			*++Dfptr *= *++Nfptr;
+		}
+	} else {
+		Dbptr = *(dist->bmat) - 1;
+		Nbptr = *(num->bmat) - 1;
+		while(--i) {
+			*++Dbptr *= *++Nbptr;
 		}
 	}
 	/* keep track of names */
@@ -177,7 +196,7 @@ char ** merge(Matrix *dist, Matrix *num, FileBuff *phyfile, FileBuff *numfile) {
 					}
 				}
 			}
-		} else {
+		} else if(dist->fmat) {
 			distfMat = dist->fmat;
 			numfMat = num->fmat;
 			Dfptr = *(D->fmat) - 1;
@@ -198,6 +217,30 @@ char ** merge(Matrix *dist, Matrix *num, FileBuff *phyfile, FileBuff *numfile) {
 					} else {
 						distfMat[m][n] += *++Dfptr * *++Nfptr;
 						numfMat[m][n] += *Nfptr;
+					}
+				}
+			}
+		} else {
+			distbMat = dist->bmat;
+			numbMat = num->bmat;
+			Dbptr = *(D->bmat) - 1;
+			Nbptr = *(N->bmat) - 1;
+			distIndex = dist_index->list - 1;
+			distIndexM = distIndex;
+			i = 0;
+			while(i != D->n) {
+				m = *++distIndexM;
+				distIndexN = distIndex;
+				j = ++i;
+				while(--j) {
+					n = *++distIndexN;
+					/* update cell */
+					if(m < n) {
+						distbMat[n][m] += dtouc((uctod(*++Dbptr) * uctod(*++Nbptr)));
+						numbMat[n][m] += *Nbptr;
+					} else {
+						distbMat[m][n] += dtouc((uctod(*++Dbptr) * uctod(*++Nbptr)));
+						numbMat[m][n] += *Nbptr;
 					}
 				}
 			}
@@ -223,10 +266,10 @@ char ** merge(Matrix *dist, Matrix *num, FileBuff *phyfile, FileBuff *numfile) {
 
 char ** jl_merge(Matrix *dist, Matrix *num, FileBuff *phyfile) {
 	
-	unsigned i, j, m, n;
-	unsigned *distIndex, *distIndexM, *distIndexN;
+	unsigned i, j, m, n, *distIndex, *distIndexM, *distIndexN;
 	double *Dptr, **distMat, **numMat;
 	float *Dfptr, **distfMat, **numfMat;
+	unsigned char *Dbptr, **distbMat, **numbMat;
 	HashMapStr *names_index;
 	Matrix *D;
 	Qseqs **names;
@@ -247,10 +290,15 @@ char ** jl_merge(Matrix *dist, Matrix *num, FileBuff *phyfile) {
 		while(--i) {
 			*++Dptr = 1;
 		}
-	} else {
+	} else if(num->fmat) {
 		Dfptr = *(num->fmat) - 1;
 		while(--i) {
 			*++Dfptr = 1;
+		}
+	} else {
+		Dbptr = *(num->bmat) - 1;
+		while(--i) {
+			*++Dbptr = 1;
 		}
 	}
 	
@@ -289,7 +337,7 @@ char ** jl_merge(Matrix *dist, Matrix *num, FileBuff *phyfile) {
 					}
 				}
 			}
-		} else {
+		} else if(dist->fmat) {
 			distfMat = dist->fmat;
 			numfMat = num->fmat;
 			Dfptr = *(D->fmat) - 1;
@@ -309,6 +357,29 @@ char ** jl_merge(Matrix *dist, Matrix *num, FileBuff *phyfile) {
 					} else {
 						distfMat[m][n] += *++Dfptr;
 						++numfMat[m][n];
+					}
+				}
+			}
+		} else {
+			distbMat = dist->bmat;
+			numbMat = num->bmat;
+			Dbptr = *(D->bmat) - 1;
+			distIndexM = dist_index->list;
+			distIndex = distIndexM - 1;
+			i = 1;
+			while(i != D->n) {
+				m = *++distIndexM;
+				distIndexN = distIndex;
+				j = ++i;
+				while(--j) {
+					n = *++distIndexN;
+					/* update cell */
+					if(m < n) {
+						distbMat[n][m] += *++Dbptr;
+						++numbMat[n][m];
+					} else {
+						distbMat[m][n] += *++Dbptr;
+						++numbMat[m][n];
 					}
 				}
 			}
@@ -395,6 +466,7 @@ static int helpMessage(FILE *out) {
 	fprintf(out, "# %16s\t%-32s\t%s\n", "-f", "Output format", "1");
 	fprintf(out, "# %16s\t%-32s\t%s\n", "-fh", "Help on option \"-f\"", "");
 	fprintf(out, "# %16s\t%-32s\t%s\n", "-fp", "Float precision on distance matrix", "double");
+	fprintf(out, "# %16s\t%-32s\t%s\n", "-bp", "Byte precision on distance matrix", "double / 1e0");
 	fprintf(out, "# %16s\t%-32s\t%s\n", "-mm", "Allocate matrix on the disk", "False");
 	fprintf(out, "# %16s\t%-32s\t%s\n", "-tmp", "Set directory for temporary files", "");
 	fprintf(out, "# %16s\t%-32s\t%s\n", "-h", "Shows this helpmessage", "");
@@ -406,7 +478,10 @@ int main_merge(int argc, char *argv[]) {
 	int size;
 	unsigned args, format;
 	char *arg, *phyfilename, *numfilename, *outphyfilename, *outnumfilename;
+	char *errorMsg;
 	
+	/* set defaults */
+	size = sizeof(double);
 	format = 1;
 	phyfilename = "--";
 	numfilename = 0;
@@ -463,8 +538,16 @@ int main_merge(int argc, char *argv[]) {
 				return 0;
 			} else if(strcmp(arg, "fp") == 0) {
 				size = sizeof(float);
-				ltdMatrixInit(-size);
-				ltdMatrixMinit(-size);
+			} else if(strcmp(arg, "bp") == 0) {
+				if(++args < argc && argv[args][0] != '-') {
+					ByteScale = strtod(argv[args], &errorMsg);
+					if(*errorMsg != 0 || ByteScale == 0) {
+						invaArg("\"-bp\"");
+					}
+				} else {
+					--args;
+				}
+				size = sizeof(unsigned char);
 			} else if(strcmp(arg, "mm") == 0) {
 				ltdMatrix_init = &ltdMatrixMinit;
 			} else if(strcmp(arg, "tmp") == 0) {
@@ -487,6 +570,10 @@ int main_merge(int argc, char *argv[]) {
 		}
 		++args;
 	}
+	
+	/* set precision */
+	ltdMatrixInit(-size);
+	ltdMatrixMinit(-size);
 	
 	/* merge matrices */
 	return merger(phyfilename, numfilename, outphyfilename, outnumfilename, format);

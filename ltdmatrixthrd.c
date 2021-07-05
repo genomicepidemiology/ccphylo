@@ -22,6 +22,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include "bytescale.h"
 #include "fbseek.h"
 #include "filebuff.h"
 #include "ltdmatrixthrd.h"
@@ -190,6 +191,7 @@ void * cmpMatThrd(void *arg) {
 	double *Dptr, *Nptr, minCov, dist;
 	double (*veccmp)(short unsigned*, short unsigned*, int, int);
 	float *Dfptr, *Nfptr;
+	unsigned char *Dbptr, *Nbptr;
 	FileBuff *infile;
 	Matrix *D, *N;
 	MatrixCounts *mat1;
@@ -262,16 +264,21 @@ void * cmpMatThrd(void *arg) {
 		unlock(lock);
 		
 		/* init */
+		Dptr = 0;
+		Nptr = 0;
+		Dfptr = 0;
+		Nfptr = 0;
+		Dbptr = 0;
+		Nbptr = 0;
 		if(D->mat) {
 			Dptr = D->mat[i];
 			Nptr = N ? N->mat[i] : 0;
-			Dfptr = 0;
-			Nfptr = 0;
-		} else {
-			Dptr = 0;
-			Nptr = 0;
+		} else if(D->fmat) {
 			Dfptr = D->fmat[i];
 			Nfptr = N ? N->fmat[i] : 0;
+		} else {
+			Dbptr = D->bmat[i];
+			Nbptr = N ? N->bmat[i] : 0;
 		}
 		targetTemplate = (char *) mat1->name->seq;
 		
@@ -319,10 +326,15 @@ void * cmpMatThrd(void *arg) {
 				if(N) {
 					Nptr[j] = mat2->total;
 				}
-			} else {
+			} else if(Dfptr) {
 				Dfptr[j] = dist;
 				if(N) {
 					Nfptr[j] = mat2->total;
+				}
+			} else {
+				Dbptr[j] = dtouc(dist);
+				if(N) {
+					Nbptr[j] = dtouc(mat2->total);
 				}
 			}
 			

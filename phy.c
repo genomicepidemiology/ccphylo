@@ -21,11 +21,14 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include "bytescale.h"
 #include "filebuff.h"
 #include "matrix.h"
 #include "pherror.h"
 #include "phy.h"
 #include "qseqs.h"
+
+char * (*stripEntry)(char *) = &stripDir;
 
 char * stripDir(char *str) {
 	
@@ -42,11 +45,16 @@ char * stripDir(char *str) {
 	return str;
 }
 
+char * noStripDir(char *str) {
+	return str;
+}
+
 void printphy(FILE *outfile, Matrix *src, char **names, unsigned char *include, char *comment, unsigned format) {
 	
 	int i, j, jStart;
 	double d, *ptr;
 	float *fptr;
+	unsigned char *bptr;
 	char *name;
 	
 	/* printf comment */
@@ -54,22 +62,25 @@ void printphy(FILE *outfile, Matrix *src, char **names, unsigned char *include, 
 		fprintf(outfile, "#%s\n", comment);
 	}
 	fprintf(outfile, "%10d\n", src->n);
+	ptr = 0;
+	fptr = 0;
+	bptr = 0;
 	if(src->mat) {
 		ptr = *(src->mat) - 1;
-		fptr = 0;
-	} else {
-		ptr = 0;
+	} else if(src->fmat) {
 		fptr = *(src->fmat) - 1;
+	} else {
+		bptr = *(src->bmat) - 1;
 	}
 	jStart = 0;
 	for(i = 0; jStart != src->n; ++i) {
 		if(include == 0 || include[i]) {
 			/* strip name */
 			name = names[i];
-			if(*name == '"' && name[(j = (strlen(name) - 1))] == '"') {
+			if((*name == '"' && name[(j = (strlen(name) - 1))] == '"') || (*name == '\'' && name[(j = (strlen(name) - 1))] == '\'')) {
 				*(name++ + j) = 0;
 			}
-			name = stripDir(name);
+			name = stripEntry(name);
 			
 			/* print entry name */
 			if(format & 1) {
@@ -81,7 +92,7 @@ void printphy(FILE *outfile, Matrix *src, char **names, unsigned char *include, 
 			/* print distance */
 			j = jStart++;
 			while(j--) {
-				d = ptr ? *++ptr : *++fptr;
+				d = ptr ? *++ptr : fptr ? *++fptr : uctod(*++bptr);
 				if(d == (int) d) {
 					fprintf(outfile, "\t%d", (int) d);
 				} else {
@@ -113,10 +124,10 @@ void printphyUpdate(FILE *outfile, int n, char *name, double *D, unsigned format
 	sfseek(outfile, 0, SEEK_END);
 	
 	/* strip name */
-	if(*name == '"' && name[(c = (strlen(name) - 1))] == '"') {
+	if((*name == '"' && name[(c = (strlen(name) - 1))] == '"') || (*name == '\'' && name[(c = (strlen(name) - 1))] == '\'')) {
 		*(name++ + c) = 0;
 	}
-	name = stripDir(name);
+	name = stripEntry(name);
 	
 	if(format & 1) {
 		fprintf(outfile, "%s", name);
@@ -143,6 +154,7 @@ Qseqs ** loadPhy(Matrix *src, Qseqs **names, Qseqs *header, FileBuff *infile) {
 	unsigned char c, stop, *buff, *seq;
 	double *mat;
 	float *fmat;
+	unsigned char *bmat;
 	Qseqs *name;
 	
 	/* init */
@@ -270,12 +282,15 @@ Qseqs ** loadPhy(Matrix *src, Qseqs **names, Qseqs *header, FileBuff *infile) {
 	}
 	
 	/* load rows */
+	mat = 0;
+	fmat = 0;
+	bmat = 0;
 	if(src->mat) {
 		mat = *(src->mat);
-		fmat = 0;
-	} else {
-		mat = 0;
+	} else if(src->fmat) {
 		fmat = *(src->fmat);
+	} else {
+		bmat = *(src->bmat);
 	}
 	for(i = 0; i < n; ++i) {
 		/* get name */
@@ -337,8 +352,10 @@ Qseqs ** loadPhy(Matrix *src, Qseqs **names, Qseqs *header, FileBuff *infile) {
 			
 			if(mat) {
 				*mat++ = strtod(strbuff, &msg);
-			} else {
+			} else if(fmat) {
 				*fmat++ = strtod(strbuff, &msg);
+			} else {
+				*bmat++ = dtouc(strtod(strbuff, &msg));
 			}
 			if(*msg != 0) {
 				++i;

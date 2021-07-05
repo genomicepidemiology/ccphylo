@@ -17,4 +17,6 @@
  * limitations under the License.
 */
 
-#define CCPHYLO_VERSION "0.4.0"
+#include "bytescale.h"
+
+double ByteScale = 1e0;
