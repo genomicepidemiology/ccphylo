@@ -639,7 +639,7 @@ int main_dist(int argc, char *argv[]) {
 				fprintf(stdout, "# nlinf:\tCalculate distance between positions as the normalized l_infinity distance between the count vectors.\n");
 				fprintf(stdout, "#\n");
 				return 0;
-			}  else if(strcmp(arg, "fp") == 0) {
+			} else if(strcmp(arg, "fp") == 0) {
 				size = sizeof(float);
 			} else if(strcmp(arg, "bp") == 0) {
 				if(++args < argc && argv[args][0] != '-') {

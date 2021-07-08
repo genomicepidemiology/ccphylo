@@ -1,4 +1,4 @@
-/* Philip T.L.C. Clausen Jan 2017 plan@dtu.dk */
+/* Philip T.L.C. Clausen Jul 2021 plan@dtu.dk */
 
 /*
  * Copyright (c) 2017, Philip Clausen, Technical University of Denmark
@@ -17,4 +17,28 @@
  * limitations under the License.
 */
 
-#define CCPHYLO_VERSION "0.5.0"
+#include <stdio.h>
+
+#ifndef DAT
+typedef struct dat Dat;
+struct dat {
+	int m; /* # entries */
+	int n; /* # used N */
+	int M; /* # rows */
+	int N; /* # columns */
+	double **mat;
+	float **fmat;
+	unsigned char **bmat;
+	FILE *file;
+};
+#define DAT 1
+#endif
+
+extern Dat * (*Dat_init)(int, int);
+
+Dat * DatInit(int M, int N);
+Dat * DatMinit(int M, int N);
+void Dat_mrealloc(Dat *src, int M);
+void Dat_realloc(Dat *src, int M);
+void Dat_mdestroy(Dat *src);
+void Dat_destroy(Dat *src);

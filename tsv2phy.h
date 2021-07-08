@@ -1,4 +1,4 @@
-/* Philip T.L.C. Clausen Jan 2017 plan@dtu.dk */
+/* Philip T.L.C. Clausen Jul 2021 plan@dtu.dk */
 
 /*
  * Copyright (c) 2017, Philip Clausen, Technical University of Denmark
@@ -17,4 +17,5 @@
  * limitations under the License.
 */
 
-#define CCPHYLO_VERSION "0.5.0"
+int tsv2phy(char *inputfilename, char *outputfilename, unsigned format, unsigned char sep);
+int main_tsv2phy(int argc, char *argv[]);

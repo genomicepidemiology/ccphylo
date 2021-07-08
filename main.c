@@ -26,6 +26,7 @@
 #include "rarify.h"
 #include "tree.h"
 #include "trim.h"
+#include "tsv2phy.h"
 #include "union.h"
 #include "version.h"
 
@@ -39,6 +40,7 @@ static int helpMessage(FILE *out) {
 	fprintf(out, "# %16s\t%-32s\n", "union", "Find union of templates between samples");
 	fprintf(out, "# %16s\t%-32s\n", "merge", "merge distance matrices");
 	fprintf(out, "# %16s\t%-32s\n", "nwck2phy", "Convert newick file to phylip distance file");
+	fprintf(out, "# %16s\t%-32s\n", "tsv2phy", "Convert tsv file to phylip distance file");
 	fprintf(out, "# %16s\t%-32s\n", "rarify", "Rarify a KMA matrix");
 	fprintf(out, "# %16s\t%-32s\n", "trim", "Trim multiple alignments");
 	fprintf(out, "# %16s\t%-32s\n", "-c", "Citation");
@@ -65,6 +67,8 @@ int main(int argc, char *argv[]) {
 		return main_union(argc, argv);
 	} else if(strcmp(arg, "nwck2phy") == 0) {
 		return main_nwck2phy(argc, argv);
+	} else if(strcmp(arg, "tsv2phy") == 0) {
+		return main_tsv2phy(argc, argv);
 	} else if(strcmp(arg, "rarify") == 0 || strcmp(arg, "rarefy") == 0) {
 		return main_rarify(argc, argv);
 	} else if(strcmp(arg, "trim") == 0) {
@@ -72,7 +76,7 @@ int main(int argc, char *argv[]) {
 	} else if(strcmp(arg, "dbscan") == 0) {
 		return main_dbscan(argc, argv);
 	} else if(strcmp(arg, "-c") == 0) {
-		fprintf(stdout, "https://bitbucket.org/genomicepidemiology/ccphylo/src/master/\n");
+		fprintf(stdout, "Malte B. Hallgren, Soeren Overballe-Petersen, Ole Lund, Henrik Hasman, Philip T.L.C. Clausen, \"MINTyper: an outbreak-detection method for accurate and rapid SNP typing of clonal clusters with noisy long reads\", Biology Methods & Protocols,  https://doi.org/10.1093/biomethods/bpab008.\n");
 	} else if(strcmp(arg, "-v") == 0) {
 		fprintf(stdout, "CCPhylo-%s\n", CCPHYLO_VERSION);
 	} else if(strcmp(arg, "-h") == 0) {

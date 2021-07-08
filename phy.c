@@ -359,7 +359,7 @@ Qseqs ** loadPhy(Matrix *src, Qseqs **names, Qseqs *header, FileBuff *infile) {
 			}
 			if(*msg != 0) {
 				++i;
-				fprintf(stderr, "Malformatted distance as pos:\t(%d,%d)\n", i, i - j);
+				fprintf(stderr, "Malformatted distance at pos:\t(%d,%d)\n", i, i - j);
 				exit(errno | 1);
 			} else if(--avail == 0 && (stop != '\n' || i != n - 1)) {
 				if((avail = buffFileBuff(infile)) == 0) {

@@ -316,6 +316,8 @@ static int helpMessage(FILE *out) {
 	fprintf(out, "# %16s\t%-32s\t%s\n", "Options are:", "Desc:", "Default:");
 	fprintf(out, "# %16s\t%-32s\t%s\n", "-i", "Input file", "stdin");
 	fprintf(out, "# %16s\t%-32s\t%s\n", "-o", "Output file", "stdout");
+	fprintf(out, "# %16s\t%-32s\t%s\n", "-f", "Output flags", "1");
+	fprintf(out, "# %16s\t%-32s\t%s\n", "-fh", "Help on option \"-f\"", "");
 	fprintf(out, "# %16s\t%-32s\t%s\n", "-fp", "Float precision on distance matrix", "double");
 	fprintf(out, "# %16s\t%-32s\t%s\n", "-bp", "Byte precision on distance matrix", "double / 1e0");
 	fprintf(out, "# %16s\t%-32s\t%s\n", "-mm", "Allocate matrix on the disk", "False");
