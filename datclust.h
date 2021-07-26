@@ -1,7 +1,7 @@
-/* Philip T.L.C. Clausen Jan 2017 plan@dtu.dk */
+/* Philip T.L.C. Clausen Jul 2021 plan@dtu.dk */
 
 /*
- * Copyright (c) 2017, Philip Clausen, Technical University of Denmark
+ * Copyright (c) 2021, Philip Clausen, Technical University of Denmark
  * All rights reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -17,19 +17,9 @@
  * limitations under the License.
 */
 
-#ifndef QSEQS
-typedef struct qseqs Qseqs;
-struct qseqs {
-	unsigned size;
-	unsigned len;
-	unsigned char *seq;
-};
-#define QSEQS 1
-#endif
+#include "dat.h"
+#include "qseqs.h"
+#include "vector.h"
 
-/* initialize Qseqs */
-Qseqs * setQseqs(unsigned size);
-/* destroy Qseqs */
-void destroyQseqs(Qseqs *dest);
-void insertKmerBound(Qseqs *header, int start, int end);
-void qseq2nibble(Qseqs *src, long unsigned *dest);
+void initQ_Dmat(Dat *Dmat, Vector *Q, int *P);
+void tclust(Vector *Q, int *P, Qseqs **names);

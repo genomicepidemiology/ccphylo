@@ -150,7 +150,7 @@ void printphyUpdate(FILE *outfile, int n, char *name, double *D, unsigned format
 Qseqs ** loadPhy(Matrix *src, Qseqs **names, Qseqs *header, FileBuff *infile) {
 	
 	int i, j, n, avail, size, (*buffFileBuff)(FileBuff *);
-	char *msg, strbuff[32];
+	char *msg, strbuff[256];
 	unsigned char c, stop, *buff, *seq;
 	double *mat;
 	float *fmat;
@@ -339,8 +339,7 @@ Qseqs ** loadPhy(Matrix *src, Qseqs **names, Qseqs *header, FileBuff *infile) {
 				*seq++ = c;
 				if(--avail == 0) {
 					if((avail = buffFileBuff(infile)) == 0) {
-						++i;
-						fprintf(stderr, "Malformatted phylip file, distance pos:\t(%d,%d)\n", i, i - j);
+						fprintf(stderr, "Malformatted phylip file, unexpected end of file, distance pos:\t(%d,%d)\n", i, i - j - 1);
 						errno |= 1;
 						src->n = 0;
 						return names;
@@ -358,8 +357,7 @@ Qseqs ** loadPhy(Matrix *src, Qseqs **names, Qseqs *header, FileBuff *infile) {
 				*bmat++ = dtouc(strtod(strbuff, &msg));
 			}
 			if(*msg != 0) {
-				++i;
-				fprintf(stderr, "Malformatted distance at pos:\t(%d,%d)\n", i, i - j);
+				fprintf(stderr, "Malformatted distance at pos:\t(%d,%d)\n\"%s\"\n", i, i - j - 1, strbuff);
 				exit(errno | 1);
 			} else if(--avail == 0 && (stop != '\n' || i != n - 1)) {
 				if((avail = buffFileBuff(infile)) == 0) {
@@ -374,7 +372,7 @@ Qseqs ** loadPhy(Matrix *src, Qseqs **names, Qseqs *header, FileBuff *infile) {
 			c = *buff++;
 			if(--avail == 0) {
 				if((avail = buffFileBuff(infile)) == 0 && i != n - 1) {
-					fprintf(stderr, "Malformatted phylip file, missing newline at row:\t%d\n", ++i);
+					fprintf(stderr, "Malformatted phylip file, missing newline at row:\t%d\n", i);
 					errno |= 1;
 					src->n = 0;
 					return names;

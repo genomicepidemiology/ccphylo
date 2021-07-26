@@ -1,4 +1,4 @@
-/* Philip T.L.C. Clausen Jan 2017 plan@dtu.dk */
+/* Philip T.L.C. Clausen Jul 2021 plan@dtu.dk */
 
 /*
  * Copyright (c) 2017, Philip Clausen, Technical University of Denmark
@@ -17,19 +17,5 @@
  * limitations under the License.
 */
 
-#ifndef QSEQS
-typedef struct qseqs Qseqs;
-struct qseqs {
-	unsigned size;
-	unsigned len;
-	unsigned char *seq;
-};
-#define QSEQS 1
-#endif
-
-/* initialize Qseqs */
-Qseqs * setQseqs(unsigned size);
-/* destroy Qseqs */
-void destroyQseqs(Qseqs *dest);
-void insertKmerBound(Qseqs *header, int start, int end);
-void qseq2nibble(Qseqs *src, long unsigned *dest);
+int tsv2nwck(char *inputfilename, char *outputfilename, unsigned char sep);
+int main_tsv2nwck(int argc, char *argv[]);

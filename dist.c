@@ -660,6 +660,8 @@ int main_dist(int argc, char *argv[]) {
 					} else {
 						invaArg("\"-tmp\"");
 					}
+				} else {
+					missArg("\"-tmp\"");
 				}
 			} else if(strcmp(arg, "t") == 0) {
 				if(++args < argc) {

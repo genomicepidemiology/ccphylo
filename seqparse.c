@@ -28,7 +28,8 @@
 int FileBuffgetFsaHeader(FileBuff *src, Qseqs *header) {
 	
 	unsigned char *buff, *seq;
-	int size, avail, (*buffFileBuff)(FileBuff *);
+	unsigned size, avail;
+	int (*buffFileBuff)(FileBuff *);
 	
 	/* init */
 	avail = src->bytes;
@@ -93,7 +94,8 @@ int FileBuffgetFsaHeader(FileBuff *src, Qseqs *header) {
 int FileBuffgetFsaSeq(FileBuff *src, Qseqs *qseq, unsigned char *trans) {
 	
 	unsigned char *buff, *seq;
-	int size, avail, (*buffFileBuff)(FileBuff *);
+	unsigned size, avail;
+	int (*buffFileBuff)(FileBuff *);
 	
 	/* init */
 	avail = src->bytes;

@@ -22,25 +22,28 @@
 #include <string.h>
 #include "bytescale.h"
 #include "dat.h"
+#include "datclust.h"
 #include "distcmp.h"
 #include "filebuff.h"
+#include "hclust.h"
+#include "nwck.h"
 #include "pherror.h"
+#include "qseqs.h"
 #include "tmp.h"
 #include "tsv.h"
-#include "tsv2phy.h"
+#include "tsv2nwck.h"
+#include "vector.h"
 #define missArg(opt) fprintf(stderr, "Missing argument at %s.\n", opt); exit(1);
 #define invaArg(opt) fprintf(stderr, "Invalid value parsed at %s.\n", opt); exit(1);
-#define dfprintf(fPtr, str, d) if(fprintf(fPtr, str, d) < 0) {if(errno) {ERROR();} else {fprintf(stderr, "Could not extend file.\n"); exit(1);}}
 
-int tsv2phy(char *inputfilename, char *outputfilename, unsigned format, unsigned char sep) {
+int tsv2nwck(char *inputfilename, char *outputfilename, unsigned char sep) {
 	
-	int m, n, i, j;
-	double **Dptr, *Di, **Dj;
-	float **Dfptr, *Dfi, **Dfj;
-	unsigned char **Dbptr, *Dbi, **Dbj;
+	int i, *P;
 	FILE *outfile;
 	FileBuff *infile;
 	Dat *Dmat;
+	Qseqs **names;
+	Vector *Q;
 	
 	/* init */
 	infile = setFileBuff(1048576);
@@ -56,52 +59,38 @@ int tsv2phy(char *inputfilename, char *outputfilename, unsigned format, unsigned
 		fprintf(stderr, "Input matrix contained zero rows.\n");
 		return 0;
 	}
-	closeFileBuff(infile);
-	destroyFileBuff(infile);
+	 closeFileBuff(infile);
+	 destroyFileBuff(infile);
 	
-	/* print matrix */
-	dfprintf(outfile, "%10d", Dmat->m);
-	m = Dmat->m;
-	n = Dmat->n;
-	Dptr = Dmat->mat;
-	Dfptr = Dmat->fmat;
-	Dbptr = Dmat->bmat;
-	i = -1;
-	while(++i < m) {
-		/* print entry name */
-		if(format & 1) {
-			dfprintf(outfile, "\n%d", i);
-		} else {
-			dfprintf(outfile, "\n%-10d", i);
-		}
-		
-		/* print distance */
-		j = i + 1;
-		if(Dptr) {
-			Di = Dptr[i];
-			Dj = Dptr - 1;
-			while(--j) {
-				dfprintf(outfile, "\t%f", distcmp_d(Di, *++Dj, n));
-			}
-		} else if(Dfptr) {
-			Dfi = Dfptr[i];
-			Dfj = Dfptr - 1;
-			while(--j) {
-				dfprintf(outfile, "\t%f", distcmp_f(Dfi, *++Dfj, n));
-			}
-		} else {
-			Dbi = Dbptr[i];
-			Dbj = Dbptr - 1;
-			while(--j) {
-				dfprintf(outfile, "\t%f", distcmp_b(Dbi, *++Dbj, n));
-			}
-		}
+	/* Get Q */
+	Q = vector_init(Dmat->m);
+	P = smalloc(Dmat->m * sizeof(int));
+	initQ_Dmat(Dmat, Q, P);
+	Dat_destroy(Dmat);
+	
+	/* Init newick clustering format */
+	names = smalloc(Dmat->m * sizeof(Qseqs *));
+	names += Dmat->m;
+	i = Dmat->m;
+	while(i--) {
+		*--names = setQseqs(10);
+		(*names)->len = sprintf((char *)((*names)->seq), "%d", i);
 	}
-	dfprintf(outfile, "%c", '\n');
+	
+	/* Cluster Q */
+	tclust(Q, P, names);
+	fprintf(outfile, "%s;\n", (*names)->seq);
 	
 	/* clean up */
-	sfclose(outfile);
-	Dat_destroy(Dmat);
+	fclose(outfile);
+	vector_destroy(Q);
+	free(P);
+	names += Dmat->m;
+	i = Dmat->m;
+	while(i--) {
+		destroyQseqs(*--names);
+	}
+	free(names);
 	
 	return 0;
 }
@@ -115,27 +104,23 @@ static int helpMessage(FILE *out) {
 	fprintf(out, "# %16s\t%-32s\t%s\n", "-s", "Separator", "\\t");
 	fprintf(out, "# %16s\t%-32s\t%s\n", "-d", "Distance method", "cos");
 	fprintf(out, "# %16s\t%-32s\t%s\n", "-dh", "Help on option \"-d\"", "");
-	fprintf(out, "# %16s\t%-32s\t%s\n", "-f", "Output flags", "1");
-	fprintf(out, "# %16s\t%-32s\t%s\n", "-fh", "Help on option \"-f\"", "");
-	fprintf(out, "# %16s\t%-32s\t%s\n", "-fp", "Float precision on distance matrix", "double");
-	fprintf(out, "# %16s\t%-32s\t%s\n", "-bp", "Byte precision on distance matrix", "double / 1e0");
+	fprintf(out, "# %16s\t%-32s\t%s\n", "-fp", "Float precision on matrix", "double");
+	fprintf(out, "# %16s\t%-32s\t%s\n", "-bp", "Byte precision on matrix", "double / 1e0");
 	fprintf(out, "# %16s\t%-32s\t%s\n", "-mm", "Allocate matrix on the disk", "False");
 	fprintf(out, "# %16s\t%-32s\t%s\n", "-tmp", "Set directory for temporary files", "");
 	fprintf(out, "# %16s\t%-32s\t%s\n", "-h", "Shows this helpmessage", "");
 	return (out == stderr);
 }
 
-int main_tsv2phy(int argc, char *argv[]) {
+int main_tsv2nwck(int argc, char *argv[]) {
 	
-	int size;
-	unsigned args, format;
+	int args, size;
 	char *arg, *inputfilename, *outputfilename, *errorMsg;
 	unsigned char sep;
 	double exponent;
 	
 	/* init */
 	size = sizeof(double);
-	format = 1;
 	inputfilename = "--";
 	outputfilename = "--";
 	sep = '\t';
@@ -221,21 +206,6 @@ int main_tsv2phy(int argc, char *argv[]) {
 				fprintf(stdout, "# p:\tCalculate Pearsons correlation between vectors.\n");
 				fprintf(stdout, "#\n");
 				return 0;
-			} else if(strcmp(arg, "f") == 0) {
-				if(++args < argc) {
-					format = strtoul(argv[args], &arg, 10);
-					if(*arg != 0) {
-						invaArg("\"-f\"");
-					}
-				} else {
-					missArg("\"-f\"");
-				}
-			} else if(strcmp(arg, "fh") == 0) {
-				fprintf(stdout, "Format flags output format, add them to combine them.\n");
-				fprintf(stdout, "#\n");
-				fprintf(stdout, "# 1:\tRelaxed Phylip\n");
-				fprintf(stdout, "#\n");
-				return 0;
 			} else if(strcmp(arg, "fp") == 0) {
 				size = sizeof(float);
 			} else if(strcmp(arg, "bp") == 0) {
@@ -275,5 +245,9 @@ int main_tsv2phy(int argc, char *argv[]) {
 	DatInit(-size, 0);
 	DatMinit(-size, 0);
 	
-	return tsv2phy(inputfilename, outputfilename, format, sep);
+	/* set ptrs */
+	pairQ = &minQ;
+	formLastNodePtr = &formLastBiNode;
+	
+	return tsv2nwck(inputfilename, outputfilename, sep);
 }

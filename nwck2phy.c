@@ -391,6 +391,8 @@ int main_nwck2phy(int argc, char *argv[]) {
 					} else {
 						invaArg("\"-tmp\"");
 					}
+				} else {
+					missArg("\"-tmp\"");
 				}
 			} else if(strcmp(arg, "h") == 0) {
 				return helpMessage(stdout);
