@@ -56,7 +56,7 @@ int * initAlloc(Matrix *D, Vector *sD, Vector *Q, int *N) {
 int * initHNJ(Matrix *D, Vector *sD, Vector *Q, int *N) {
 	
 	int i, j, pos, N_i, *Ni, *Nj, *P, *Ptr;
-	double min, q, sD_i, *sDi, *sDj, *Dptr, *Qptr;
+	double min, minD, d, q, sD_i, *sDi, *sDj, *Dptr, *Qptr;
 	float *Dfptr;
 	unsigned char *Dbptr;
 	
@@ -96,15 +96,19 @@ int * initHNJ(Matrix *D, Vector *sD, Vector *Q, int *N) {
 		N_i = *++Ni;
 		Nj = N;
 		min = DBL_MAX;
+		minD = DBL_MAX;
 		pos = 0;
 		j = -1;
 		while(++j < i) {
-			q = Dptr ? *++Dptr : Dfptr ? *++Dfptr : uctod(*++Dbptr);
-			if(0 <= q) {
-				q = ((N_i + *++Nj - 4) >> 1) * q - sD_i - *++sDj;
+			d = Dptr ? *++Dptr : Dfptr ? *++Dfptr : uctod(*++Dbptr);
+			if(0 <= d) {
+				q = ((N_i + *++Nj - 4) >> 1) * d - sD_i - *++sDj;
 				if(q <= min) {
-					min = q;
-					pos = j;
+					if(q < min || d <= minD) {
+						min = q;
+						minD = d;
+						pos = j;
+					}
 				}
 			} else {
 				++Nj;

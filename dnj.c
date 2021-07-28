@@ -908,6 +908,36 @@ int DNJ_popArrange(Matrix *D, Vector *sD, Vector *Q, int *N, int *P, int pos) {
 		p = 0;
 	}
 	
+	/* updates Q */
+	/* does not seem to do anything.
+	
+	remember to initialize Ptr above.
+	double *Ptr = P;
+	*/
+	/*
+	mat = D->mat;
+	fmat = D->fmat;
+	bmat = D->bmat;
+	Qptr = Q->vec;
+	sDvec = sD->vec;
+	min = *sDvec;
+	Nptr = N;
+	N_i = *Nptr;
+	Ptr = P;
+	i = D->n;
+	while(--i) {
+		q = mat ? (*++mat)[*++Ptr] : fmat ? (*++fmat)[*++Ptr] : uctod((*++bmat)[*++Ptr]);
+		q = q * ((N_i + *++Nptr - 4) >> 1) - *++sDvec - min;
+		if(*++Qptr < q) {
+			*Qptr = q;
+		}
+		if(min < *sDvec) {
+			min = *sDvec;
+			N_i = *Nptr;
+		}
+	}
+	*/
+	
 	return p;
 }
 
