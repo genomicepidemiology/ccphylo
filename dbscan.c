@@ -75,7 +75,7 @@ int dbscan(Matrix *D, int *N, int *C, double maxDist, int minN) {
 	}
 	
 	/* assign cluster numbers to nodes */
-	nClust = 1;
+	nClust = 0;
 	if(Dptr) {
 		Dmat = D->mat;
 		Dfmat = 0;
@@ -91,9 +91,9 @@ int dbscan(Matrix *D, int *N, int *C, double maxDist, int minN) {
 	}
 	Nptr = N - 1;
 	Cptr = C - 1;
+	c = 0;
 	i = -1;
 	while(++i < D->n) {
-		c = i;
 		if(minN <= *++Nptr) {
 			if(Dmat) {
 				Dptr = Dmat[i] - 1;
@@ -103,6 +103,7 @@ int dbscan(Matrix *D, int *N, int *C, double maxDist, int minN) {
 				Dbptr = Dbmat[i] - 1;
 			}
 			
+			c = i;
 			j = -1;
 			while(++j < c) {
 				d = Dptr ? *++Dptr : Dfptr ? *++Dfptr : uctod(*++Dbptr);
@@ -111,10 +112,46 @@ int dbscan(Matrix *D, int *N, int *C, double maxDist, int minN) {
 					c = C[j];
 				}
 			}
+			if(i != c) {
+				*++Cptr = c;
+			} else {
+				++nClust;
+				++Cptr;
+			}
+		} else if(*Nptr) {
+			if(Dmat) {
+				Dptr = Dmat[i] - 1;
+			} else if(Dfmat) {
+				Dfptr = Dfmat[i] - 1;
+			} else {
+				Dbptr = Dbmat[i] - 1;
+			}
+			
+			N_i = *Nptr;
+			c = i;
+			j = -1;
+			while(++j < c) {
+				d = Dptr ? *++Dptr : Dfptr ? *++Dfptr : uctod(*++Dbptr);
+				if(d <= maxDist) {
+					if(minN <= N[j]) {
+						/* assign node i to the same cluster as node j */
+						c = C[j];
+					} else if(!--N_i) {
+						/* no more neighbors */
+						j = c;
+					}
+				}
+			}
+			if(i != c) {
+				*++Cptr = c;
+			} else {
+				++nClust;
+				++Cptr;
+			}
 		} else {
 			++nClust;
+			++Cptr;
 		}
-		*++Cptr = c;
 	}
 	
 	/* return number of clusters */
