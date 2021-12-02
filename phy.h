@@ -28,6 +28,7 @@ char * stripDir(char *str);
 char * noStripDir(char *str);
 void printphy(FILE *outfile, Matrix *src, char **names, unsigned char *include, char *comment, unsigned format);
 void printphyUpdate(FILE *outfile, int n, char *name, double *D, unsigned format);
+void printfullphy(FILE *outfile, Matrix *src, char **names, unsigned format);
 Qseqs ** loadPhy(Matrix *src, Qseqs **names, Qseqs *header, FileBuff *infile);
 int getSizePhy(FileBuff *infile);
 Qseqs ** getFilenamesPhy(char *path, int n, FileBuff *infile);

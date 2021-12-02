@@ -29,10 +29,10 @@ Dat * loadTsv(FileBuff *infile, unsigned char sep) {
 	
 	int avail, size, N, n, (*buffFileBuff)(FileBuff *);
 	char *msg, strbuff[32];
-	unsigned char c, stop, *buff, *num;
+	unsigned char c, stop, *buff, *num, *bmat;
 	double *mat;
 	float *fmat;
-	unsigned char *bmat;
+	short unsigned *smat;
 	Dat *dest;
 	
 	/* init */
@@ -73,11 +73,14 @@ Dat * loadTsv(FileBuff *infile, unsigned char sep) {
 	/* load rows */
 	mat = 0;
 	fmat = 0;
+	smat = 0;
 	bmat = 0;
 	if(dest->mat) {
 		mat = *(dest->mat);
 	} else if(dest->fmat) {
 		fmat = *(dest->fmat);
+	} else if(dest->smat) {
+		smat = *(dest->smat);
 	} else {
 		bmat = *(dest->bmat);
 	}
@@ -109,6 +112,8 @@ Dat * loadTsv(FileBuff *infile, unsigned char sep) {
 				*mat++ = strtod(strbuff, &msg);
 			} else if(fmat) {
 				*fmat++ = strtod(strbuff, &msg);
+			} else if(smat) {
+				*smat++ = dtouc(strtod(strbuff, &msg));
 			} else {
 				*bmat++ = dtouc(strtod(strbuff, &msg));
 			}
@@ -128,6 +133,8 @@ Dat * loadTsv(FileBuff *infile, unsigned char sep) {
 				mat = dest->mat[dest->m];
 			} else if(fmat) {
 				fmat = dest->fmat[dest->m];
+			} else if(smat) {
+				smat = dest->smat[dest->m];
 			} else {
 				bmat = dest->bmat[dest->m];
 			}

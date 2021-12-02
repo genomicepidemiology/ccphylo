@@ -32,6 +32,7 @@ void initQ_Dmat(Dat *Dmat, Vector *Q, int *P) {
 	int m, n, i, j;
 	double d, **Dptr, *Di, **Dj, *Qptr;
 	float **Dfptr, *Dfi, **Dfj;
+	short unsigned **Dsptr, *Dsi, **Dsj;
 	unsigned char **Dbptr, *Dbi, **Dbj;
 	
 	/* init */
@@ -39,6 +40,7 @@ void initQ_Dmat(Dat *Dmat, Vector *Q, int *P) {
 	n = Dmat->n;
 	Dptr = Dmat->mat;
 	Dfptr = Dmat->fmat;
+	Dsptr = Dmat->smat;
 	Dbptr = Dmat->bmat;
 	Q->n = m;
 	Qptr = Q->vec;
@@ -66,6 +68,16 @@ void initQ_Dmat(Dat *Dmat, Vector *Q, int *P) {
 			*++Qptr = distcmp_f(Dfi, *Dfj, n);
 			while(++j < i) {
 				if(0 <= (d = distcmp_f(Dfi, *++Dfj, n)) && d <= *Qptr) {
+					*Qptr = d;
+					*P = j;
+				}
+			}
+		} else if(Dsptr) {
+			Dsi = Dsptr[i];
+			Dsj = Dsptr;
+			*++Qptr = distcmp_s(Dsi, *Dsj, n);
+			while(++j < i) {
+				if(0 <= (d = distcmp_s(Dsi, *++Dsj, n)) && d <= *Qptr) {
 					*Qptr = d;
 					*P = j;
 				}

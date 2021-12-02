@@ -134,6 +134,7 @@ static int helpMessage(FILE *out) {
 	fprintf(out, "# %16s\t%-32s\t%s\n", "-m", "Tree construction method.", "dnj");
 	fprintf(out, "# %16s\t%-32s\t%s\n", "-mh", "Help on option \"-m\"", "");
 	fprintf(out, "# %16s\t%-32s\t%s\n", "-fp", "Float precision on distance matrix", "double");
+	fprintf(out, "# %16s\t%-32s\t%s\n", "-sp", "Short precision on distance matrix", "double / 1e0");
 	fprintf(out, "# %16s\t%-32s\t%s\n", "-bp", "Byte precision on distance matrix", "double / 1e0");
 	fprintf(out, "# %16s\t%-32s\t%s\n", "-gf", "Gradually free up D", "False");
 	fprintf(out, "# %16s\t%-32s\t%s\n", "-mm", "Allocate matrix on the disk", "False");
@@ -209,6 +210,16 @@ int main_tree(int argc, char *argv[]) {
 				}
 			} else if(strcmp(arg, "fp") == 0) {
 				size = sizeof(float);
+			} else if(strcmp(arg, "sp") == 0) {
+				if(++args < argc && argv[args][0] != '-') {
+					ByteScale = strtod(argv[args], &errorMsg);
+					if(*errorMsg != 0 || ByteScale == 0) {
+						invaArg("\"-sp\"");
+					}
+				} else {
+					--args;
+				}
+				size = sizeof(short unsigned);
 			} else if(strcmp(arg, "bp") == 0) {
 				if(++args < argc && argv[args][0] != '-') {
 					ByteScale = strtod(argv[args], &errorMsg);

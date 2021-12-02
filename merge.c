@@ -50,6 +50,7 @@ static void normalize_ltdMatrix(Matrix *D, Matrix *N) {
 	int i;
 	double *Dptr, *Nptr;
 	float *Dfptr, *Nfptr;
+	short unsigned *Dsptr, *Nsptr;
 	unsigned char *Dbptr, *Nbptr;
 	
 	/* normalize new distance matrix */
@@ -72,6 +73,17 @@ static void normalize_ltdMatrix(Matrix *D, Matrix *N) {
 				*++Dfptr /= *Nfptr;
 			} else {
 				*++Dfptr = -1.0;
+			}
+		}
+	} else if(D->smat) {
+		Dsptr = *(D->smat) - 1;
+		Nsptr = *(N->smat) - 1;
+		while(--i) {
+			if(*++Nsptr != 0) {
+				++Dsptr;
+				*Dsptr = dtouc(((uctod(*Dsptr)) / (uctod(*Nsptr))));
+			} else {
+				*++Dsptr = uctod(-1.0);
 			}
 		}
 	} else {
@@ -113,6 +125,7 @@ char ** merge(Matrix *dist, Matrix *num, FileBuff *phyfile, FileBuff *numfile) {
 	unsigned i, j, m, n, *distIndex, *distIndexM, *distIndexN;
 	double *Dptr, *Nptr, **distMat, **numMat;
 	float *Dfptr, *Nfptr, **distfMat, **numfMat;
+	short unsigned *Dsptr, *Nsptr, **distsMat, **numsMat;
 	unsigned char *Dbptr, *Nbptr, **distbMat, **numbMat;
 	HashMapStr *names_index;
 	Matrix *D, *N;
@@ -147,6 +160,12 @@ char ** merge(Matrix *dist, Matrix *num, FileBuff *phyfile, FileBuff *numfile) {
 		Nfptr = *(num->fmat) - 1;
 		while(--i) {
 			*++Dfptr *= *++Nfptr;
+		}
+	} else if(dist->smat) {
+		Dsptr = *(dist->smat) - 1;
+		Nsptr = *(num->smat) - 1;
+		while(--i) {
+			*++Dsptr *= *++Nsptr;
 		}
 	} else {
 		Dbptr = *(dist->bmat) - 1;
@@ -220,6 +239,30 @@ char ** merge(Matrix *dist, Matrix *num, FileBuff *phyfile, FileBuff *numfile) {
 					}
 				}
 			}
+		} else if(dist->smat) {
+			distsMat = dist->smat;
+			numsMat = num->smat;
+			Dsptr = *(D->smat) - 1;
+			Nsptr = *(N->smat) - 1;
+			distIndex = dist_index->list - 1;
+			distIndexM = distIndex;
+			i = 0;
+			while(i != D->n) {
+				m = *++distIndexM;
+				distIndexN = distIndex;
+				j = ++i;
+				while(--j) {
+					n = *++distIndexN;
+					/* update cell */
+					if(m < n) {
+						distsMat[n][m] += dtouc((uctod(*++Dsptr) * uctod(*++Nsptr)));
+						numsMat[n][m] += *Nsptr;
+					} else {
+						distsMat[m][n] += dtouc((uctod(*++Dsptr) * uctod(*++Nsptr)));
+						numsMat[m][n] += *Nsptr;
+					}
+				}
+			}
 		} else {
 			distbMat = dist->bmat;
 			numbMat = num->bmat;
@@ -269,6 +312,7 @@ char ** jl_merge(Matrix *dist, Matrix *num, FileBuff *phyfile) {
 	unsigned i, j, m, n, *distIndex, *distIndexM, *distIndexN;
 	double *Dptr, **distMat, **numMat;
 	float *Dfptr, **distfMat, **numfMat;
+	short unsigned *Dsptr, **distsMat, **numsMat;
 	unsigned char *Dbptr, **distbMat, **numbMat;
 	HashMapStr *names_index;
 	Matrix *D;
@@ -294,6 +338,11 @@ char ** jl_merge(Matrix *dist, Matrix *num, FileBuff *phyfile) {
 		Dfptr = *(num->fmat) - 1;
 		while(--i) {
 			*++Dfptr = 1;
+		}
+	} else if(num->smat) {
+		Dsptr = *(num->smat) - 1;
+		while(--i) {
+			*++Dsptr = 1;
 		}
 	} else {
 		Dbptr = *(num->bmat) - 1;
@@ -357,6 +406,29 @@ char ** jl_merge(Matrix *dist, Matrix *num, FileBuff *phyfile) {
 					} else {
 						distfMat[m][n] += *++Dfptr;
 						++numfMat[m][n];
+					}
+				}
+			}
+		} else if(dist->smat) {
+			distsMat = dist->smat;
+			numsMat = num->smat;
+			Dsptr = *(D->smat) - 1;
+			distIndexM = dist_index->list;
+			distIndex = distIndexM - 1;
+			i = 1;
+			while(i != D->n) {
+				m = *++distIndexM;
+				distIndexN = distIndex;
+				j = ++i;
+				while(--j) {
+					n = *++distIndexN;
+					/* update cell */
+					if(m < n) {
+						distsMat[n][m] += *++Dsptr;
+						++numsMat[n][m];
+					} else {
+						distsMat[m][n] += *++Dsptr;
+						++numsMat[m][n];
 					}
 				}
 			}
@@ -466,6 +538,7 @@ static int helpMessage(FILE *out) {
 	fprintf(out, "# %16s\t%-32s\t%s\n", "-f", "Output format", "1");
 	fprintf(out, "# %16s\t%-32s\t%s\n", "-fh", "Help on option \"-f\"", "");
 	fprintf(out, "# %16s\t%-32s\t%s\n", "-fp", "Float precision on distance matrix", "double");
+	//fprintf(out, "# %16s\t%-32s\t%s\n", "-sp", "Short precision on distance matrix", "double / 1e0");
 	fprintf(out, "# %16s\t%-32s\t%s\n", "-bp", "Byte precision on distance matrix", "double / 1e0");
 	fprintf(out, "# %16s\t%-32s\t%s\n", "-mm", "Allocate matrix on the disk", "False");
 	fprintf(out, "# %16s\t%-32s\t%s\n", "-tmp", "Set directory for temporary files", "");
@@ -538,6 +611,16 @@ int main_merge(int argc, char *argv[]) {
 				return 0;
 			} else if(strcmp(arg, "fp") == 0) {
 				size = sizeof(float);
+			} else if(strcmp(arg, "sp") == 0) {
+				if(++args < argc && argv[args][0] != '-') {
+					ByteScale = strtod(argv[args], &errorMsg);
+					if(*errorMsg != 0 || ByteScale == 0) {
+						invaArg("\"-sp\"");
+					}
+				} else {
+					--args;
+				}
+				size = sizeof(short unsigned);
 			} else if(strcmp(arg, "bp") == 0) {
 				if(++args < argc && argv[args][0] != '-') {
 					ByteScale = strtod(argv[args], &errorMsg);

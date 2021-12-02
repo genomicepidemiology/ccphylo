@@ -35,6 +35,7 @@ void ltdMatrix_get(Matrix *dest, Matrix *nDest, MatrixCounts *mat1, NucCount *ma
 	char **filename;
 	double dist, *mat, *nMat;
 	float *fmat, *nfMat;
+	short unsigned *smat, *nsMat;
 	unsigned char *bmat, *nbMat;
 	TimeStamp **targetStamp;
 	
@@ -45,6 +46,8 @@ void ltdMatrix_get(Matrix *dest, Matrix *nDest, MatrixCounts *mat1, NucCount *ma
 	nMat = 0;
 	fmat = 0;
 	nfMat = 0;
+	smat = 0;
+	nsMat = 0;
 	bmat = 0;
 	nbMat = 0;
 	if(dest->mat) {
@@ -53,6 +56,9 @@ void ltdMatrix_get(Matrix *dest, Matrix *nDest, MatrixCounts *mat1, NucCount *ma
 	} else if(dest->fmat) {
 		fmat = *(dest->fmat);
 		nfMat = *(nDest->fmat);
+	} else if(dest->smat) {
+		smat = *(dest->smat);
+		nsMat = *(nDest->smat);
 	} else {
 		bmat = *(dest->bmat);
 		nbMat = *(nDest->bmat);
@@ -161,6 +167,9 @@ void ltdMatrix_get(Matrix *dest, Matrix *nDest, MatrixCounts *mat1, NucCount *ma
 						} else if(fmat) {
 							*fmat++ = dist;
 							*nfMat++ = mat2->total;
+						} else if(smat) {
+							*smat++ = dtouc(dist);
+							*nsMat++ = dtouc(mat2->total);
 						} else {
 							*bmat++ = dtouc(dist);
 							*nbMat++ = dtouc(mat2->total);

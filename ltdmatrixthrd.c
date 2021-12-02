@@ -191,6 +191,7 @@ void * cmpMatThrd(void *arg) {
 	double *Dptr, *Nptr, minCov, dist;
 	double (*veccmp)(short unsigned*, short unsigned*, int, int);
 	float *Dfptr, *Nfptr;
+	short unsigned *Dsptr, *Nsptr;
 	unsigned char *Dbptr, *Nbptr;
 	FileBuff *infile;
 	Matrix *D, *N;
@@ -268,6 +269,8 @@ void * cmpMatThrd(void *arg) {
 		Nptr = 0;
 		Dfptr = 0;
 		Nfptr = 0;
+		Dsptr = 0;
+		Nsptr = 0;
 		Dbptr = 0;
 		Nbptr = 0;
 		if(D->mat) {
@@ -276,6 +279,9 @@ void * cmpMatThrd(void *arg) {
 		} else if(D->fmat) {
 			Dfptr = D->fmat[i];
 			Nfptr = N ? N->fmat[i] : 0;
+		} else if(D->smat) {
+			Dsptr = D->smat[i];
+			Nsptr = N ? N->smat[i] : 0;
 		} else {
 			Dbptr = D->bmat[i];
 			Nbptr = N ? N->bmat[i] : 0;
@@ -330,6 +336,11 @@ void * cmpMatThrd(void *arg) {
 				Dfptr[j] = dist;
 				if(N) {
 					Nfptr[j] = mat2->total;
+				}
+			} else if(Dsptr) {
+				Dsptr[j] = dtouc(dist);
+				if(N) {
+					Nsptr[j] = dtouc(mat2->total);
 				}
 			} else {
 				Dbptr[j] = dtouc(dist);

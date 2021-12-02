@@ -408,6 +408,7 @@ static int helpMessage(FILE *out) {
 	fprintf(out, "# %16s\t%-32s\t%s\n", "-dh", "Help on option \"-d\"", "");
 	fprintf(out, "# %16s\t%-32s\t%s\n", "-p", "Minimum lvl. of signifiacnce", "0.05");
 	fprintf(out, "# %16s\t%-32s\t%s\n", "-fp", "Float precision on distance matrix", "double");
+	fprintf(out, "# %16s\t%-32s\t%s\n", "-sp", "Short precision on distance matrix", "double / 1e0");
 	fprintf(out, "# %16s\t%-32s\t%s\n", "-bp", "Byte precision on distance matrix", "double / 1e0");
 	fprintf(out, "# %16s\t%-32s\t%s\n", "-mm", "Allocate matrix on the disk", "False");
 	fprintf(out, "# %16s\t%-32s\t%s\n", "-tmp", "Set directory for temporary files", "");
@@ -641,6 +642,16 @@ int main_dist(int argc, char *argv[]) {
 				return 0;
 			} else if(strcmp(arg, "fp") == 0) {
 				size = sizeof(float);
+			} else if(strcmp(arg, "sp") == 0) {
+				if(++args < argc && argv[args][0] != '-') {
+					ByteScale = strtod(argv[args], &errorMsg);
+					if(*errorMsg != 0 || ByteScale == 0) {
+						invaArg("\"-sp\"");
+					}
+				} else {
+					--args;
+				}
+				size = sizeof(short unsigned);
 			} else if(strcmp(arg, "bp") == 0) {
 				if(++args < argc && argv[args][0] != '-') {
 					ByteScale = strtod(argv[args], &errorMsg);

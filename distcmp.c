@@ -24,6 +24,7 @@
 
 double (*distcmp_d)(double *v1, double *v2, int n) = &coscmp_d;
 double (*distcmp_f)(float *v1, float *v2, int n) = &coscmp_f;
+double (*distcmp_s)(short unsigned *v1, short unsigned *v2, int n) = &coscmp_s;
 double (*distcmp_b)(unsigned char *v1, unsigned char *v2, int n) = &coscmp_b;
 
 double l1cmp_d(double *v1, double *v2, int n) {
@@ -54,6 +55,20 @@ double l1cmp_f(float *v1, float *v2, int n) {
 	return d;
 }
 
+double l1cmp_s(short unsigned *v1, short unsigned *v2, int n) {
+	
+	double d, tmp;
+	
+	tmp = *v1 - *v2;
+	d = tmp < 0 ? -tmp : tmp;
+	while(--n) {
+		tmp = *++v1 - *++v2;
+		d += tmp < 0 ? -tmp : tmp;
+	}
+	
+	return uctod(d);
+}
+
 double l1cmp_b(unsigned char *v1, unsigned char *v2, int n) {
 	
 	double d, tmp;
@@ -65,7 +80,7 @@ double l1cmp_b(unsigned char *v1, unsigned char *v2, int n) {
 		d += tmp < 0 ? -tmp : tmp;
 	}
 	
-	return d;
+	return uctod(d);
 }
 
 double l2cmp_d(double *v1, double *v2, int n) {
@@ -79,7 +94,7 @@ double l2cmp_d(double *v1, double *v2, int n) {
 		d += tmp * tmp;
 	}
 	
-	return d;
+	return sqrt(d);
 }
 
 double l2cmp_f(float *v1, float *v2, int n) {
@@ -93,7 +108,21 @@ double l2cmp_f(float *v1, float *v2, int n) {
 		d += tmp * tmp;
 	}
 	
-	return d;
+	return sqrt(d);
+}
+
+double l2cmp_s(short unsigned *v1, short unsigned *v2, int n) {
+	
+	double d, tmp;
+	
+	tmp = uctod(*v1 - *v2);
+	d = tmp * tmp;;
+	while(--n) {
+		tmp = uctod(*++v1 - *++v2);
+		d += tmp * tmp;
+	}
+	
+	return sqrt(d);
 }
 
 double l2cmp_b(unsigned char *v1, unsigned char *v2, int n) {
@@ -107,7 +136,7 @@ double l2cmp_b(unsigned char *v1, unsigned char *v2, int n) {
 		d += tmp * tmp;
 	}
 	
-	return d;
+	return sqrt(d);
 }
 
 double lncmp_d(double *v1, double *v2, int n) {
@@ -173,6 +202,27 @@ double lncmp_b(unsigned char *v1, unsigned char *v2, int n) {
 	return d < 0 ? 0 : d;
 }
 
+double lncmp_s(short unsigned *v1, short unsigned *v2, int n) {
+	
+	static double exponent = 0;
+	double d, tmp;
+	
+	if(v1 == 0) {
+		exponent = *((double *)(v2));
+		return 0;
+	}
+	
+	tmp = uctod(*v1 - *v2);
+	d = pow(tmp < 0 ? -tmp : tmp, exponent);
+	while(--n) {
+		tmp = uctod(*++v1 - *++v2);
+		d += pow(tmp < 0 ? -tmp : tmp, exponent);
+	}
+	d = pow(d, 1.0 / exponent);
+	
+	return d < 0 ? 0 : d;
+}
+
 double linfcmp_d(double *v1, double *v2, int n) {
 	
 	double d, tmp;
@@ -207,6 +257,24 @@ double linfcmp_f(float *v1, float *v2, int n) {
 	}
 	
 	return d;
+}
+
+double linfcmp_s(short unsigned *v1, short unsigned *v2, int n) {
+	
+	unsigned char d, tmp;
+	
+	tmp = *v1 - *v2;
+	d = tmp < 0 ? -tmp : tmp;
+	while(--n) {
+		tmp = *++v1 - *++v2;
+		if(d < tmp) {
+			d = tmp;
+		} else if(tmp < 0 && d < -tmp) {
+			d = -tmp;
+		}
+	}
+	
+	return uctod(d);
 }
 
 double linfcmp_b(unsigned char *v1, unsigned char *v2, int n) {
@@ -257,6 +325,21 @@ double bccmp_f(float *v1, float *v2, int n) {
 	return d < 0 ? 0 : d;
 }
 
+double bccmp_s(short unsigned *v1, short unsigned *v2, int n) {
+	
+	int d, s;
+	
+	d = *v1 < *v2 ? *v1 : *v2;
+	s = (int)(*v1) + *v2;
+	while(--n) {
+		d += *++v1 < *++v2 ? *v1 : *v2;
+		s += (int)(*v1) + *v2;
+	}
+	d = 1 - 2 * (double)(d) / s;
+	
+	return d < 0 ? 0 : d;
+}
+
 double bccmp_b(unsigned char *v1, unsigned char *v2, int n) {
 	
 	int d, s;
@@ -294,6 +377,20 @@ double chi2cmp_f(float *v1, float *v2, int n) {
 	while(--n) {
 		if((T = *++v1 - *++v2)) {
 			d += T * T / (*v1 + *v2);
+		}
+	}
+	
+	return sqrt(d);
+}
+
+double chi2cmp_s(short unsigned *v1, short unsigned *v2, int n) {
+	
+	double d, T;
+	
+	d = (T = *v1 - *v2) ? (T * T / ((int)(*v1) + *v2)) : 0;
+	while(--n) {
+		if((T = *++v1 - *++v2)) {
+			d += T * T / ((int)(*v1) + *v2);
 		}
 	}
 	
@@ -347,6 +444,32 @@ double coscmp_f(float *v1, float *v2, int n) {
 		d += *++v1 * *++v2;
 		c1 += *v1 * *v1;
 		c2 += *v2 * *v2;
+	}
+	if(!c1 || !c2) {
+		errno = EDOM;
+		return -1;
+	}
+	d = 1 - d / sqrt(c1 * c2);
+	
+	/* take care of negative approx. error */
+	return d < 0 ? 0 : d;
+}
+
+double coscmp_s(short unsigned *v1, short unsigned *v2, int n) {
+	
+	double d, c1, c2, t1, t2;
+	
+	t1 = uctod(*v1);
+	t2 = uctod(*v2);
+	d = t1 * t2;
+	c1 = t1 * t1;
+	c2 = t2 * t2;
+	while(--n) {
+		t1 = uctod(*++v1);
+		t2 = uctod(*++v2);
+		d += t1 * t2;
+		c1 += t1 * t1;
+		c2 += t2 * t2;
 	}
 	if(!c1 || !c2) {
 		errno = EDOM;
@@ -446,6 +569,52 @@ double pearcmp_f(float *v1, float *v2, int n) {
 		v12 += *v1 * *v2;
 		v22 += *v2 * *v2;
 	}
+	
+	/* get variances */
+	v11 -= e1 * e1 / n;
+	v12 -= e1 * e2 / n;
+	v22 -= e2 * e2 / n;
+	
+	/* check validity */
+	if(!v11 || !v22) {
+		errno = EDOM;
+		return 0;
+	}
+	
+	/* corr */
+	return v12 / sqrt(v11 * v22);
+}
+
+double pearcmp_s(short unsigned *v1, short unsigned *v2, int n) {
+	
+	int i, t1, t2;
+	double e1, e2, v11, v12, v22;
+	
+	/* get sums */
+	t1 = *v1;
+	t2 = *v2;
+	e1 = t1;
+	e2 = t2;
+	v11 = t1 * t1;
+	v12 = t1 * t2;
+	v22 = t2 * t2;
+	i = n;
+	while(--i) {
+		t1 = *++v1;
+		t2 = *++v2;
+		e1 += t1;
+		e2 += t2;
+		v11 += t1 * t1;
+		v12 += t1 * t2;
+		v22 += t2 * t2;
+	}
+	
+	/* convert to doubles */
+	e1 = uctod(e1);
+	e2 = uctod(e2);
+	v11 = uctod(v11);
+	v12 = uctod(v12);
+	v22 = uctod(v22);
 	
 	/* get variances */
 	v11 -= e1 * e1 / n;

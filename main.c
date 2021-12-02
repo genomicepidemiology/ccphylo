@@ -21,6 +21,7 @@
 #include <string.h>
 #include "dbscan.h"
 #include "dist.h"
+#include "fullphy.h"
 #include "merge.h"
 #include "nwck2phy.h"
 #include "rarify.h"
@@ -43,6 +44,7 @@ static int helpMessage(FILE *out) {
 	fprintf(out, "# %16s\t%-32s\n", "tsv2phy", "Convert tsv file to phylip distance file");
 	fprintf(out, "# %16s\t%-32s\n", "rarify", "Rarify a KMA matrix");
 	fprintf(out, "# %16s\t%-32s\n", "trim", "Trim multiple alignments");
+	fprintf(out, "# %16s\t%-32s\n", "fullphy", "Convert ltd phy to full phy");
 	fprintf(out, "# %16s\t%-32s\n", "-c", "Citation");
 	fprintf(out, "# %16s\t%-32s\n", "-v", "Version");
 	fprintf(out, "# %16s\t%-32s\n", "-h", "Shows this helpmessage");
@@ -75,6 +77,8 @@ int main(int argc, char *argv[]) {
 		return main_trim(argc, argv);
 	} else if(strcmp(arg, "dbscan") == 0) {
 		return main_dbscan(argc, argv);
+	} else if(strcmp(arg, "fullphy") == 0) {
+		return main_fullphy(argc, argv);
 	} else if(strcmp(arg, "-c") == 0) {
 		fprintf(stdout, "Malte B. Hallgren, Soeren Overballe-Petersen, Ole Lund, Henrik Hasman, Philip T.L.C. Clausen, \"MINTyper: an outbreak-detection method for accurate and rapid SNP typing of clonal clusters with noisy long reads\", Biology Methods & Protocols,  https://doi.org/10.1093/biomethods/bpab008.\n");
 	} else if(strcmp(arg, "-v") == 0) {

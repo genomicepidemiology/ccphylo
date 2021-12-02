@@ -37,6 +37,7 @@ int tsv2phy(char *inputfilename, char *outputfilename, unsigned format, unsigned
 	int m, n, i, j;
 	double **Dptr, *Di, **Dj;
 	float **Dfptr, *Dfi, **Dfj;
+	short unsigned **Dsptr, *Dsi, **Dsj;
 	unsigned char **Dbptr, *Dbi, **Dbj;
 	FILE *outfile;
 	FileBuff *infile;
@@ -65,6 +66,7 @@ int tsv2phy(char *inputfilename, char *outputfilename, unsigned format, unsigned
 	n = Dmat->n;
 	Dptr = Dmat->mat;
 	Dfptr = Dmat->fmat;
+	Dsptr = Dmat->smat;
 	Dbptr = Dmat->bmat;
 	i = -1;
 	while(++i < m) {
@@ -88,6 +90,12 @@ int tsv2phy(char *inputfilename, char *outputfilename, unsigned format, unsigned
 			Dfj = Dfptr - 1;
 			while(--j) {
 				dfprintf(outfile, "\t%f", distcmp_f(Dfi, *++Dfj, n));
+			}
+		} else if(Dsptr) {
+			Dsi = Dsptr[i];
+			Dsj = Dsptr - 1;
+			while(--j) {
+				dfprintf(outfile, "\t%f", distcmp_s(Dsi, *++Dsj, n));
 			}
 		} else {
 			Dbi = Dbptr[i];
@@ -118,6 +126,7 @@ static int helpMessage(FILE *out) {
 	fprintf(out, "# %16s\t%-32s\t%s\n", "-f", "Output flags", "1");
 	fprintf(out, "# %16s\t%-32s\t%s\n", "-fh", "Help on option \"-f\"", "");
 	fprintf(out, "# %16s\t%-32s\t%s\n", "-fp", "Float precision on distance matrix", "double");
+	//fprintf(out, "# %16s\t%-32s\t%s\n", "-sp", "Short precision on distance matrix", "double / 1e0");
 	fprintf(out, "# %16s\t%-32s\t%s\n", "-bp", "Byte precision on distance matrix", "double / 1e0");
 	fprintf(out, "# %16s\t%-32s\t%s\n", "-mm", "Allocate matrix on the disk", "False");
 	fprintf(out, "# %16s\t%-32s\t%s\n", "-tmp", "Set directory for temporary files", "");
@@ -238,6 +247,16 @@ int main_tsv2phy(int argc, char *argv[]) {
 				return 0;
 			} else if(strcmp(arg, "fp") == 0) {
 				size = sizeof(float);
+			} else if(strcmp(arg, "sp") == 0) {
+				if(++args < argc && argv[args][0] != '-') {
+					ByteScale = strtod(argv[args], &errorMsg);
+					if(*errorMsg != 0 || ByteScale == 0) {
+						invaArg("\"-sp\"");
+					}
+				} else {
+					--args;
+				}
+				size = sizeof(short unsigned);
 			} else if(strcmp(arg, "bp") == 0) {
 				if(++args < argc && argv[args][0] != '-') {
 					ByteScale = strtod(argv[args], &errorMsg);

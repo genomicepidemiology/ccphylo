@@ -26,6 +26,7 @@ struct matrix {
 	int size;
 	double **mat;
 	float **fmat;
+	short unsigned **smat;
 	unsigned char **bmat;
 	FILE *file;
 };

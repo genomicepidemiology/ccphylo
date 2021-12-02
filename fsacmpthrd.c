@@ -118,6 +118,7 @@ void * cmpFsaThrd(void *arg) {
 	unsigned char *include;
 	double *Dptr, nFactor;
 	float *Dfptr;
+	short unsigned *Dsptr;
 	unsigned char *Dbptr;
 	FILE *diffile;
 	Matrix *D;
@@ -217,17 +218,17 @@ void * cmpFsaThrd(void *arg) {
 		}
 		
 		/* get the corresponding position in distance matrix */
+		Dptr = 0;
+		Dfptr = 0;
+		Dsptr = 0;
+		Dbptr = 0;
 		if(D->mat) {
 			Dptr = D->mat[pi] + pj;
-			Dfptr = 0;
-			Dbptr = 0;
 		} else if(D->fmat) {
-			Dptr = 0;
 			Dfptr = D->fmat[pi] + pj;
-			Dbptr = 0;
+		} else if(D->smat) {
+			Dsptr = D->smat[pi] + pj;
 		} else {
-			Dptr = 0;
-			Dfptr = 0;
 			Dbptr = D->bmat[pi] + pj;
 		}
 		
@@ -247,6 +248,8 @@ void * cmpFsaThrd(void *arg) {
 			*Dptr = nFactor * dist;
 		} else if(Dfptr) {
 			*Dfptr = nFactor * dist;
+		} else if(Dsptr) {
+			*Dsptr = dtouc(nFactor * dist);
 		} else {
 			*Dbptr = dtouc(nFactor * dist);
 		}
@@ -269,6 +272,7 @@ void * cmpairFsaThrd(void *arg) {
 	unsigned char *include, *Dbptr, *Nbptr;
 	double minCov, *Dptr, *Nptr;
 	float *Dfptr, *Nfptr;
+	short unsigned *Dsptr, *Nsptr;
 	FILE *diffile;
 	Matrix *D, *N;
 	
@@ -377,6 +381,8 @@ void * cmpairFsaThrd(void *arg) {
 		Nptr = 0;
 		Dfptr = 0;
 		Nfptr = 0;
+		Dsptr = 0;
+		Nsptr = 0;
 		Dbptr = 0;
 		Nbptr = 0;
 		if(D->mat) {
@@ -385,6 +391,9 @@ void * cmpairFsaThrd(void *arg) {
 		} else if(D->fmat) {
 			Dfptr = D->fmat[pi] + pj;
 			Nfptr = N ? N->fmat[pi] + pj : 0;
+		} else if(D->smat) {
+			Dsptr = D->smat[pi] + pj;
+			Nsptr = N ? N->smat[pi] + pj : 0;
 		} else {
 			Dbptr = D->bmat[pi] + pj;
 			Nbptr = N ? N->bmat[pi] + pj : 0;
@@ -436,6 +445,19 @@ void * cmpairFsaThrd(void *arg) {
 			}
 			if(N) {
 				*Nfptr = inc;
+			}
+		} else if(Dsptr) {
+			if(minLength <= inc) {
+				if(norm) {
+					*Dsptr = (dtouc((dist >> 32) * norm)) / inc;
+				} else {
+					*Dsptr = dtouc((dist >> 32));
+				}
+			} else {
+				*Dsptr = dtouc(-1.0);
+			}
+			if(N) {
+				*Nsptr = dtouc(inc);
 			}
 		} else {
 			if(minLength <= inc) {

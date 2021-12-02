@@ -34,6 +34,7 @@ int dbscan(Matrix *D, int *N, int *C, double maxDist, int minN) {
 	int i, j, c, N_i, nClust, *Nptr, *Cptr;
 	double d, **Dmat, *Dptr;
 	float **Dfmat, *Dfptr;
+	short unsigned **Dsmat, *Dsptr;
 	unsigned char **Dbmat, *Dbptr;
 	
 	/*
@@ -43,17 +44,17 @@ int dbscan(Matrix *D, int *N, int *C, double maxDist, int minN) {
 	*/
 	
 	/* get number of neighbours pr. node */
+	Dptr = 0;
+	Dfptr = 0;
+	Dsptr = 0;
+	Dbptr = 0;
 	if(D->mat) {
 		Dptr = *(D->mat) - 1;
-		Dfptr = 0;
-		Dbptr = 0;
 	} else if(D->fmat) {
-		Dptr = 0;
 		Dfptr = *(D->fmat) - 1;
-		Dbptr = 0;
+	} else if(D->smat) {
+		Dsptr = *(D->smat) - 1;
 	} else {
-		Dptr = 0;
-		Dfptr = 0;
 		Dbptr = *(D->bmat) - 1;
 	}
 	i = -1;
@@ -62,7 +63,7 @@ int dbscan(Matrix *D, int *N, int *C, double maxDist, int minN) {
 		Nptr = N - 1;
 		j = -1;
 		while(++j < i) {
-			d = Dptr ? *++Dptr : Dfptr ? *++Dfptr : uctod(*++Dbptr);
+			d = Dptr ? *++Dptr : Dfptr ? *++Dfptr : Dsptr ? uctod(*++Dsptr) : uctod(*++Dbptr);
 			if(d <= maxDist) {
 				++N_i;
 				++*++Nptr;
@@ -76,17 +77,17 @@ int dbscan(Matrix *D, int *N, int *C, double maxDist, int minN) {
 	
 	/* assign cluster numbers to nodes */
 	nClust = 0;
+	Dmat = 0;
+	Dfmat = 0;
+	Dsmat = 0;
+	Dbmat = 0;
 	if(Dptr) {
 		Dmat = D->mat;
-		Dfmat = 0;
-		Dbmat = 0;
 	} else if(Dfptr) {
-		Dmat = 0;
 		Dfmat = D->fmat;
-		Dbmat = 0;
+	} else if(Dsptr) {
+		Dsmat = D->smat;
 	} else {
-		Dmat = 0;
-		Dfmat = 0;
 		Dbmat = D->bmat;
 	}
 	Nptr = N - 1;
@@ -99,6 +100,8 @@ int dbscan(Matrix *D, int *N, int *C, double maxDist, int minN) {
 				Dptr = Dmat[i] - 1;
 			} else if(Dfmat) {
 				Dfptr = Dfmat[i] - 1;
+			} else if(Dsmat) {
+				Dsptr = Dsmat[i] - 1;
 			} else {
 				Dbptr = Dbmat[i] - 1;
 			}
@@ -106,7 +109,7 @@ int dbscan(Matrix *D, int *N, int *C, double maxDist, int minN) {
 			c = i;
 			j = -1;
 			while(++j < c) {
-				d = Dptr ? *++Dptr : Dfptr ? *++Dfptr : uctod(*++Dbptr);
+				d = Dptr ? *++Dptr : Dfptr ? *++Dfptr : Dsptr ? uctod(*++Dsptr) : uctod(*++Dbptr);
 				if(d <= maxDist) {
 					/* assign node i to the same cluster as node j */
 					c = C[j];
@@ -123,6 +126,8 @@ int dbscan(Matrix *D, int *N, int *C, double maxDist, int minN) {
 				Dptr = Dmat[i] - 1;
 			} else if(Dfmat) {
 				Dfptr = Dfmat[i] - 1;
+			} else if(Dsmat) {
+				Dsptr = Dsmat[i] - 1;
 			} else {
 				Dbptr = Dbmat[i] - 1;
 			}
@@ -131,7 +136,7 @@ int dbscan(Matrix *D, int *N, int *C, double maxDist, int minN) {
 			c = i;
 			j = -1;
 			while(++j < c) {
-				d = Dptr ? *++Dptr : Dfptr ? *++Dfptr : uctod(*++Dbptr);
+				d = Dptr ? *++Dptr : Dfptr ? *++Dfptr : Dsptr ? uctod(*++Dsptr) : uctod(*++Dbptr);
 				if(d <= maxDist) {
 					if(minN <= N[j]) {
 						/* assign node i to the same cluster as node j */
@@ -236,6 +241,7 @@ static int helpMessage(FILE *out) {
 	fprintf(out, "# %16s\t%-32s\t%s\n", "-n", "Minimum neighbours", "1");
 	fprintf(out, "# %16s\t%-32s\t%s\n", "-d", "Maximum distance", "10.0");
 	fprintf(out, "# %16s\t%-32s\t%s\n", "-fp", "Float precision on distance matrix", "double");
+	fprintf(out, "# %16s\t%-32s\t%s\n", "-sp", "Short precision on distance matrix", "double / 1e0");
 	fprintf(out, "# %16s\t%-32s\t%s\n", "-bp", "Byte precision on distance matrix", "double / 1e0");
 	fprintf(out, "# %16s\t%-32s\t%s\n", "-mm", "Allocate matrix on the disk", "False");
 	fprintf(out, "# %16s\t%-32s\t%s\n", "-tmp", "Set directory for temporary files", "");
@@ -292,6 +298,16 @@ int main_dbscan(int argc, char *argv[]) {
 				}
 			} else if(strcmp(arg, "fp") == 0) {
 				size = sizeof(float);
+			} else if(strcmp(arg, "sp") == 0) {
+				if(++args < argc && argv[args][0] != '-') {
+					ByteScale = strtod(argv[args], &errorMsg);
+					if(*errorMsg != 0 || ByteScale == 0) {
+						invaArg("\"-sp\"");
+					}
+				} else {
+					--args;
+				}
+				size = sizeof(short unsigned);
 			} else if(strcmp(arg, "bp") == 0) {
 				if(++args < argc && argv[args][0] != '-') {
 					ByteScale = strtod(argv[args], &errorMsg);

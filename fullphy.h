@@ -17,4 +17,5 @@
  * limitations under the License.
 */
 
-#define CCPHYLO_VERSION "0.5.4"
+void formFullPhy(char *inputfilename, char *outputfilename, int flag);
+int main_fullphy(int argc, char *argv[]);

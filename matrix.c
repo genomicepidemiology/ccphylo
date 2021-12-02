@@ -36,6 +36,7 @@ Matrix * ltdMatrixInit(int size) {
 	long unsigned Size;
 	double **ptr, *src;
 	float **fptr, *fsrc;
+	short unsigned **sptr, *ssrc;
 	unsigned char **bptr, *bsrc;
 	Matrix *dest;
 	
@@ -47,6 +48,10 @@ Matrix * ltdMatrixInit(int size) {
 	dest = smalloc(sizeof(Matrix));
 	dest->n = 0;
 	dest->size = size;
+	dest->mat = 0;
+	dest->fmat = 0;
+	dest->smat = 0;
+	dest->bmat = 0;
 	Size = size;
 	Size *= (size - 1);
 	Size >>= 1;
@@ -54,16 +59,13 @@ Matrix * ltdMatrixInit(int size) {
 	if(type == sizeof(double)) {
 		dest->mat = smalloc(dest->size * sizeof(double *));
 		*(dest->mat) = smalloc(Size);
-		dest->fmat = 0;
-		dest->bmat = 0;
 	} else if(type == sizeof(float)) {
-		dest->mat = 0;
 		dest->fmat = smalloc(dest->size * sizeof(float *));
 		*(dest->fmat) = smalloc(Size);
-		dest->bmat = 0;
+	} else if(type == sizeof(short unsigned)) {
+		dest->smat = smalloc(dest->size * sizeof(short unsigned *));
+		*(dest->smat) = smalloc(Size);
 	} else {
-		dest->mat = 0;
-		dest->fmat = 0;
 		dest->bmat = smalloc(dest->size * sizeof(unsigned char *));
 		*(dest->bmat) = smalloc(Size);
 	}
@@ -88,6 +90,15 @@ Matrix * ltdMatrixInit(int size) {
 			*++fptr = fsrc + i;
 			fsrc += i++;
 		}
+	} else if(dest->smat) {
+		sptr = dest->smat;
+		ssrc = *sptr;
+		i = 0;
+		*sptr = ssrc;
+		while(--size) {
+			*++sptr = ssrc + i;
+			ssrc += i++;
+		}
 	} else {
 		bptr = dest->bmat;
 		bsrc = *bptr;
@@ -109,6 +120,7 @@ Matrix * ltdMatrixMinit(int size) {
 	long unsigned Size;
 	double **ptr, *src;
 	float **fptr, *fsrc;
+	short unsigned **sptr, *ssrc;
 	unsigned char **bptr, *bsrc;
 	FILE *tmp;
 	Matrix *dest;
@@ -121,17 +133,17 @@ Matrix * ltdMatrixMinit(int size) {
 	dest = smalloc(sizeof(Matrix));
 	dest->n = 0;
 	dest->size = size;
+	dest->mat = 0;
+	dest->fmat = 0;
+	dest->smat = 0;
+	dest->bmat = 0;
 	if(type == sizeof(double)) {
 		dest->mat = smalloc(size * sizeof(double *));
-		dest->fmat = 0;
-		dest->bmat = 0;
 	} else if(type == sizeof(float)) {
-		dest->mat = 0;
 		dest->fmat = smalloc(size * sizeof(float *));
-		dest->bmat = 0;
+	} else if(type == sizeof(short unsigned)) {
+		dest->smat = smalloc(size * sizeof(short unsigned *));
 	} else {
-		dest->mat = 0;
-		dest->fmat = 0;
 		dest->bmat = smalloc(size * sizeof(unsigned char *));
 	}
 	tmp = tmpF(0);
@@ -150,7 +162,7 @@ Matrix * ltdMatrixMinit(int size) {
 		if(*(dest->mat) == MAP_FAILED) {
 				ERROR();
 		}
-		posix_madvise(*(dest->mat), Size, POSIX_MADV_SEQUENTIAL);
+		//posix_madvise(*(dest->mat), Size, POSIX_MADV_SEQUENTIAL);
 		
 		/* set matrix rows */
 		ptr = dest->mat;
@@ -166,7 +178,7 @@ Matrix * ltdMatrixMinit(int size) {
 		if(*(dest->fmat) == MAP_FAILED) {
 				ERROR();
 		}
-		posix_madvise(*(dest->fmat), Size, POSIX_MADV_SEQUENTIAL);
+		//posix_madvise(*(dest->fmat), Size, POSIX_MADV_SEQUENTIAL);
 		
 		/* set matrix rows */
 		fptr = dest->fmat;
@@ -177,12 +189,28 @@ Matrix * ltdMatrixMinit(int size) {
 			*++fptr = fsrc + i;
 			fsrc += i++;
 		}
+	} else if(dest->smat) {
+		*(dest->smat) = mmap(0, Size, PROT_READ | PROT_WRITE, MAP_SHARED, fileno(tmp), 0);
+		if(*(dest->smat) == MAP_FAILED) {
+				ERROR();
+		}
+		//posix_madvise(*(dest->smat), Size, POSIX_MADV_SEQUENTIAL);
+		
+		/* set matrix rows */
+		sptr = dest->smat;
+		ssrc = *sptr;
+		i = 0;
+		*sptr = ssrc;
+		while(--size) {
+			*++sptr = ssrc + i;
+			ssrc += i++;
+		}
 	} else {
 		*(dest->bmat) = mmap(0, Size, PROT_READ | PROT_WRITE, MAP_SHARED, fileno(tmp), 0);
 		if(*(dest->bmat) == MAP_FAILED) {
 				ERROR();
 		}
-		posix_madvise(*(dest->bmat), Size, POSIX_MADV_SEQUENTIAL);
+		//posix_madvise(*(dest->bmat), Size, POSIX_MADV_SEQUENTIAL);
 		
 		/* set matrix rows */
 		bptr = dest->bmat;
@@ -204,11 +232,12 @@ void ltdMatrix_mrealloc(Matrix *src, int size) {
 	long unsigned type, Size;
 	double **ptr, *mat;
 	float **fptr, *fmat;
+	short unsigned **sptr, *smat;
 	unsigned char **bptr, *bmat;
 	FILE *tmp;
 	
 	/* init */
-	type = src->mat ? sizeof(double) : src->fmat ? sizeof(float) : sizeof(unsigned char);
+	type = src->mat ? sizeof(double) : src->fmat ? sizeof(float) : src->smat ? sizeof(short unsigned) : sizeof(unsigned char);
 	
 	/* unmap current mapping */
 	Size = src->size;
@@ -221,6 +250,9 @@ void ltdMatrix_mrealloc(Matrix *src, int size) {
 	} else if(src->fmat) {
 		msync(*(src->fmat), Size, MS_SYNC);
 		munmap(*(src->fmat), Size);	
+	} else if(src->smat) {
+		msync(*(src->smat), Size, MS_SYNC);
+		munmap(*(src->smat), Size);	
 	} else {
 		msync(*(src->bmat), Size, MS_SYNC);
 		munmap(*(src->bmat), Size);	
@@ -281,13 +313,34 @@ void ltdMatrix_mrealloc(Matrix *src, int size) {
 			*++fptr = fmat + i;
 			fmat += i++;
 		}
+	} else if(type == sizeof(short unsigned)) {
+		smat = mmap(0, Size, PROT_READ | PROT_WRITE, MAP_SHARED, fileno(tmp), 0);
+		if(smat == MAP_FAILED) {
+			ERROR();
+		}
+		posix_madvise(smat, Size, POSIX_MADV_SEQUENTIAL);
+		sptr = realloc(src->smat, size * sizeof(short unsigned *));
+		if(!sptr) {
+			ERROR();
+		}
+		src->smat = sptr;
+		*(src->smat) = smat;
+		src->size = size;
+		
+		/* set matrix rows */
+		i = 0;
+		*sptr = smat;
+		while(--size) {
+			*++sptr = smat + i;
+			smat += i++;
+		}
 	} else {
 		bmat = mmap(0, Size, PROT_READ | PROT_WRITE, MAP_SHARED, fileno(tmp), 0);
 		if(bmat == MAP_FAILED) {
 			ERROR();
 		}
 		posix_madvise(bmat, Size, POSIX_MADV_SEQUENTIAL);
-		bptr = realloc(src->bmat, size * sizeof(float *));
+		bptr = realloc(src->bmat, size * sizeof(unsigned char *));
 		if(!bptr) {
 			ERROR();
 		}
@@ -311,6 +364,7 @@ void ltdMatrix_realloc(Matrix *src, int size) {
 	long unsigned Size;
 	double **ptr, *mat;
 	float **fptr, *fmat;
+	short unsigned **sptr, *smat;
 	unsigned char **bptr, *bmat;
 	
 	if(src->file) {
@@ -357,10 +411,28 @@ void ltdMatrix_realloc(Matrix *src, int size) {
 			*++fptr = fmat + i;
 			fmat += i++;
 		}
+	} else if(src->smat) {
+		Size *= sizeof(short unsigned);
+		smat = realloc(*(src->smat), Size);
+		sptr = realloc(src->smat, size * sizeof(short unsigned *));
+		if(!sptr || !smat) {
+			ERROR();
+		}
+		src->smat = sptr;
+		*(src->smat) = smat;
+		src->size = size;
+		
+		/* set matrix rows */
+		i = 0;
+		*sptr = smat;
+		while(--size) {
+			*++sptr = smat + i;
+			smat += i++;
+		}
 	} else {
 		Size *= sizeof(unsigned char);
 		bmat = realloc(*(src->bmat), Size);
-		bptr = realloc(src->bmat, size * sizeof(float *));
+		bptr = realloc(src->bmat, size * sizeof(unsigned char *));
 		if(!bptr || !bmat) {
 			ERROR();
 		}
@@ -396,6 +468,11 @@ void Matrix_mdestroy(Matrix *src) {
 			msync(*(src->fmat), size, MS_SYNC);
 			munmap(*(src->fmat), size);
 			free(src->fmat);
+		} else if(src->smat) {
+			size *= sizeof(short unsigned);
+			msync(*(src->smat), size, MS_SYNC);
+			munmap(*(src->smat), size);
+			free(src->smat);
 		} else if(src->bmat) {
 			size *= sizeof(unsigned char);
 			msync(*(src->bmat), size, MS_SYNC);
@@ -419,6 +496,9 @@ void Matrix_destroy(Matrix *src) {
 		} else if(src->fmat) {
 			free(*(src->fmat));
 			free(src->fmat);
+		} else if(src->smat) {
+			free(*(src->smat));
+			free(src->smat);
 		} else if(src->bmat) {
 			free(*(src->bmat));
 			free(src->bmat);
@@ -432,6 +512,7 @@ void ltdMatrix_popArrange(Matrix *mat, unsigned pos) {
 	int i, n;
 	double *dest, *src;
 	float *fdest, *fsrc;
+	short unsigned *sdest, *ssrc;
 	unsigned char *bdest, *bsrc;
 	
 	n = --mat->n;
@@ -472,6 +553,24 @@ void ltdMatrix_popArrange(Matrix *mat, unsigned pos) {
 			while(++i < n) {
 				mat->fmat[i][pos] = *++fsrc;
 			}
+		} else if(mat->smat) {
+			/* row to be emptied */
+			sdest = mat->smat[pos] - 1;
+			/* row to be moved up */
+			ssrc = mat->smat[n] - 1;
+			
+			/* copy last row into "first" row */
+			i = pos + 1;
+			while(--i) {
+				*++sdest = *++ssrc;
+			}
+			
+			/* tilt remaining part of last row into column "pos" */
+			i = pos;
+			++ssrc;
+			while(++i < n) {
+				mat->smat[i][pos] = *++ssrc;
+			}
 		} else {
 			/* row to be emptied */
 			bdest = mat->bmat[pos] - 1;
@@ -499,6 +598,7 @@ int ltdMatrix_add(Matrix *src) {
 	int i;
 	double *ptr;
 	float *fptr;
+	short unsigned *sptr;
 	unsigned char *bptr;
 	
 	/* realloc */
@@ -518,6 +618,11 @@ int ltdMatrix_add(Matrix *src) {
 		while(--i) {
 			*++fptr = 0;
 		}
+	} else if(src->smat) {
+		sptr = src->smat[i - 1] - 1;
+		while(--i) {
+			*++sptr = 0;
+		}
 	} else {
 		bptr = src->bmat[i - 1] - 1;
 		while(--i) {
@@ -534,6 +639,7 @@ void ltdMatrix_shrink(Matrix *src, int size) {
 	long unsigned Size, type;
 	double **ptr, *mat;
 	float **fptr, *fmat;
+	short unsigned **sptr, *smat;
 	unsigned char **bptr, *bmat;
 	
 	if((size & 2047) || src->size < size) {
@@ -547,12 +653,14 @@ void ltdMatrix_shrink(Matrix *src, int size) {
 	Size = src->size;
 	Size *= (src->size - 1);
 	Size >>= 1;
-	type = src->mat ? sizeof(double) : src->fmat ? sizeof(float) : sizeof(unsigned char);
+	type = src->mat ? sizeof(double) : src->fmat ? sizeof(float) : src->smat ? sizeof(short unsigned) : sizeof(unsigned char);
 	Size *= type;
 	if(src->mat) {
 		ptr = src->mat;
 	} else if(src->fmat) {
 		ptr = (double **)(src->fmat);
+	} else if(src->smat) {
+		ptr = (double **)(src->smat);
 	} else {
 		ptr = (double **)(src->bmat);
 	}
@@ -572,7 +680,7 @@ void ltdMatrix_shrink(Matrix *src, int size) {
 	if(mat == MAP_FAILED) {
 		ERROR();
 	}
-	posix_madvise(mat, Size, POSIX_MADV_SEQUENTIAL);
+	//posix_madvise(mat, Size, POSIX_MADV_SEQUENTIAL);
 	if(!(ptr = realloc(ptr, size * sizeof(double *)))) {
 		ERROR();
 	}
@@ -598,6 +706,17 @@ void ltdMatrix_shrink(Matrix *src, int size) {
 		while(--size) {
 			*++fptr = fmat + i;
 			fmat += i++;
+		}
+	} else if(src->smat) {
+		sptr = (short unsigned **)(ptr);
+		smat = (short unsigned *)(mat);
+		src->smat = sptr;
+		*(src->smat) = smat;
+		i = 0;
+		*sptr = smat;
+		while(--size) {
+			*++sptr = smat + i;
+			smat += i++;
 		}
 	} else {
 		bptr = (unsigned char **)(ptr);

@@ -1,6 +1,6 @@
 CFLAGS ?= -Wall -O3
 CFLAGS += -std=c99
-LIBS = bytescale.o cdist.o dat.o datclust.o dbscan.o dbparse.o distcmp.o dist.o dnj.o fbseek.o filebuff.o fsacmp.o fsacmpthrd.o hashmapstr.o hashmapstrindex.o hclust.o ltdmatrix.o ltdmatrixthrd.o matcmp.o matparse.o matrix.o merge.o meth.o methparse.o nj.o nwck.o nwck2phy.o pherror.o phy.o qseqs.o rarify.o resparse.o seqparse.o seq2fasta.o stdnuc.o stdstat.o str.o tmp.o tree.o trim.o tsv.o tsv2nwck.o tsv2phy.o ulist.o union.o unionparse.o vector.o
+LIBS = bytescale.o cdist.o dat.o datclust.o dbscan.o dbparse.o distcmp.o dist.o dnj.o fbseek.o filebuff.o fsacmp.o fsacmpthrd.o fullphy.o hashmapstr.o hashmapstrindex.o hclust.o ltdmatrix.o ltdmatrixthrd.o matcmp.o matparse.o matrix.o merge.o meth.o methparse.o nj.o nwck.o nwck2phy.o pherror.o phy.o qseqs.o rarify.o resparse.o seqparse.o seq2fasta.o stdnuc.o stdstat.o str.o tmp.o tree.o trim.o tsv.o tsv2nwck.o tsv2phy.o ulist.o union.o unionparse.o vector.o
 PROGS = ccphylo
 
 .c .o:
@@ -30,6 +30,7 @@ fbseek.o: fbseek.h filebuff.h pherror.h
 filebuff.o: filebuff.h pherror.h
 fsacmp.o: fsacmp.h matrix.h pherror.h qseqs.h threader.h
 fsacmpthrd.o: fsacmpthrd.h fsacmp.h matrix.h pherror.h threader.h
+fullphy.o: fullphy.h bytescale.h filebuff.h matrix.h pherror.h phy.h qseqs.h tmp.h
 hashmapstr.o: hashmapstr.h pherror.h
 hashmapstrindex.o: hashmapstrindex.h hashmapstr.h pherror.h
 hclust.o: hclust.h matrix.h nj.h nwck.h qseqs.h pherror.h str.h vector.h

@@ -28,6 +28,7 @@ struct dat {
 	int N; /* # columns */
 	double **mat;
 	float **fmat;
+	short unsigned **smat;
 	unsigned char **bmat;
 	FILE *file;
 };
