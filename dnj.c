@@ -1023,7 +1023,13 @@ int * dnj(Matrix *D, Vector *sD, Vector *Q, int *N, Qseqs **names) {
 		mj = popArrangePtr(D, sD, Q, N, P, i);
 		exchange(names[i], names[D->n], tmp);
 		
-		j = qPos(Q->vec, mi, mj);
+		if(mi == D->n) {
+			j = mj;
+		} else if(mj == D->n) {
+			j = mi;
+		} else {
+			j = qPos(Q->vec, mi, mj);
+		}
 		ltdMatrixShrink(D, D->size - 1);
 	}
 	
@@ -1113,7 +1119,13 @@ int * dnj_thread(Matrix *D, Vector *sD, Vector *Q, int *N, Qseqs **names, int th
 		
 		/* get position of min estimate */
 		threads->min = 1;
-		thread->mj = qPos(Q->vec, thread->mi, thread->mj);
+		if(thread->mi == D->n) {
+			thread->mj = thread->mj;
+		} else if(thread->mj == D->n) {
+			thread->mj = thread->mi;
+		} else {
+			thread->mj = qPos(Q->vec, thread->mi, thread->mj);
+		}
 		thread->mi = P[thread->mj];
 		ltdMatrixShrink(D, D->size - 1);
 	}
