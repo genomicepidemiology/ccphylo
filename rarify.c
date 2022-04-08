@@ -20,12 +20,11 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include "cmdline.h"
 #include "filebuff.h"
 #include "matparse.h"
 #include "pherror.h"
 #include "rarify.h"
-#define missArg(opt) fprintf(stderr, "Missing argument at %s.\n", opt); exit(1);
-#define invaArg(opt) fprintf(stderr, "Invalid value parsed at %s.\n", opt); exit(1);
 
 int rarify(char *inputfilename, char *outputfilename, long unsigned nf, long unsigned rf) {
 	
@@ -42,7 +41,7 @@ int rarify(char *inputfilename, char *outputfilename, long unsigned nf, long uns
 	
 	/* open files */
 	openAndDetermine(infile, inputfilename);
-	if(*outputfilename == '-' && outputfilename[1] == '-' && outputfilename[2] == 0) {
+	if(*outputfilename == '-' && outputfilename[1] == 0) {
 		outfile = stdout;
 	} else {
 		outfile = sfopen(outputfilename, "wb");
@@ -90,71 +89,110 @@ int rarify(char *inputfilename, char *outputfilename, long unsigned nf, long uns
 static int helpMessage(FILE *out) {
 	
 	fprintf(out, "#CCPhylo rarify rarifies an KMA matrix.\n");
-	fprintf(out, "# %16s\t%-32s\t%s\n", "Options are:", "Desc:", "Default:");
-	fprintf(out, "# %16s\t%-32s\t%s\n", "-i", "Input file", "stdin");
-	fprintf(out, "# %16s\t%-32s\t%s\n", "-o", "Output file", "stdout");
-	fprintf(out, "# %16s\t%-32s\t%s\n", "-nf", "Total number of fragments in sample", "0");
-	fprintf(out, "# %16s\t%-32s\t%s\n", "-rf", "Rarification factor", "10000000");
-	fprintf(out, "# %16s\t%-32s\t%s\n", "-h", "Shows this helpmessage", "");
+	fprintf(out, "#   %-24s\t%-32s\t%s\n", "Options are:", "Desc:", "Default:");
+	fprintf(out, "#    -%c, --%-16s\t%-32s\t%s\n", 'i', "input", "Input file", "stdin");
+	fprintf(out, "#    -%c, --%-16s\t%-32s\t%s\n", 'o', "output", "Output file", "stdout");
+	fprintf(out, "#    -%c, --%-16s\t%-32s\t%s\n", 'A', "fragment_amount", "Total number of fragments in sample", "0");
+	fprintf(out, "#    -%c, --%-16s\t%-32s\t%s\n", 'R', "rarification_factor", "Rarification factor", "10000000");
+	fprintf(out, "#    -%c, --%-16s\t%-32s\t%s\n", 'h', "help", "Shows this helpmessage", "");
 	return (out == stderr);
+	
+	/*
+	i	i	input
+	o	o	output
+	nf	A	fragment_amount
+	rf	R	rarification_factor
+	h	h	help
+	*/
 }
 
-int main_rarify(int argc, char *argv[]) {
+int main_rarify(int argc, char **argv) {
 	
-	int args;
+	const char *stdstream = "-";
+	int args, len, offset;
 	long unsigned nf, rf;
-	char *arg, *inputfilename, *outputfilename;
+	char **Arg, *arg, *inputfilename, *outputfilename, opt;
 	
 	nf = 0;
 	rf = 10000000;
-	inputfilename = "--";
-	outputfilename = "--";
+	inputfilename = (char *)(stdstream);
+	outputfilename = (char *)(stdstream);
 	
-	args = 1;
-	while(args < argc) {
-		arg = argv[args];
+	/* parse cmd-line */
+	args = argc - 1;
+	Arg = argv;
+	if(args && **++Arg == '-') {
+		len = 1;
+		--Arg;
+	} else {
+		len = 0;
+	}
+	while(args && len) {
+		arg = *++Arg;
 		if(*arg++ == '-') {
-			if(strcmp(arg, "i") == 0) {
-				if(++args < argc) {
-					inputfilename = argv[args];
+			if(*arg == '-') {
+				/* check if argument is included */
+				len = getOptArg(++arg);
+				offset = 2 + (arg[len] ? 1 : 0);
+				
+				/* long option */
+				if(*arg == 0) {
+					/* terminate cmd-line */
+					++Arg;
+				} else if(strncmp(arg, "input", len) == 0) {
+					inputfilename = getArgDie(&Arg, &args, len + offset, "input");
+				} else if(strncmp(arg, "output", len) == 0) {
+					outputfilename = getArgDie(&Arg, &args, len + offset, "output");
+				} else if(strncmp(arg, "fragment_amount", len) == 0) {
+					nf = getNumArg(&Arg, &args, len + offset, "fragment_amount");
+				} else if(strncmp(arg, "rarification_factor", len) == 0) {
+					rf = getNumArg(&Arg, &args, len + offset, "rarification_factor");
+				} else if(strncmp(arg, "help", len) == 0) {
+					return helpMessage(stdout);
 				} else {
-					missArg("\"-i\"");
+					unknArg(arg - 2);
 				}
-			} else if(strcmp(arg, "o") == 0) {
-				if(++args < argc) {
-					outputfilename = argv[args];
-				} else {
-					missArg("\"-o\"");
-				}
-			} else if(strcmp(arg, "nf") == 0) {
-				if(++args < argc) {
-					nf = strtoul(argv[args], &arg, 10);
-					if(*arg != 0) {
-						invaArg("\"-nf\"");
-					}
-				} else {
-					missArg("\"-nf\"");
-				}
-			} else if(strcmp(arg, "rf") == 0) {
-				if(++args < argc) {
-					rf = strtoul(argv[args], &arg, 10);
-					if(*arg != 0) {
-						invaArg("\"-rf\"");
-					}
-				} else {
-					missArg("\"-rf\"");
-				}
-			} else if(strcmp(arg, "h") == 0) {
-				return helpMessage(stdout);
 			} else {
-				fprintf(stderr, "Unknown option:%s\n", arg - 1);
-				return helpMessage(stderr);
+				/* multiple option */
+				len = 1;
+				opt = *arg;
+				while(opt && (opt = *arg++)) {
+					++len;
+					if(opt == 'i') {
+						inputfilename = getArgDie(&Arg, &args, len, "i");
+						opt = 0;
+					} else if(opt == 'o') {
+						outputfilename = getArgDie(&Arg, &args, len, "o");
+						opt = 0;
+					} else if(opt == 'A') {
+						nf = getNumArg(&Arg, &args, len, "A");
+						opt = 0;
+					} else if(opt == 'R') {
+						rf = getNumArg(&Arg, &args, len, "R");
+						opt = 0;
+					} else if(opt == 'h') {
+						return helpMessage(stdout);
+					} else {
+						*arg = 0;
+						unknArg(arg - 1);
+					}
+				}
 			}
 		} else {
-			fprintf(stderr, "Unknown argument:%s\n", arg - 1);
-			return helpMessage(stderr);
+			/* terminate cmd-line */
+			--arg;
+			++args;
+			len = 0;
 		}
-		++args;
+		--args;
+	}
+	
+	/* non-options */
+	if(args) {
+		inputfilename = *Arg;
+		if(--args) {
+			nonOptError();
+		}
 	}
 	
 	/* insuffient input */

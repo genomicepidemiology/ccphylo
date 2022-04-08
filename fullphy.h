@@ -18,4 +18,4 @@
 */
 
 void formFullPhy(char *inputfilename, char *outputfilename, int flag);
-int main_fullphy(int argc, char *argv[]);
+int main_fullphy(int argc, char **argv);

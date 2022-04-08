@@ -24,4 +24,4 @@
 int dbscan(Matrix *D, int *N, int *C, double maxDist, int minN);
 void print_dbscan(Qseqs **names, int *N, int *C, int Dn, int nClust, double maxDist, int minN, FILE *out);
 void make_dbscan(char *inputfilename, char *outputfilename, double maxDist, int minN);
-int main_dbscan(int argc, char *argv[]);
+int main_dbscan(int argc, char **argv);

@@ -113,9 +113,9 @@ Dat * loadTsv(FileBuff *infile, unsigned char sep) {
 			} else if(fmat) {
 				*fmat++ = strtod(strbuff, &msg);
 			} else if(smat) {
-				*smat++ = dtouc(strtod(strbuff, &msg));
+				*smat++ = dtouc(strtod(strbuff, &msg), 0.5);
 			} else {
-				*bmat++ = dtouc(strtod(strbuff, &msg));
+				*bmat++ = dtouc(strtod(strbuff, &msg), 0.5);
 			}
 			if(*msg != 0) {
 				fprintf(stderr, "Malformatted entry at pos:\t(%d,%d) %s\n", dest->m, N - n, strbuff);

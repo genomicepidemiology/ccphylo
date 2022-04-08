@@ -22,4 +22,4 @@
 
 char ** merge(Matrix *dist, Matrix *num, FileBuff *phyfile, FileBuff *numfile);
 char ** jl_merge();
-int main_merge(int argc, char *argv[]);
+int main_merge(int argc, char **argv);

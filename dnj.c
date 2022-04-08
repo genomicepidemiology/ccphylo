@@ -975,7 +975,7 @@ int DNJ_popArrange(Matrix *D, Vector *sD, Vector *Q, int *N, int *P, int pos) {
 }
 
 int minPos(double *Q, int i, int j) {
-	return (Q[j] < Q[i] || (Q[j] == Q[i] && i < j)) ? j : i;
+	return (Q[j] < Q[i] || (i < j && Q[j] == Q[i])) ? j : i;
 }
 
 int maxPos(double *Q, int i, int j) {
@@ -1023,10 +1023,10 @@ int * dnj(Matrix *D, Vector *sD, Vector *Q, int *N, Qseqs **names) {
 		mj = popArrangePtr(D, sD, Q, N, P, i);
 		exchange(names[i], names[D->n], tmp);
 		
-		if(mi == D->n) {
-			j = mj;
-		} else if(mj == D->n) {
+		if(mj == D->n) {
 			j = mi;
+		} else if(mi == D->n) {
+			j = mj;
 		} else {
 			j = qPos(Q->vec, mi, mj);
 		}
@@ -1119,10 +1119,10 @@ int * dnj_thread(Matrix *D, Vector *sD, Vector *Q, int *N, Qseqs **names, int th
 		
 		/* get position of min estimate */
 		threads->min = 1;
-		if(thread->mi == D->n) {
-			thread->mj = thread->mj;
-		} else if(thread->mj == D->n) {
+		if(thread->mj == D->n) {
 			thread->mj = thread->mi;
+		} else if(thread->mi == D->n) {
+			thread->mi = thread->mj;
 		} else {
 			thread->mj = qPos(Q->vec, thread->mi, thread->mj);
 		}

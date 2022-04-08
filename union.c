@@ -20,6 +20,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include "cmdline.h"
 #include "dbparse.h"
 #include "filebuff.h"
 #include "hashmapstr.h"
@@ -27,8 +28,6 @@
 #include "resparse.h"
 #include "seq2fasta.h"
 #include "union.h"
-#define missArg(opt) fprintf(stderr, "Missing argument at %s.", opt); exit(1);
-#define invaArg(opt) fprintf(stderr, "Invalid value parsed at %s.\n", opt); exit(1);
 
 HashMapStr * unionRes(char **filenames, int numFile, char *outputfilename, double minCov, double minDepth, unsigned minLength) {
 	
@@ -71,7 +70,7 @@ int unionResPrint(char **filenames, int numFile, char *outputfilename, double mi
 	HashMapStr *entries;
 	
 	/* init */
-	if(*outputfilename == '-' && outputfilename[1] == '-' && outputfilename[2] == 0) {
+	if(*outputfilename == '-' && outputfilename[1] == 0) {
 		outfile = stdout;
 	} else {
 		outfile = sfopen(outputfilename, "wb");
@@ -191,103 +190,137 @@ int unionResOrderPrint(char **filenames, int numFile, char *outputfilename, char
 static int helpMessage(FILE *out) {
 	
 	fprintf(out, "#CCPhylo union finds the union between templates in res files created by e.g. KMA.\n");
-	fprintf(out, "# %16s\t%-32s\t%s\n", "Options are:", "Desc:", "Default:");
-	fprintf(out, "# %16s\t%-32s\t%s\n", "-i", "Input file(s).", "None");
-	fprintf(out, "# %16s\t%-32s\t%s\n", "-o", "Output file", "stdout");
-	fprintf(out, "# %16s\t%-32s\t%s\n", "-db", "Print ordered wrt. template DB filename", "none");
-	fprintf(out, "# %16s\t%-32s\t%s\n", "-r", "Create reference fasta", "None");
-	fprintf(out, "# %16s\t%-32s\t%s\n", "-md", "Minimum depth", "1.0");
-	fprintf(out, "# %16s\t%-32s\t%s\n", "-mc", "Minimum coverage", "50.0");
-	fprintf(out, "# %16s\t%-32s\t%s\n", "-ml", "Minimum consensus length", "1");
-	fprintf(out, "# %16s\t%-32s\t%s\n", "-h", "Shows this helpmessage", "");
+	fprintf(out, "#   %-24s\t%-32s\t%s\n", "Options are:", "Desc:", "Default:");
+	fprintf(out, "#    -%c, --%-16s\t%-32s\t%s\n", 'i', "input", "Input file(s)", "None");
+	fprintf(out, "#    -%c, --%-16s\t%-32s\t%s\n", 'o', "output", "Output file", "stdout");
+	fprintf(out, "#    -%c, --%-16s\t%-32s\t%s\n", 'B', "database", "Print ordered wrt. template DB filename", "None");
+	fprintf(out, "#    -%c, --%-16s\t%-32s\t%s\n", 'r', "reference_file", "Create reference fasta file", "None");
+	fprintf(out, "#    -%c, --%-16s\t%-32s\t%s\n", 'E', "min_depth", "Minimum depth", "15");
+	fprintf(out, "#    -%c, --%-16s\t%-32s\t%s\n", 'C', "min_cov", "Minimum coverage", "50.0%");
+	fprintf(out, "#    -%c, --%-16s\t%-32s\t%s\n", 'L', "min_len", "Minimum overlapping length", "1");
+	fprintf(out, "#    -%c, --%-16s\t%-32s\t%s\n", 'h', "help", "Shows this helpmessage", "");
 	return (out == stderr);
+	
+	/*
+	i	i	input
+	o	o	output
+	db	B	database
+	r	r	reference_file
+	md	E	min_depth
+	mc	C	min_cov
+	ml	L	min_len
+	h	h	help
+	
+	*/
 }
 
-int main_union(int argc, char *argv[]) {
+int main_union(int argc, char **argv) {
 	
-	unsigned args, numFile, minLength;
+	const char *stdstream = "-";
+	int args, numFile, minLength, len, offset;
 	double minCov, minDepth;
-	char *arg, **filenames, *outputfilename, *templatefilename, *reffilename;
+	char **Arg, *arg, **filenames, *outputfilename, *templatefilename;
+	char *reffilename, opt;
 	
 	numFile = 0;
 	filenames = 0;
-	outputfilename = "--";
+	outputfilename = (char *)(stdstream);
 	templatefilename = 0;
 	reffilename = 0;
 	minDepth = 1;
 	minCov = 50.0;
 	minLength = 1;
 	
-	args = 1;
-	while(args < argc) {
-		arg = argv[args];
+	/* parse cmd-line */
+	args = argc - 1;
+	Arg = argv;
+	if(args && **++Arg == '-') {
+		len = 1;
+		--Arg;
+	} else {
+		len = 0;
+	}
+	while(args && len) {
+		arg = *++Arg;
 		if(*arg++ == '-') {
-			if(strcmp(arg, "i") == 0) {
-				filenames = argv + ++args;
-				numFile = 1;
-				while(++args < argc && (*argv[args] != '-' || (argv[args][1] == '-' && argv[args][2] == 0))) {
-					++numFile;
-				}
-				if(numFile == 0) {
-					missArg("\"-i\"");
-				}
-				--args;
-			} else if(strcmp(arg, "o") == 0) {
-				if(++args < argc) {
-					outputfilename = argv[args];
+			if(*arg == '-') {
+				/* check if argument is included */
+				len = getOptArg(++arg);
+				offset = 2 + (arg[len] ? 1 : 0);
+				
+				/* long option */
+				if(*arg == 0) {
+					/* terminate cmd-line */
+					++Arg;
+				} else if(strncmp(arg, "input", len) == 0) {
+					filenames = getArgListDie(&Arg, &args, len + offset, "input");
+					numFile = getArgListLen(&Arg, &args);
+				} else if(strncmp(arg, "output", len) == 0) {
+					outputfilename = getArgDie(&Arg, &args, len + offset, "output");
+				} else if(strncmp(arg, "database", len) == 0) {
+					templatefilename = getArgDie(&Arg, &args, len + offset, "database");
+				} else if(strncmp(arg, "reference_file", len) == 0) {
+					reffilename = getArgDie(&Arg, &args, len + offset, "reference_file");
+				} else if(strncmp(arg, "min_depth", len) == 0) {
+					minDepth = getdArg(&Arg, &args, len + offset, "min_depth");
+				} else if(strncmp(arg, "min_cov", len) == 0) {
+					minCov = getdArg(&Arg, &args, len + offset, "min_cov");
+				} else if(strncmp(arg, "min_len", len) == 0) {
+					minLength = getNumArg(&Arg, &args, len + offset, "min_len");
+				} else if(strncmp(arg, "help", len) == 0) {
+					return helpMessage(stdout);
 				} else {
-					missArg("\"-o\"");
+					unknArg(arg - 2);
 				}
-			} else if(strcmp(arg, "db") == 0 || strcmp(arg, "t_db") == 0) {
-				if(++args < argc) {
-					templatefilename = argv[args];
-				} else {
-					missArg("\"-db\"");
-				}
-			} else if(strcmp(arg, "r") == 0) {
-				if(++args < argc) {
-					reffilename = argv[args];
-				} else {
-					missArg("\"-r\"");
-				}
-			} else if(strcmp(arg, "md") == 0) {
-				if(++args < argc) {
-					minDepth = strtod(argv[args], &arg);
-					if(*arg != 0) {
-						invaArg("\"-md\"");
-					}
-				} else {
-					missArg("\"-md\"");
-				}
-			} else if(strcmp(arg, "mc") == 0) {
-				if(++args < argc) {
-					minCov = strtod(argv[args], &arg);
-					if(*arg != 0) {
-						invaArg("\"-mc\"");
-					}
-				} else {
-					missArg("\"-mc\"");
-				}
-			} else if(strcmp(arg, "ml") == 0) {
-				if(++args < argc) {
-					minLength = strtoul(argv[args], &arg, 10);
-					if(*arg != 0) {
-						invaArg("\"-mc\"");
-					}
-				} else {
-					missArg("\"-mc\"");
-				}
-			} else if(strcmp(arg, "h") == 0) {
-				return helpMessage(stdout);
 			} else {
-				fprintf(stderr, "Unknown option:%s\n", arg - 1);
-				return helpMessage(stderr);
+				/* multiple option */
+				len = 1;
+				opt = *arg;
+				while(opt && (opt = *arg++)) {
+					++len;
+					if(opt == 'i') {
+						filenames = getArgListDie(&Arg, &args, len, "i");
+						numFile = getArgListLen(&Arg, &args);
+						opt = 0;
+					} else if(opt == 'o') {
+						outputfilename = getArgDie(&Arg, &args, len, "o");
+						opt = 0;
+					} else if(opt == 'B') {
+						templatefilename = getArgDie(&Arg, &args, len, "B");
+						opt = 0;
+					} else if(opt == 'r') {
+						reffilename = getArgDie(&Arg, &args, len, "r");
+						opt = 0;
+					} else if(opt == 'E') {
+						minDepth = getdArg(&Arg, &args, len, "E");
+						opt = 0;
+					} else if(opt == 'C') {
+						minCov = getdArg(&Arg, &args, len, "C");
+						opt = 0;
+					} else if(opt == 'L') {
+						minLength = getNumArg(&Arg, &args, len, "L");
+						opt = 0;
+					} else if(opt == 'h') {
+						return helpMessage(stdout);
+					} else {
+						*arg = 0;
+						unknArg(arg - 1);
+					}
+				}
 			}
 		} else {
-			fprintf(stderr, "Unknown argument:%s\n", arg - 1);
-			return helpMessage(stderr);
+			/* terminate cmd-line */
+			--arg;
+			++args;
+			len = 0;
 		}
-		++args;
+		--args;
+	}
+	
+	/* non-options */
+	if(args) {
+		filenames = Arg;
+		numFile = args;
 	}
 	
 	/* check for required input */

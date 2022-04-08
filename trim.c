@@ -22,6 +22,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include "cmdline.h"
 #include "trim.h"
 #include "filebuff.h"
 #include "fsacmp.h"
@@ -32,10 +33,8 @@
 #include "phy.h"
 #include "seqparse.h"
 #define exchange(src1, src2, tmp) tmp = src1; src1 = src2; src2 = tmp;
-#define missArg(opt) fprintf(stderr, "Missing argument at %s.\n", opt); exit(1);
-#define invaArg(opt) fprintf(stderr, "Invalid value parsed at %s.\n", opt); exit(1);
 
-void printTrimFsa(char *filename, unsigned char *seq, int len, unsigned *includes, int flag) {
+void printTrimFsa(FILE *out, char *filename, unsigned char *seq, int len, unsigned *includes, int flag) {
 	
 	const unsigned char bases[16] = "ACGTN-RYSWKMBDHV";
 	int i, shifter;
@@ -58,16 +57,17 @@ void printTrimFsa(char *filename, unsigned char *seq, int len, unsigned *include
 	}
 	*seqPtr = '\n';
 	
-	fprintf(stdout, ">%s\n", stripDir(filename));
+	fprintf(out, ">%s\n", stripDir(filename));
 	cfwrite(seq, 1, len + 1, stdout);
 }
 
-void fsaTrim(int numFile, char *targetTemplate, char **filenames, unsigned minLength, double minCov, unsigned flag, unsigned proxi, char *methfilename) {
+void fsaTrim(int numFile, char *targetTemplate, char **filenames, char *outputfilename, unsigned minLength, double minCov, unsigned flag, unsigned proxi, char *methfilename) {
 	
 	int i, pair, inludeN, len, cSize;
 	unsigned *includes;
 	long unsigned *nibbleSeq;
 	unsigned char *trans, **seqs, **seqsPtr;
+	FILE *out;
 	FileBuff *infile;
 	MethMotif *motif;
 	Qseqs *header, *ref, *seq;
@@ -94,6 +94,11 @@ void fsaTrim(int numFile, char *targetTemplate, char **filenames, unsigned minLe
 		closeFileBuff(infile);
 	} else {
 		motif = 0;
+	}
+	if(*outputfilename == '-' && outputfilename[1] == 0) {
+		out = stdout;
+	} else {
+		out = sfopen(outputfilename, "wb");
 	}
 	
 	/* load sequences and trim positions */
@@ -168,7 +173,7 @@ void fsaTrim(int numFile, char *targetTemplate, char **filenames, unsigned minLe
 		}
 		
 		if(pair) {
-			printTrimFsa(*filenames, seq->seq, len, includes, flag);
+			printTrimFsa(out, *filenames, seq->seq, len, includes, flag);
 		} else {
 			++seqsPtr;
 		}
@@ -185,7 +190,7 @@ void fsaTrim(int numFile, char *targetTemplate, char **filenames, unsigned minLe
 			i = numFile + 1;
 			while(--i) {
 				if(*--seqsPtr) {
-					printTrimFsa(*filenames, *seqsPtr, len, includes, flag);
+					printTrimFsa(out, *filenames, *seqsPtr, len, includes, flag);
 				}
 				--filenames;
 			}
@@ -214,31 +219,46 @@ void fsaTrim(int numFile, char *targetTemplate, char **filenames, unsigned minLe
 		free(nibbleSeq);
 	}
 	destroyMethMotifs(motif);
-	
+	fclose(out);
 }
 
 
 static int helpMessage(FILE *out) {
 	
 	fprintf(out, "#CCPhylo trims multiple alignments from different files, and merge them into one\n");
-	fprintf(out, "# %16s\t%-32s\t%s\n", "Options are:", "Desc:", "Default:");
-	fprintf(out, "# %16s\t%-32s\t%s\n", "-i", "Input file(s)", "stdin");
-	//fprintf(out, "# %16s\t%-32s\t%s\n", "-o", "Output file", "stdout");
-	fprintf(out, "# %16s\t%-32s\t%s\n", "-m", "Mask methylation motifs from <file>", "False/None");
-	fprintf(out, "# %16s\t%-32s\t%s\n", "-r", "Target reference", "None");
-	fprintf(out, "# %16s\t%-32s\t%s\n", "-mc", "Minimum coverage", "50.0%");
-	fprintf(out, "# %16s\t%-32s\t%s\n", "-ml", "Minimum overlapping length", "1");
-	fprintf(out, "# %16s\t%-32s\t%s\n", "-pr", "Minimum proximity between SNPs", "0");
-	fprintf(out, "# %16s\t%-32s\t%s\n", "-f", "Output flags", "0");
-	fprintf(out, "# %16s\t%-32s\t%s\n", "-fh", "Help on option \"-f\"", "");
-	fprintf(out, "# %16s\t%-32s\t%s\n", "-h", "Shows this helpmessage", "");
+	fprintf(out, "#   %-24s\t%-32s\t%s\n", "Options are:", "Desc:", "Default:");
+	fprintf(out, "#    -%c, --%-16s\t%-32s\t%s\n", 'i', "input", "Input file(s)", "stdin");
+	fprintf(out, "#    -%c, --%-16s\t%-32s\t%s\n", 'o', "output", "Output file", "stdout");
+	fprintf(out, "#    -%c, --%-16s\t%-32s\t%s\n", 'y', "methylation_motifs", "Mask methylation motifs from <file>", "False/None");
+	fprintf(out, "#    -%c, --%-16s\t%-32s\t%s\n", 'r', "reference", "Target reference", "None");
+	fprintf(out, "#    -%c, --%-16s\t%-32s\t%s\n", 'C', "min_cov", "Minimum coverage", "50.0%");
+	fprintf(out, "#    -%c, --%-16s\t%-32s\t%s\n", 'L', "min_len", "Minimum overlapping length", "1");
+	fprintf(out, "#    -%c, --%-16s\t%-32s\t%s\n", 'P', "proximity", "Minimum proximity between SNPs", "0");
+	fprintf(out, "#    -%c, --%-16s\t%-32s\t%s\n", 'f', "flag", "Output flags", "1");
+	fprintf(out, "#    -%c, --%-16s\t%-32s\t%s\n", 'F', "flag_help", "Help on option \"-f\"", "");
+	fprintf(out, "#    -%c, --%-16s\t%-32s\t%s\n", 'h', "help", "Shows this helpmessage", "");
 	return (out == stderr);
+	
+	/*
+	i	i	input
+	o	o	output
+	m	y	methylation_motifs
+	r	r	reference
+	mc	C	min_cov
+	ml	L	min_len
+	pr	P	proximity
+	f	f	flag
+	fh	F	flag_help
+	h	h	help
+	*/
 }
 
-int main_trim(int argc, char *argv[]) {
+int main_trim(int argc, char **argv) {
 	
-	unsigned args, numFile, flag, minLength, proxi;
-	char *arg, *targetTemplate, **filenames, *errorMsg, *methfilename;
+	const char *stdstream = "-";
+	int args, len, offset, numFile, flag, minLength, proxi;
+	char **Arg, *arg, *targetTemplate, **filenames, *methfilename;
+	char *outputfilename, opt;
 	double minCov;
 	
 	/* set defaults */
@@ -250,98 +270,120 @@ int main_trim(int argc, char *argv[]) {
 	filenames = 0;
 	methfilename = 0;
 	minCov = 0.5;
+	outputfilename = (char *)(stdstream);
 	
-	args = 1;
-	while(args < argc) {
-		arg = argv[args];
+	/* parse cmd-line */
+	args = argc - 1;
+	Arg = argv;
+	if(args && **++Arg == '-') {
+		len = 1;
+		--Arg;
+	} else {
+		len = 0;
+	}
+	while(args && len) {
+		arg = *++Arg;
 		if(*arg++ == '-') {
-			if(strcmp(arg, "i") == 0) {
-				if(++args < argc) {
-					filenames = argv + args;
-					numFile = 1;
-					while(++args < argc && (*argv[args] != '-' || (argv[args][1] == '-' && argv[args][2] == 0))) {
-						++numFile;
-					}
-					if(numFile == 0) {
-						missArg("\"-i\"");
-					}
-					--args;
-				}
-			} else if(strcmp(arg, "m") == 0) {
-				if(++args < argc) {
-					methfilename = argv[args];
+			if(*arg == '-') {
+				/* check if argument is included */
+				len = getOptArg(++arg);
+				offset = 2 + (arg[len] ? 1 : 0);
+				
+				/* long option */
+				if(*arg == 0) {
+					/* terminate cmd-line */
+					++Arg;
+				} else if(strncmp(arg, "input", len) == 0) {
+					filenames = getArgListDie(&Arg, &args, len + offset, "input");
+					numFile = getArgListLen(&Arg, &args);
+				} else if(strncmp(arg, "output", len) == 0) {
+					outputfilename = getArgDie(&Arg, &args, len + offset, "output");
+				} else if(strncmp(arg, "methylation_motifs", len) == 0) {
+					methfilename = getArgDie(&Arg, &args, len + offset, "methylation_motifs");
+				} else if(strncmp(arg, "reference", len) == 0) {
+					targetTemplate = getArgDie(&Arg, &args, len + offset, "reference");
+				} else if(strncmp(arg, "min_cov", len) == 0) {
+					minCov = getdArg(&Arg, &args, len + offset, "min_cov") / 100;
+				} else if(strncmp(arg, "min_len", len) == 0) {
+					minLength = getNumArg(&Arg, &args, len + offset, "min_len");
+				} else if(strncmp(arg, "proximity", len) == 0) {
+					proxi = getNumArg(&Arg, &args, len + offset, "proximity");
+				} else if(strncmp(arg, "flag", len) == 0) {
+					flag = getNumArg(&Arg, &args, len + offset, "flag");
+				} else if(strncmp(arg, "flag_help", len) == 0) {
+					flag = -1;
+				} else if(strncmp(arg, "help", len) == 0) {
+					return helpMessage(stdout);
 				} else {
-					missArg("\"-m\"");
+					unknArg(arg - 2);
 				}
-			} else if(strcmp(arg, "r") == 0) {
-				if(++args < argc) {
-					targetTemplate = argv[args];
-				} else {
-					missArg("\"-r\"");
-				}
-			} else if(strcmp(arg, "ml") == 0) {
-				if(++args < argc) {
-					if((minLength = strtoul(argv[args], &errorMsg, 10)) == 0) {
-						minLength = 1;
-					}
-					if(*errorMsg != 0) {
-						invaArg("\"-ml\"");
-					}
-				} else {
-					missArg("\"-ml\"");
-				}
-			} else if(strcmp(arg, "mc") == 0) {
-				if(++args < argc) {
-					minCov = strtod(argv[args], &errorMsg);
-					if(*errorMsg != 0 || minCov < 0 || 100 < minCov) {
-						invaArg("\"-mc\"");
-					}
-					minCov /= 100.0;
-				} else {
-					missArg("\"-mc\"");
-				}
-			} else if(strcmp(arg, "pr") == 0) {
-				if(++args < argc) {
-					proxi = strtoul(argv[args], &errorMsg, 10);
-					if(*errorMsg != 0) {
-						invaArg("\"-pr\"");
-					}
-				} else {
-					missArg("\"-pr\"");
-				}
-			} else if(strcmp(arg, "f") == 0) {
-				if(++args < argc) {
-					flag = strtoul(argv[args], &errorMsg, 10);
-					if(*errorMsg != 0) {
-						invaArg("\"-f\"");
-					}
-				} else {
-					missArg("\"-f\"");
-				}
-			} else if(strcmp(arg, "fh") == 0) {
-				fprintf(stdout, "# Format flags output, add them to combine them.\n");
-				fprintf(stdout, "#\n");
-				fprintf(stdout, "#   1:\tHard mask\n");
-				fprintf(stdout, "#   2:\tPairwise comparison\n");
-				fprintf(stdout, "#   8:\tInclude insignificant bases in distance calculation, only affects fasta input\n");
-				fprintf(stdout, "#  32:\tDo not include insignificant bases in pruning\n");
-				fprintf(stdout, "#\n");
-				return 0;
-			} else if(strcmp(arg, "h") == 0) {
-				return helpMessage(stdout);
 			} else {
-				fprintf(stderr, "Unknown option:%s\n", arg - 1);
-				return helpMessage(stderr);
+				/* multiple option */
+				len = 1;
+				opt = *arg;
+				while(opt && (opt = *arg++)) {
+					++len;
+					if(opt == 'i') {
+						filenames = getArgListDie(&Arg, &args, len, "i");
+						numFile = getArgListLen(&Arg, &args);
+						opt = 0;
+					} else if(opt == 'o') {
+						outputfilename = getArgDie(&Arg, &args, len, "o");
+						opt = 0;
+					} else if(opt == 'y') {
+						methfilename = getArgDie(&Arg, &args, len, "y");
+						opt = 0;
+					} else if(opt == 'r') {
+						targetTemplate = getArgDie(&Arg, &args, len, "r");
+						opt = 0;
+					} else if(opt == 'C') {
+						minCov = getdArg(&Arg, &args, len, "C") / 100;
+						opt = 0;
+					} else if(opt == 'L') {
+						minLength = getNumArg(&Arg, &args, len, "L");
+						opt = 0;
+					} else if(opt == 'P') {
+						proxi = getNumArg(&Arg, &args, len, "P");
+						opt = 0;
+					} else if(opt == 'f') {
+						flag = getNumArg(&Arg, &args, len, "f");
+						opt = 0;
+					} else if(opt == 'F') {
+						flag = -1;
+					} else if(opt == 'h') {
+						return helpMessage(stdout);
+					} else {
+						*arg = 0;
+						unknArg(arg - 1);
+					}
+				}
 			}
 		} else {
-			fprintf(stderr, "Unknown argument:%s\n", arg - 1);
-			return helpMessage(stderr);
+			/* terminate cmd-line */
+			--arg;
+			++args;
+			len = 0;
 		}
-		++args;
+		--args;
+	}
+	
+	/* non-options */
+	if(args) {
+		filenames = Arg;
+		numFile = args;
 	}
 	
 	/* set pointers */
-	if(flag & 32) {
+	if(flag == -1) {
+		fprintf(stdout, "# Format flags output, add them to combine them.\n");
+		fprintf(stdout, "#\n");
+		fprintf(stdout, "#   1:\tHard mask\n");
+		fprintf(stdout, "#   2:\tPairwise comparison\n");
+		fprintf(stdout, "#   8:\tInclude insignificant bases in distance calculation, only affects fasta input\n");
+		fprintf(stdout, "#  32:\tDo not include insignificant bases in pruning\n");
+		fprintf(stdout, "#\n");
+		return 0;
+	} else if(flag & 32) {
 		getIncPosPtr = &getIncPosInsigPrune;
 	} else if(flag & 8) {
 		getIncPosPtr = &getIncPosInsig;
@@ -355,7 +397,7 @@ int main_trim(int argc, char *argv[]) {
 		fprintf(stderr, "Target template is required.\n");
 		exit(1);
 	}
-	fsaTrim(numFile, targetTemplate, filenames, minLength, minCov, flag, proxi, methfilename);
+	fsaTrim(numFile, targetTemplate, filenames, outputfilename, minLength, minCov, flag, proxi, methfilename);
 	
 	return 0;
 }

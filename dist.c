@@ -22,6 +22,7 @@
 #include <string.h>
 #include "bytescale.h"
 #include "cdist.h"
+#include "cmdline.h"
 #include "dist.h"
 #include "fbseek.h"
 #include "fsacmp.h"
@@ -37,8 +38,6 @@
 #include "str.h"
 #include "tmp.h"
 #include "unionparse.h"
-#define missArg(opt) fprintf(stderr, "Missing argument at %s.\n", opt); exit(1);
-#define invaArg(opt) fprintf(stderr, "Invalid value parsed at %s.\n", opt); exit(1);
 
 static void makeMatrix(unsigned numFile, char **filenames, char *outputfilename, char *noutputfilename, char *diffilename, char *targetTemplate, double minCov, double alpha, unsigned norm, unsigned minDepth, unsigned minLength, unsigned proxi, unsigned flag, double (*veccmp)(short unsigned*, short unsigned*, int, int), char *methfilename, int tnum) {
 	
@@ -57,7 +56,7 @@ static void makeMatrix(unsigned numFile, char **filenames, char *outputfilename,
 	UnionEntry *entry;
 	
 	/* open output */
-	if(*outputfilename == '-' && outputfilename[1] == '-' && outputfilename[2] == 0) {
+	if(*outputfilename == '-' && outputfilename[1] == 0) {
 		outfile = stdout;
 	} else {
 		outfile = sfopen(outputfilename, "wb");
@@ -65,7 +64,7 @@ static void makeMatrix(unsigned numFile, char **filenames, char *outputfilename,
 	if(noutputfilename) {
 		if(strcmp(noutputfilename, outputfilename) == 0) {
 			noutfile = outfile;
-		} else if(*noutputfilename == '-' && noutputfilename[1] == '-' && noutputfilename[2] == 0) {
+		} else if(*noutputfilename == '-' && noutputfilename[1] == 0) {
 			noutfile = stdout;
 		} else {
 			noutfile = sfopen(noutputfilename, "wb");
@@ -76,7 +75,7 @@ static void makeMatrix(unsigned numFile, char **filenames, char *outputfilename,
 	if(diffilename) {
 		if(strcmp(diffilename, outputfilename) == 0) {
 			diffile = outfile;
-		} else if(*diffilename == '-' && diffilename[1] == '-' && diffilename[2] == 0) {
+		} else if(*diffilename == '-' && diffilename[1] == 0) {
 			diffile = stdout;
 		} else {
 			diffile = sfopen(diffilename, "wb");
@@ -389,40 +388,69 @@ static int add2Matrix(char *path, char *addfilename, char *outputfilename, char 
 static int helpMessage(FILE *out) {
 	
 	fprintf(out, "#CCPhylo dist calculates distances between samples based on overlaps between nucleotide count matrices created by e.g. KMA.\n");
-	fprintf(out, "# %16s\t%-32s\t%s\n", "Options are:", "Desc:", "Default:");
-	fprintf(out, "# %16s\t%-32s\t%s\n", "-i", "Input file(s)", "stdin");
-	fprintf(out, "# %16s\t%-32s\t%s\n", "-o", "Output file", "stdout");
-	fprintf(out, "# %16s\t%-32s\t%s\n", "-n", "Output number of nucleotides included", "False/None");
-	fprintf(out, "# %16s\t%-32s\t%s\n", "-m", "Mask methylation motifs from <file>", "False/None");
-	fprintf(out, "# %16s\t%-32s\t%s\n", "-nv", "Output nucleotide variations", "False/None");
-	fprintf(out, "# %16s\t%-32s\t%s\n", "-r", "Target reference", "None");
-	fprintf(out, "# %16s\t%-32s\t%s\n", "-a", "Add file to existing matrix", "stdin");
-	fprintf(out, "# %16s\t%-32s\t%s\n", "-md", "Minimum depth", "15");
-	fprintf(out, "# %16s\t%-32s\t%s\n", "-mc", "Minimum coverage", "50.0%");
-	fprintf(out, "# %16s\t%-32s\t%s\n", "-ml", "Minimum overlapping length", "1");
-	fprintf(out, "# %16s\t%-32s\t%s\n", "-nm", "Normalization", "1000000");
-	fprintf(out, "# %16s\t%-32s\t%s\n", "-pr", "Minimum proximity between SNPs", "0");
-	fprintf(out, "# %16s\t%-32s\t%s\n", "-f", "Output flags", "1");
-	fprintf(out, "# %16s\t%-32s\t%s\n", "-fh", "Help on option \"-f\"", "");
-	fprintf(out, "# %16s\t%-32s\t%s\n", "-d", "Distance method", "cos");
-	fprintf(out, "# %16s\t%-32s\t%s\n", "-dh", "Help on option \"-d\"", "");
-	fprintf(out, "# %16s\t%-32s\t%s\n", "-p", "Minimum lvl. of signifiacnce", "0.05");
-	fprintf(out, "# %16s\t%-32s\t%s\n", "-fp", "Float precision on distance matrix", "double");
-	fprintf(out, "# %16s\t%-32s\t%s\n", "-sp", "Short precision on distance matrix", "double / 1e0");
-	fprintf(out, "# %16s\t%-32s\t%s\n", "-bp", "Byte precision on distance matrix", "double / 1e0");
-	fprintf(out, "# %16s\t%-32s\t%s\n", "-mm", "Allocate matrix on the disk", "False");
-	fprintf(out, "# %16s\t%-32s\t%s\n", "-tmp", "Set directory for temporary files", "");
-	fprintf(out, "# %16s\t%-32s\t%s\n", "-t", "Number of threads", "1");
-	fprintf(out, "# %16s\t%-32s\t%s\n", "-h", "Shows this helpmessage", "");
+	fprintf(out, "#   %-24s\t%-32s\t%s\n", "Options are:", "Desc:", "Default:");
+	fprintf(out, "#    -%c, --%-16s\t%-32s\t%s\n", 'i', "input", "Input file(s)", "stdin");
+	fprintf(out, "#    -%c, --%-16s\t%-32s\t%s\n", 'o', "output", "Output file", "stdout");
+	fprintf(out, "#    -%c, --%-16s\t%-32s\t%s\n", 'n', "nucleotide_numbers", "Output number of nucleotides included", "False/None");
+	fprintf(out, "#    -%c, --%-16s\t%-32s\t%s\n", 'y', "methylation_motifs", "Mask methylation motifs from <file>", "False/None");
+	fprintf(out, "#    -%c, --%-16s\t%-32s\t%s\n", 'V', "nucleotide_variations", "Output nucleotide variations", "False/None");
+	fprintf(out, "#    -%c, --%-16s\t%-32s\t%s\n", 'r', "reference", "Target reference", "None");
+	fprintf(out, "#    -%c, --%-16s\t%-32s\t%s\n", 'a', "add", "Add file to existing matrix", "");
+	fprintf(out, "#    -%c, --%-16s\t%-32s\t%s\n", 'E', "min_depth", "Minimum depth", "15");
+	fprintf(out, "#    -%c, --%-16s\t%-32s\t%s\n", 'C', "min_cov", "Minimum coverage", "50.0%");
+	fprintf(out, "#    -%c, --%-16s\t%-32s\t%s\n", 'L', "min_len", "Minimum overlapping length", "1");
+	fprintf(out, "#    -%c, --%-16s\t%-32s\t%s\n", 'W', "normalization_weight", "Normalization weight", "1000000");
+	fprintf(out, "#    -%c, --%-16s\t%-32s\t%s\n", 'P', "proximity", "Minimum proximity between SNPs", "0");
+	fprintf(out, "#    -%c, --%-16s\t%-32s\t%s\n", 'f', "flag", "Output flags", "1");
+	fprintf(out, "#    -%c, --%-16s\t%-32s\t%s\n", 'F', "flag_help", "Help on option \"-f\"", "");
+	fprintf(out, "#    -%c, --%-16s\t%-32s\t%s\n", 'd', "distance", "Distance method", "cos");
+	fprintf(out, "#    -%c, --%-16s\t%-32s\t%s\n", 'D', "distance_help", "Help on option \"-d\"", "");
+	fprintf(out, "#    -%c, --%-16s\t%-32s\t%s\n", 'l', "significance_lvl", "Minimum lvl. of signifiacnce", "0.05");
+	fprintf(out, "#    -%c, --%-16s\t%-32s\t%s\n", 'p', "float_precision", "Float precision on distance matrix", "double");
+	fprintf(out, "#    -%c, --%-16s\t%-32s\t%s\n", 's', "short_precision", "Short precision on distance matrix", "double / 1e0");
+	fprintf(out, "#    -%c, --%-16s\t%-32s\t%s\n", 'b', "byte_precision", "Byte precision on distance matrix", "double / 1e0");
+	fprintf(out, "#    -%c, --%-16s\t%-32s\t%s\n", 'H', "mmap", "Allocate matrix on the disk", "False");
+	fprintf(out, "#    -%c, --%-16s\t%-32s\t%s\n", 'T', "tmp", "Set directory for temporary files", "");
+	fprintf(out, "#    -%c, --%-16s\t%-32s\t%s\n", 't', "threads", "Number of threads", "1");
+	fprintf(out, "#    -%c, --%-16s\t%-32s\t%s\n", 'h', "help", "Shows this helpmessage", "");
 	return (out == stderr);
+	
+	/*
+	i	i	input
+	o	o	output
+	n	n	nucleotide_numbers
+	m	y	methylation_motifs
+	nv	V	nucleotide_variations
+	r	r	reference
+	a	a	add
+	md	E	min_depth
+	mc	C	min_cov
+	ml	L	min_len
+	nm	W	normalization_weight
+	pr	P	proximity
+	f	f	flag
+	fh	F	flag_help
+	d	d	distance
+	dh	D	distance_help
+	p	l	significance_lvl
+	fp	p	float_precision
+	sp	s	short_precision
+	bp	b	byte_precision
+	mm	H	mmap
+	tmp	T	tmp
+	t	t	threads
+	h	h	help
+	*/
 }
 
-int main_dist(int argc, char *argv[]) {
+int main_dist(int argc, char **argv) {
 	
-	int size;
-	unsigned args, numFile, flag, norm, minDepth, minLength, proxi, n, t;
-	char *arg, *targetTemplate, **filenames, *addfilename, *errorMsg;
+	const char *stdstream = "-";
+	int size, len, offset, args;
+	unsigned numFile, flag, norm, minDepth, minLength, proxi, n, t;
+	char **Arg, *arg, *targetTemplate, **filenames, *addfilename, *errorMsg;
 	char *outputfilename, *noutputfilename, *methfilename, *diffilename;
+	char *method, *tmp, opt;
 	double minCov, alpha;
 	double (*veccmp)(short unsigned*, short unsigned*, int, int);
 	
@@ -438,271 +466,285 @@ int main_dist(int argc, char *argv[]) {
 	targetTemplate = 0;
 	filenames = 0;
 	addfilename = 0;
-	outputfilename = "--";
+	outputfilename = (char *)(stdstream);
 	noutputfilename = 0;
 	methfilename = 0;
 	diffilename = 0;
 	minCov = 0.5;
 	alpha = 0.05;
+	method = "cos";
 	veccmp = &coscmp;
+	tmp = 0;
 	
-	args = 1;
-	while(args < argc) {
-		arg = argv[args];
+	/* parse cmd-line */
+	args = argc - 1;
+	Arg = argv;
+	if(args && **++Arg == '-') {
+		len = 1;
+		--Arg;
+	} else {
+		len = 0;
+	}
+	while(args && len) {
+		arg = *++Arg;
 		if(*arg++ == '-') {
-			if(strcmp(arg, "i") == 0) {
-				if(++args < argc) {
-					filenames = argv + args;
-					numFile = 1;
-					while(++args < argc && (*argv[args] != '-' || (argv[args][1] == '-' && argv[args][2] == 0))) {
-						++numFile;
-					}
-					if(numFile == 0) {
-						missArg("\"-i\"");
-					}
-					--args;
-				}
-			} else if(strcmp(arg, "o") == 0) {
-				if(++args < argc) {
-					outputfilename = argv[args];
+			if(*arg == '-') {
+				/* check if argument is included */
+				len = getOptArg(++arg);
+				offset = 2 + (arg[len] ? 1 : 0);
+				
+				/* long option */
+				if(*arg == 0) {
+					/* terminate cmd-line */
+					++Arg;
+				} else if(strncmp(arg, "input", len) == 0) {
+					filenames = getArgListDie(&Arg, &args, len + offset, "input");
+					numFile = getArgListLen(&Arg, &args);
+				} else if(strncmp(arg, "output", len) == 0) {
+					outputfilename = getArgDie(&Arg, &args, len + offset, "output");
+				} else if(strncmp(arg, "nucleotide_numbers", len) == 0) {
+					noutputfilename = getArgDie(&Arg, &args, len + offset, "nucleotide_numbers");
+				} else if(strncmp(arg, "methylation_motifs", len) == 0) {
+					methfilename = getArgDie(&Arg, &args, len + offset, "methylation_motifs");
+				} else if(strncmp(arg, "nucleotide_variations", len) == 0) {
+					diffilename = getArgDie(&Arg, &args, len + offset, "nucleotide_variations");
+				} else if(strncmp(arg, "reference", len) == 0) {
+					targetTemplate = getArgDie(&Arg, &args, len + offset, "reference");
+				} else if(strncmp(arg, "add", len) == 0) {
+					addfilename = getArgDie(&Arg, &args, len + offset, "add");
+				} else if(strncmp(arg, "min_depth", len) == 0) {
+					minDepth = getdArg(&Arg, &args, len + offset, "min_depth");
+				} else if(strncmp(arg, "min_cov", len) == 0) {
+					minCov = getdArg(&Arg, &args, len + offset, "min_cov") / 100;
+				} else if(strncmp(arg, "min_len", len) == 0) {
+					minLength = getNumArg(&Arg, &args, len + offset, "min_len");
+				} else if(strncmp(arg, "normalization_weight", len) == 0) {
+					norm = getNumArg(&Arg, &args, len + offset, "normalization_weight");
+				} else if(strncmp(arg, "proximity", len) == 0) {
+					proxi = getNumArg(&Arg, &args, len + offset, "proximity");
+				} else if(strncmp(arg, "flag", len) == 0) {
+					flag = getNumArg(&Arg, &args, len + offset, "flag");
+				} else if(strncmp(arg, "flag_help", len) == 0) {
+					flag = -1;
+				} else if(strncmp(arg, "distance", len) == 0) {
+					method = getArgDie(&Arg, &args, len + offset, "distance");
+				} else if(strncmp(arg, "distance_help", len) == 0) {
+					method = 0;
+				} else if(strncmp(arg, "significance_lvl", len) == 0) {
+					alpha = getdArg(&Arg, &args, len + offset, "significance_lvl");
+				} else if(strncmp(arg, "float_precision", len) == 0) {
+					size = sizeof(float);
+				} else if(strncmp(arg, "short_precision", len) == 0) {
+					size = sizeof(short unsigned);
+					ByteScale = getdDefArg(&Arg, &args, len + offset, ByteScale, "short_precision");
+				} else if(strncmp(arg, "byte_precision", len) == 0) {
+					size = sizeof(unsigned char);
+					ByteScale = getdDefArg(&Arg, &args, len + offset, ByteScale, "byte_precision");
+				} else if(strncmp(arg, "mmap", len) == 0) {
+					ltdMatrix_init = &ltdMatrixMinit;
+				} else if(strncmp(arg, "tmp", len) == 0) {
+					tmp = getArgDie(&Arg, &args, len + offset, "tmp");
+				} else if(strncmp(arg, "threads", len) == 0) {
+					t = getNumArg(&Arg, &args, len + offset, "threads");
+				} else if(strncmp(arg, "help", len) == 0) {
+					return helpMessage(stdout);
 				} else {
-					missArg("\"-o\"");
+					unknArg(arg - 2);
 				}
-			} else if(strcmp(arg, "n") == 0) {
-				if(++args < argc) {
-					noutputfilename = argv[args];
-				} else {
-					noutputfilename = "--";
-				}
-			} else if(strcmp(arg, "m") == 0) {
-				if(++args < argc) {
-					methfilename = argv[args];
-				} else {
-					missArg("\"-m\"");
-				}
-			} else if(strcmp(arg, "nv") == 0) {
-				if(++args < argc) {
-					diffilename = argv[args];
-				} else {
-					diffilename = "--";
-				}
-			} else if(strcmp(arg, "r") == 0) {
-				if(++args < argc) {
-					targetTemplate = argv[args];
-				} else {
-					missArg("\"-r\"");
-				}
-			} else if(strcmp(arg, "a") == 0) {
-				if(++args < argc) {
-					addfilename = argv[args];
-				} else {
-					missArg("\"-a\"");
-				}
-			} else if(strcmp(arg, "md") == 0) {
-				if(++args < argc) {
-					if((minDepth = strtoul(argv[args], &errorMsg, 10)) == 0) {
-						minDepth = 1;
-					}
-					if(*errorMsg != 0) {
-						invaArg("\"-md\"");
-					}
-				} else {
-					missArg("\"-md\"");
-				}
-			} else if(strcmp(arg, "ml") == 0) {
-				if(++args < argc) {
-					if((minLength = strtoul(argv[args], &errorMsg, 10)) == 0) {
-						minLength = 1;
-					}
-					if(*errorMsg != 0) {
-						invaArg("\"-ml\"");
-					}
-				} else {
-					missArg("\"-ml\"");
-				}
-			} else if(strcmp(arg, "mc") == 0) {
-				if(++args < argc) {
-					minCov = strtod(argv[args], &errorMsg);
-					if(*errorMsg != 0 || minCov < 0 || 100 < minCov) {
-						invaArg("\"-mc\"");
-					}
-					minCov /= 100.0;
-				} else {
-					missArg("\"-mc\"");
-				}
-			} else if(strcmp(arg, "nm") == 0) {
-				if(++args < argc) {
-					norm = strtoul(argv[args], &errorMsg, 10);
-					if(*errorMsg != 0) {
-						invaArg("\"-nm\"");
-					}
-				} else {
-					missArg("\"-nm\"");
-				}
-			} else if(strcmp(arg, "pr") == 0) {
-				if(++args < argc) {
-					proxi = strtoul(argv[args], &errorMsg, 10);
-					if(*errorMsg != 0) {
-						invaArg("\"-pr\"");
-					}
-				} else {
-					missArg("\"-pr\"");
-				}
-			} else if(strcmp(arg, "f") == 0) {
-				if(++args < argc) {
-					flag = strtoul(argv[args], &errorMsg, 10);
-					if(*errorMsg != 0) {
-						invaArg("\"-f\"");
-					}
-				} else {
-					missArg("\"-f\"");
-				}
-			} else if(strcmp(arg, "fh") == 0) {
-				fprintf(stdout, "# Format flags output, add them to combine them.\n");
-				fprintf(stdout, "#\n");
-				fprintf(stdout, "#   1:\tRelaxed Phylip\n");
-				fprintf(stdout, "#   2:\tDistances are pairwise, always true on *.mat files\n");
-				fprintf(stdout, "#   4:\tInclude template name in phylip file\n");
-				fprintf(stdout, "#   8:\tInclude insignificant bases in distance calculation, only affects fasta input\n");
-				fprintf(stdout, "#  16:\tDistances based on fasta input\n");
-				fprintf(stdout, "#  32:\tDo not include insignificant bases in pruning\n");
-				fprintf(stdout, "#\n");
-				return 0;
-			} else if(strcmp(arg, "d") == 0) {
-				if(++args < argc) {
-					arg = argv[args];
-					if(strcmp(arg, "cos") == 0) {
-						veccmp = &coscmp;
-					} else if(strcmp(arg, "z") == 0) {
-						veccmp = &zcmp;
-					} else if(strcmp(arg, "chi2") == 0) {
-						veccmp = &chi2cmp;
-					} else if(strcmp(arg, "nchi2") == 0) {
-						veccmp = &nchi2cmp;
-					} else if(strcmp(arg, "nc") == 0) {
-						veccmp = &nccmp;
-					} else if(strcmp(arg, "c") == 0) {
-						veccmp = &ccmp;
-					} else if(strcmp(arg, "np") == 0) {
-						veccmp = &npcmp;
-					} else if(strcmp(arg, "p") == 0) {
-						veccmp = &pcmp;
-					} else if(strcmp(arg, "nbc") == 0) {
-						veccmp = &nbccmp;
-					} else if(strcmp(arg, "bc") == 0) {
-						veccmp = &bccmp;
-					} else if(strcmp(arg, "nl1") == 0) {
-						veccmp = &nl1cmp;
-					} else if(strcmp(arg, "nl2") == 0) {
-						veccmp = &nl2cmp;
-					} else if(strcmp(arg, "nlinf") == 0) {
-						veccmp = &nlinfcmp;
-					} else if(strcmp(arg, "l1") == 0) {
-						veccmp = &l1cmp;
-					} else if(strcmp(arg, "l2") == 0) {
-						veccmp = &l2cmp;
-					} else if(strcmp(arg, "linf") == 0) {
-						veccmp = &linfcmp;
-					} else if(*arg == 'l') {
-						veccmp = &lncmp;
-						n = strtoul(arg + 1, &errorMsg, 10);
-						if(*errorMsg != 0) {
-							invaArg("\"-d ln\"");
-						}
-						veccmp(0, (short unsigned *)(&n), 0, 0);
-					} else if(strncmp(arg, "nl", 2) == 0) {
-						veccmp = &nlncmp;
-						n = strtoul(arg + 2, &errorMsg, 10);
-						if(*errorMsg != 0) {
-							invaArg("\"-d nln\"");
-						}
-						veccmp(0, (short unsigned *)(&n), 0, 0);
-					} else {
-						invaArg("\"-d\"");
-					}
-				} else {
-					missArg("\"-d\"");
-				}
-			} else if(strcmp(arg, "dh") == 0) {
-				fprintf(stdout, "# Distance calculation methods:\n");
-				fprintf(stdout, "#\n");
-				fprintf(stdout, "# cos:\tCalculate distance between positions as the angle between the count vectors.\n");
-				fprintf(stdout, "# z:\tMake consensus comparison if vectors passes a McNemar test\n");
-				fprintf(stdout, "# chi2:\tCalculate the chi square distance\n");
-				fprintf(stdout, "# nchi2:\tCalculate the normalized chi square distance\n");
-				fprintf(stdout, "# c:\tCalculate the Clausen distance between the count vectors. d(A,B) = (||A-B||_1 / sum(max{Ai, Bi}))\n");
-				fprintf(stdout, "# nc:\tCalculate the normalized Clausen distance between the count vectors.\n");
-				fprintf(stdout, "# bc:\tCalculate the Bray-Curtis dissimilarity between the count vectors.\n");
-				fprintf(stdout, "# nbc:\tCalculate the normalized Bray-Curtis dissimilarity between the count vectors.\n");
-				fprintf(stdout, "# ln:\tCalculate distance between positions as the n-norm distance between the count vectors. Replace \"n\" with the waned norm\n");
-				fprintf(stdout, "# linf:\tCalculate distance between positions as the l_infinity distance between the count vectors.\n");
-				fprintf(stdout, "# nln:\tCalculate distance between positions as the normalized n-norm distance between the count vectors. Replace last \"n\" with the waned norm\n");
-				fprintf(stdout, "# nlinf:\tCalculate distance between positions as the normalized l_infinity distance between the count vectors.\n");
-				fprintf(stdout, "#\n");
-				return 0;
-			} else if(strcmp(arg, "fp") == 0) {
-				size = sizeof(float);
-			} else if(strcmp(arg, "sp") == 0) {
-				if(++args < argc && argv[args][0] != '-') {
-					ByteScale = strtod(argv[args], &errorMsg);
-					if(*errorMsg != 0 || ByteScale == 0) {
-						invaArg("\"-sp\"");
-					}
-				} else {
-					--args;
-				}
-				size = sizeof(short unsigned);
-			} else if(strcmp(arg, "bp") == 0) {
-				if(++args < argc && argv[args][0] != '-') {
-					ByteScale = strtod(argv[args], &errorMsg);
-					if(*errorMsg != 0 || ByteScale == 0) {
-						invaArg("\"-bp\"");
-					}
-				} else {
-					--args;
-				}
-				size = sizeof(unsigned char);
-			} else if(strcmp(arg, "mm") == 0) {
-				ltdMatrix_init = &ltdMatrixMinit;
-			} else if(strcmp(arg, "tmp") == 0) {
-				if(++args < argc) {
-					if(argv[args][0] != '-') {
-						tmpF(argv[args]);
-					} else {
-						invaArg("\"-tmp\"");
-					}
-				} else {
-					missArg("\"-tmp\"");
-				}
-			} else if(strcmp(arg, "t") == 0) {
-				if(++args < argc) {
-					t = strtoul(argv[args], &errorMsg, 10);
-					if(*errorMsg != 0) {
-						invaArg("\"-t\"");
-					}
-				} else {
-					missArg("\"-t\"");
-				}
-			} else if(strcmp(arg, "p") == 0) {
-				if(++args < argc) {
-					alpha = strtod(argv[args], &errorMsg);
-					if(*errorMsg != 0 || alpha < 0) {
-						invaArg("\"-p\"");
-					}
-				} else {
-					missArg("\"-p\"");
-				}
-			} else if(strcmp(arg, "h") == 0) {
-				return helpMessage(stdout);
 			} else {
-				fprintf(stderr, "Unknown option:%s\n", arg - 1);
-				return helpMessage(stderr);
+				/* multiple option */
+				len = 1;
+				opt = *arg;
+				while(opt && (opt = *arg++)) {
+					++len;
+					if(opt == 'i') {
+						filenames = getArgListDie(&Arg, &args, len, "i");
+						numFile = getArgListLen(&Arg, &args);
+						opt = 0;
+					} else if(opt == 'o') {
+						outputfilename = getArgDie(&Arg, &args, len, "o");
+						opt = 0;
+					} else if(opt == 'n') {
+						noutputfilename = getArgDie(&Arg, &args, len, "n");
+						opt = 0;
+					} else if(opt == 'y') {
+						methfilename = getArgDie(&Arg, &args, len, "y");
+						opt = 0;
+					} else if(opt == 'V') {
+						diffilename = getArgDie(&Arg, &args, len, "V");
+						opt = 0;
+					} else if(opt == 'r') {
+						targetTemplate = getArgDie(&Arg, &args, len, "r");
+						opt = 0;
+					} else if(opt == 'a') {
+						addfilename = getArgDie(&Arg, &args, len, "a");
+						opt = 0;
+					} else if(opt == 'E') {
+						minDepth = getdArg(&Arg, &args, len, "E");
+						opt = 0;
+					} else if(opt == 'C') {
+						minCov = getdArg(&Arg, &args, len, "C") / 100;
+						opt = 0;
+					} else if(opt == 'L') {
+						minLength = getNumArg(&Arg, &args, len, "L");
+						opt = 0;
+					} else if(opt == 'W') {
+						norm = getNumArg(&Arg, &args, len, "W");
+						opt = 0;
+					} else if(opt == 'P') {
+						proxi = getNumArg(&Arg, &args, len, "P");
+						opt = 0;
+					} else if(opt == 'f') {
+						flag = getNumArg(&Arg, &args, len, "f");
+						opt = 0;
+					} else if(opt == 'F') {
+						flag = -1;
+					} else if(opt == 'd') {
+						method = getArgDie(&Arg, &args, len, "d");
+						opt = 0;
+					} else if(opt == 'D') {
+						method = 0;
+					} else if(opt == 'l') {
+						alpha = getdArg(&Arg, &args, len, "l");
+						opt = 0;
+					} else if(opt == 'p') {
+						size = sizeof(float);
+					} else if(opt == 's') {
+						size = sizeof(short unsigned);
+						ByteScale = getdDefArg(&Arg, &args, len, ByteScale, "p");
+						opt = 0;
+					} else if(opt == 'b') {
+						size = sizeof(unsigned char);
+						ByteScale = getdDefArg(&Arg, &args, len, ByteScale, "b");
+						opt = 0;
+					} else if(opt == 'H') {
+						ltdMatrix_init = &ltdMatrixMinit;
+						opt = 0;
+					} else if(opt == 'T') {
+						tmp = getArgDie(&Arg, &args, len, "T");
+						opt = 0;
+					} else if(opt == 't') {
+						t = getNumArg(&Arg, &args, len, "t");
+						opt = 0;
+					} else if(opt == 'h') {
+						return helpMessage(stdout);
+					} else {
+						*arg = 0;
+						unknArg(arg - 1);
+					}
+				}
 			}
 		} else {
-			fprintf(stderr, "Unknown argument:%s\n", arg - 1);
-			return helpMessage(stderr);
+			/* terminate cmd-line */
+			--arg;
+			++args;
+			len = 0;
 		}
-		++args;
+		--args;
+	}
+	
+	/* non-options */
+	if(args) {
+		filenames = Arg;
+		numFile = args;
+	}
+	
+	/* verify input */
+	if(minCov < 0 || 1 < minCov) {
+		invaArg("\"--min_cov\"");
+	}
+	if(ByteScale == 0) {
+		if(size == sizeof(short unsigned)) {
+			invaArg("\"--short_precision\"");
+		} else {
+			invaArg("\"--byte_precision\"");
+		}
+	}
+	if(alpha < 0) {
+		invaArg("\"--significance_lvl\"");
+	}
+	
+	/* flag help */
+	if(flag == -1) {
+		fprintf(stdout, "# Format flags output, add them to combine them.\n");
+		fprintf(stdout, "#\n");
+		fprintf(stdout, "#   1:\tStrictly bifurcate the root\n");
+		fprintf(stdout, "#   2:\tAllow negative branchlengths\n");
+		fprintf(stdout, "#\n");
+		return 0;
+	}
+	
+	/* distance method */
+	if(method == 0) {
+		fprintf(stdout, "# Distance calculation methods:\n");
+		fprintf(stdout, "#\n");
+		fprintf(stdout, "# cos:\tCalculate distance between positions as the angle between the count vectors.\n");
+		fprintf(stdout, "# z:\tMake consensus comparison if vectors passes a McNemar test\n");
+		fprintf(stdout, "# chi2:\tCalculate the chi square distance\n");
+		fprintf(stdout, "# nchi2:\tCalculate the normalized chi square distance\n");
+		fprintf(stdout, "# c:\tCalculate the Clausen distance between the count vectors. d(A,B) = (||A-B||_1 / sum(max{Ai, Bi}))\n");
+		fprintf(stdout, "# nc:\tCalculate the normalized Clausen distance between the count vectors.\n");
+		fprintf(stdout, "# bc:\tCalculate the Bray-Curtis dissimilarity between the count vectors.\n");
+		fprintf(stdout, "# nbc:\tCalculate the normalized Bray-Curtis dissimilarity between the count vectors.\n");
+		fprintf(stdout, "# ln:\tCalculate distance between positions as the n-norm distance between the count vectors. Replace \"n\" with the waned norm\n");
+		fprintf(stdout, "# linf:\tCalculate distance between positions as the l_infinity distance between the count vectors.\n");
+		fprintf(stdout, "# nln:\tCalculate distance between positions as the normalized n-norm distance between the count vectors. Replace last \"n\" with the waned norm\n");
+		fprintf(stdout, "# nlinf:\tCalculate distance between positions as the normalized l_infinity distance between the count vectors.\n");
+		fprintf(stdout, "#\n");
+		return 0;
+	} else if(strcmp(method, "cos") == 0) {
+		veccmp = &coscmp;
+	} else if(strcmp(method, "z") == 0) {
+		veccmp = &zcmp;
+	} else if(strcmp(method, "chi2") == 0) {
+		veccmp = &chi2cmp;
+	} else if(strcmp(method, "nchi2") == 0) {
+		veccmp = &nchi2cmp;
+	} else if(strcmp(method, "nc") == 0) {
+		veccmp = &nccmp;
+	} else if(strcmp(method, "c") == 0) {
+		veccmp = &ccmp;
+	} else if(strcmp(method, "np") == 0) {
+		veccmp = &npcmp;
+	} else if(strcmp(method, "p") == 0) {
+		veccmp = &pcmp;
+	} else if(strcmp(method, "nbc") == 0) {
+		veccmp = &nbccmp;
+	} else if(strcmp(method, "bc") == 0) {
+		veccmp = &bccmp;
+	} else if(strcmp(method, "nl1") == 0) {
+		veccmp = &nl1cmp;
+	} else if(strcmp(method, "nl2") == 0) {
+		veccmp = &nl2cmp;
+	} else if(strcmp(method, "nlinf") == 0) {
+		veccmp = &nlinfcmp;
+	} else if(strcmp(method, "l1") == 0) {
+		veccmp = &l1cmp;
+	} else if(strcmp(method, "l2") == 0) {
+		veccmp = &l2cmp;
+	} else if(strcmp(method, "linf") == 0) {
+		veccmp = &linfcmp;
+	} else if(*method == 'l') {
+		veccmp = &lncmp;
+		n = strtoul(method + 1, &errorMsg, 10);
+		if(*errorMsg != 0) {
+			invaArg("\"-d ln\"");
+		}
+		veccmp(0, (short unsigned *)(&n), 0, 0);
+	} else if(strncmp(method, "nl", 2) == 0) {
+		veccmp = &nlncmp;
+		n = strtoul(method + 2, &errorMsg, 10);
+		if(*errorMsg != 0) {
+			invaArg("\"-d nln\"");
+		}
+		veccmp(0, (short unsigned *)(&n), 0, 0);
+	} else {
+		invaArg("\"-d\"");
+	}
+	
+	/* tmp dir */
+	if(tmp) {
+		tmpF(tmp);
 	}
 	
 	/* set precision */

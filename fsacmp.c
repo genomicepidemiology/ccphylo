@@ -748,9 +748,9 @@ unsigned cmpFsa(Matrix *D, int n, int len, long unsigned **seqs, unsigned char *
 						} else if(Dfptr) {
 							*++Dfptr = nFactor * dist;
 						} else if(Dsptr) {
-							*++Dsptr = dtouc(nFactor * dist);
+							*++Dsptr = dtouc(nFactor * dist, 0.5);
 						} else {
-							*++Dbptr = dtouc(nFactor * dist);
+							*++Dbptr = dtouc(nFactor * dist, 0.5);
 						}
 					} else {
 						++seqj;
@@ -775,9 +775,9 @@ unsigned cmpFsa(Matrix *D, int n, int len, long unsigned **seqs, unsigned char *
 						} else if(Dfptr) {
 							*++Dfptr = nFactor * dist;
 						} else if(Dsptr) {
-							*++Dsptr = dtouc(nFactor * dist);
+							*++Dsptr = dtouc(nFactor * dist, 0.5);
 						} else {
-							*++Dbptr = dtouc(nFactor * dist);
+							*++Dbptr = dtouc(nFactor * dist, 0.5);
 						}
 					} else {
 						++j;
@@ -867,7 +867,7 @@ void cmpairFsa(Matrix *D, Matrix *N, int n, int len, long unsigned **seqs, unsig
 									*Dptr /= inc;
 								}
 							} else {
-								*++Dptr = dtouc(-1.0);
+								*++Dptr = dtouc(-1.0, 0);
 							}
 							if(N) {
 								*++Nptr = inc;
@@ -881,7 +881,7 @@ void cmpairFsa(Matrix *D, Matrix *N, int n, int len, long unsigned **seqs, unsig
 									*Dfptr /= inc;
 								}
 							} else {
-								*++Dfptr = dtouc(-1.0);
+								*++Dfptr = dtouc(-1.0, 0);
 							}
 							if(N) {
 								*++Nfptr = inc;
@@ -889,28 +889,28 @@ void cmpairFsa(Matrix *D, Matrix *N, int n, int len, long unsigned **seqs, unsig
 						} else if(Dsptr) {
 							if(minLength <= (inc = dist & UINT_MAX)) {
 								if(norm) {
-									*++Dsptr = dtouc((dist >> 32));
+									*++Dsptr = dtouc((dist >> 32), 0.5);
 								} else {
-									*++Dsptr = (dtouc((dist >> 32) * norm)) / inc;
+									*++Dsptr = (dtouc((dist >> 32) * norm, 0.5)) / inc;
 								}
 							} else {
 								*++Dsptr = 65535;
 							}
 							if(N) {
-								*++Nsptr = dtouc(inc);
+								*++Nsptr = dtouc(inc, 0.5);
 							}
 						} else {
 							if(minLength <= (inc = dist & UINT_MAX)) {
 								if(norm) {
-									*++Dbptr = dtouc((dist >> 32));
+									*++Dbptr = dtouc((dist >> 32), 0.5);
 								} else {
-									*++Dbptr = (dtouc((dist >> 32) * norm)) / inc;
+									*++Dbptr = (dtouc((dist >> 32) * norm, 0.5)) / inc;
 								}
 							} else {
 								*++Dbptr = 255;
 							}
 							if(N) {
-								*++Nbptr = dtouc(inc);
+								*++Nbptr = dtouc(inc, 0.5);
 							}
 						}
 					} else {
@@ -971,28 +971,28 @@ void cmpairFsa(Matrix *D, Matrix *N, int n, int len, long unsigned **seqs, unsig
 						} else if(Dsptr) {
 							if(minLength <= (inc = dist & UINT_MAX)) {
 								if(norm) {
-									*++Dsptr = dtouc((dist >> 32));
+									*++Dsptr = dtouc((dist >> 32), 0.5);
 								} else {
-									*++Dsptr = (dtouc((dist >> 32) * norm)) / inc;
+									*++Dsptr = (dtouc((dist >> 32) * norm, 0.5)) / inc;
 								}
 							} else {
-								*++Dsptr = dtouc(-1.0);
+								*++Dsptr = dtouc(-1.0, 0);
 							}
 							if(N) {
-								*++Nsptr = dtouc(inc);
+								*++Nsptr = dtouc(inc, 0.5);
 							}
 						} else {
 							if(minLength <= (inc = dist & UINT_MAX)) {
 								if(norm) {
-									*++Dbptr = dtouc((dist >> 32));
+									*++Dbptr = dtouc((dist >> 32), 0.5);
 								} else {
-									*++Dbptr = (dtouc((dist >> 32) * norm)) / inc;
+									*++Dbptr = (dtouc((dist >> 32) * norm, 0.5)) / inc;
 								}
 							} else {
-								*++Dbptr = dtouc(-1.0);
+								*++Dbptr = dtouc(-1.0, 0);
 							}
 							if(N) {
-								*++Nbptr = dtouc(inc);
+								*++Nbptr = dtouc(inc, 0.5);
 							}
 						}
 					} else {

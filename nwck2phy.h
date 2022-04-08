@@ -17,5 +17,5 @@
  * limitations under the License.
 */
 
-int main_nwck2phy(int argc, char *argv[]);
 int newick2phy(char *inputfilename, char *outputfilename, unsigned format);
+int main_nwck2phy(int argc, char **argv);

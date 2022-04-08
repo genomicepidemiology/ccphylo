@@ -249,9 +249,9 @@ void * cmpFsaThrd(void *arg) {
 		} else if(Dfptr) {
 			*Dfptr = nFactor * dist;
 		} else if(Dsptr) {
-			*Dsptr = dtouc(nFactor * dist);
+			*Dsptr = dtouc(nFactor * dist, 0.5);
 		} else {
-			*Dbptr = dtouc(nFactor * dist);
+			*Dbptr = dtouc(nFactor * dist, 0.5);
 		}
 	}
 	
@@ -449,28 +449,28 @@ void * cmpairFsaThrd(void *arg) {
 		} else if(Dsptr) {
 			if(minLength <= inc) {
 				if(norm) {
-					*Dsptr = (dtouc((dist >> 32) * norm)) / inc;
+					*Dsptr = (dtouc((dist >> 32) * norm, 0.5)) / inc;
 				} else {
-					*Dsptr = dtouc((dist >> 32));
+					*Dsptr = dtouc((dist >> 32), 0.5);
 				}
 			} else {
-				*Dsptr = dtouc(-1.0);
+				*Dsptr = dtouc(-1.0, 0);
 			}
 			if(N) {
-				*Nsptr = dtouc(inc);
+				*Nsptr = dtouc(inc, 0.5);
 			}
 		} else {
 			if(minLength <= inc) {
 				if(norm) {
-					*Dbptr = (dtouc((dist >> 32) * norm)) / inc;
+					*Dbptr = (dtouc((dist >> 32) * norm, 0.5)) / inc;
 				} else {
-					*Dbptr = dtouc((dist >> 32));
+					*Dbptr = dtouc((dist >> 32), 0.5);
 				}
 			} else {
-				*Dbptr = dtouc(-1.0);
+				*Dbptr = dtouc(-1.0, 0);
 			}
 			if(N) {
-				*Nbptr = dtouc(inc);
+				*Nbptr = dtouc(inc, 0.5);
 			}
 		}
 	}
@@ -630,7 +630,7 @@ int ltdFsaRowThrd(double *D, double *N, char *targetTemplate, char *addfilename,
 		fprintf(stderr, "Template (\"%s\") did not exceed threshold for inclusion:\t%s\n", targetTemplate, addfilename);
 		return 1;
 	} else if(diffilename) {
-		if(*diffilename == '-' && diffilename[1] == '-' && diffilename[2] == 0) {
+		if(*diffilename == '-' && diffilename[1] == 0) {
 			diffile = stdout;
 		} else {
 			diffile = sfopen(diffilename, "ab");

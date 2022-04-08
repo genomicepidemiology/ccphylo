@@ -902,9 +902,9 @@ void updateD(Matrix *D, Vector *sD, int *N, int i, int j, double Li, double Lj) 
 			} else if(Df_j) {
 				*Df_j = dist;
 			} else if(Ds_j) {
-				*Ds_j = dtouc(dist);
+				*Ds_j = dtouc(dist, 0.25);
 			} else {
-				*Db_j = dtouc(dist);
+				*Db_j = dtouc(dist, 0.25);
 			}
 			/* update N and sD */
 			*++sDvec -= (D_ik + D_kj - dist);
@@ -918,9 +918,9 @@ void updateD(Matrix *D, Vector *sD, int *N, int i, int j, double Li, double Lj) 
 			} else if(Df_j) {
 				*Df_j = dist;
 			} else if(Ds_j) {
-				*Ds_j = dtouc(dist);
+				*Ds_j = dtouc(dist, 0);
 			} else {
-				*Db_j = dtouc(dist);
+				*Db_j = dtouc(dist, 0);
 			}
 			/* update N and sD, sD(k) is new */
 			*++sDvec -= Li;
@@ -933,9 +933,11 @@ void updateD(Matrix *D, Vector *sD, int *N, int i, int j, double Li, double Lj) 
 			} else if(Df_j) {
 				dist = (*Df_j -= Lj);
 			} else if(Ds_j) {
-				dist = (*Ds_j -= dtouc(Lj));
+				dist = (*Ds_j -= dtouc(Lj, 0));
+				dist = uctod(dist);
 			} else {
-				dist = (*Db_j -= dtouc(Lj));
+				dist = (*Db_j -= dtouc(Lj, 0));
+				dist = uctod(dist);
 			}
 			/* update N and sD */
 			*++sDvec += (dist - D_kj);
@@ -990,9 +992,9 @@ void updateD(Matrix *D, Vector *sD, int *N, int i, int j, double Li, double Lj) 
 				} else if(Dfmat) {
 					Dfmat[k][j] = dist;
 				} else if(Dsmat) {
-					Dsmat[k][j] = dtouc(dist);
+					Dsmat[k][j] = dtouc(dist, 0.25);
 				} else {
-					Dbmat[k][j] = dtouc(dist);
+					Dbmat[k][j] = dtouc(dist, 0.25);
 				}
 				/* update N and sD */
 				*++sDvec -= (D_ik + D_kj - dist);
@@ -1006,9 +1008,9 @@ void updateD(Matrix *D, Vector *sD, int *N, int i, int j, double Li, double Lj) 
 				} else if(Dfmat) {
 					Dfmat[k][j] = dist;
 				} else if(Dsmat) {
-					Dsmat[k][j] = dtouc(dist);
+					Dsmat[k][j] = dtouc(dist, 0);
 				} else {
-					Dbmat[k][j] = dtouc(dist);
+					Dbmat[k][j] = dtouc(dist, 0);
 				}
 				/* update N and sD, sD(k) is new */
 				*++sDvec -= Li;
@@ -1021,9 +1023,11 @@ void updateD(Matrix *D, Vector *sD, int *N, int i, int j, double Li, double Lj) 
 				} else if(Dfmat) {
 					dist = (Dfmat[k][j] -= Lj) - Df_j[k];
 				} else if(Dsmat) {
-					dist = (Dsmat[k][j] -= dtouc(Lj)) - uctod(Ds_j[k]);
+					dist = (Dsmat[k][j] -= dtouc(Lj, 0)) - Ds_j[k];
+					dist = uctod(dist);
 				} else {
-					dist = (Dbmat[k][j] -= dtouc(Lj)) - uctod(Db_j[k]);
+					dist = (Dbmat[k][j] -= dtouc(Lj, 0)) - Db_j[k];
+					dist = uctod(dist);
 				}
 				/* update N and sD */
 				*++sDvec += dist;
@@ -1100,9 +1104,9 @@ void updateD_UPGMA(Matrix *D, Vector *sD, int *N, int i, int j, double Li, doubl
 			} else if(Df_j) {
 				*Df_j = dist;
 			} else if(Ds_j) {
-				*Ds_j = dtouc(dist);
+				*Ds_j = dtouc(dist, 0.25);
 			} else {
-				*Db_j = dtouc(dist);
+				*Db_j = dtouc(dist, 0.25);
 			}
 			/* update N and sD */
 			*++sDvec -= (D_ik + D_kj - dist);
@@ -1115,9 +1119,9 @@ void updateD_UPGMA(Matrix *D, Vector *sD, int *N, int i, int j, double Li, doubl
 			} else if(Df_j) {
 				*Df_j = D_ik;
 			} else if(Ds_j) {
-				*Ds_j = dtouc(D_ik);
+				*Ds_j = dtouc(D_ik, 0);
 			} else {
-				*Db_j = dtouc(D_ik);
+				*Db_j = dtouc(D_ik, 0);
 			}
 			/* update N and sD, sD(k) is new */
 			++sDvec;
@@ -1177,9 +1181,9 @@ void updateD_UPGMA(Matrix *D, Vector *sD, int *N, int i, int j, double Li, doubl
 				} else if(Dfmat) {
 					Dfmat[k][j] = dist;
 				} else if(Dsmat) {
-					Dsmat[k][j] = dtouc(dist);
+					Dsmat[k][j] = dtouc(dist, 0.25);
 				} else {
-					Dbmat[k][j] = dtouc(dist);
+					Dbmat[k][j] = dtouc(dist, 0.25);
 				}
 				/* update N and sD */
 				*++sDvec -= (D_ik + D_kj - dist);
@@ -1192,9 +1196,9 @@ void updateD_UPGMA(Matrix *D, Vector *sD, int *N, int i, int j, double Li, doubl
 				} else if(Dfmat) {
 					Dfmat[k][j] = D_ik;
 				} else if(Dsmat) {
-					Dsmat[k][j] = dtouc(D_ik);
+					Dsmat[k][j] = dtouc(D_ik, 0);
 				} else {
-					Dbmat[k][j] = dtouc(D_ik);
+					Dbmat[k][j] = dtouc(D_ik, 0);
 				}
 				/* update N and sD, sD(k) is new */
 				++sDvec;
@@ -1277,9 +1281,9 @@ void updateD_FF(Matrix *D, Vector *sD, int *N, int i, int j, double Li, double L
 			} else if(Df_j) {
 				*Df_j = dist;
 			} else if(Ds_j) {
-				*Ds_j = dtouc(dist);
+				*Ds_j = dtouc(dist, 0);
 			} else {
-				*Db_j = dtouc(dist);
+				*Db_j = dtouc(dist, 0);
 			}
 			/* update N and sD */
 			*++sDvec -= (D_ik + D_kj - dist);
@@ -1292,9 +1296,9 @@ void updateD_FF(Matrix *D, Vector *sD, int *N, int i, int j, double Li, double L
 			} else if(Df_j) {
 				*Df_j = D_ik;
 			} else if(Ds_j) {
-				*Ds_j = dtouc(D_ik);
+				*Ds_j = dtouc(D_ik, 0);
 			} else {
-				*Db_j = dtouc(D_ik);
+				*Db_j = dtouc(D_ik, 0);
 			}
 			/* update N and sD, sD(k) is new */
 			++sDvec;
@@ -1345,9 +1349,9 @@ void updateD_FF(Matrix *D, Vector *sD, int *N, int i, int j, double Li, double L
 				} else if(Dfmat) {
 					Dfmat[k][j] = dist;
 				} else if(Dsmat) {
-					Dsmat[k][j] = dtouc(dist);
+					Dsmat[k][j] = dtouc(dist, 0);
 				} else {
-					Dbmat[k][j] = dtouc(dist);
+					Dbmat[k][j] = dtouc(dist, 0);
 				}
 				/* update N and sD */
 				*++sDvec -= (D_ik + D_kj - dist);
@@ -1360,9 +1364,9 @@ void updateD_FF(Matrix *D, Vector *sD, int *N, int i, int j, double Li, double L
 				} else if(Dfmat) {
 					Dfmat[k][j] = D_ik;
 				} else if(Dsmat) {
-					Dsmat[k][j] = dtouc(D_ik);
+					Dsmat[k][j] = dtouc(D_ik, 0);
 				} else {
-					Dbmat[k][j] = dtouc(D_ik);
+					Dbmat[k][j] = dtouc(D_ik, 0);
 				}
 				/* update N and sD, sD(k) is new */
 				++sDvec;
@@ -1445,9 +1449,9 @@ void updateD_CF(Matrix *D, Vector *sD, int *N, int i, int j, double Li, double L
 			} else if(Df_j) {
 				*Df_j = dist;
 			} else if(Ds_j) {
-				*Ds_j = dtouc(dist);
+				*Ds_j = dtouc(dist, 0);
 			} else {
-				*Db_j = dtouc(dist);
+				*Db_j = dtouc(dist, 0);
 			}
 			/* update N and sD */
 			*++sDvec -= (D_ik + D_kj - dist);
@@ -1460,9 +1464,9 @@ void updateD_CF(Matrix *D, Vector *sD, int *N, int i, int j, double Li, double L
 			} else if(Df_j) {
 				*Df_j = D_ik;
 			} else if(Ds_j) {
-				*Ds_j = dtouc(D_ik);
+				*Ds_j = dtouc(D_ik, 0);
 			} else {
-				*Db_j = dtouc(D_ik);
+				*Db_j = dtouc(D_ik, 0);
 			}
 			/* update N and sD, sD(k) is new */
 			++sDvec;
@@ -1514,9 +1518,9 @@ void updateD_CF(Matrix *D, Vector *sD, int *N, int i, int j, double Li, double L
 				} else if(Dfmat) {
 					Dfmat[k][j] = dist;
 				} else if(Dsmat) {
-					Dsmat[k][j] = dtouc(dist);
+					Dsmat[k][j] = dtouc(dist, 0);
 				} else {
-					Dbmat[k][j] = dtouc(dist);
+					Dbmat[k][j] = dtouc(dist, 0);
 				}
 				/* update N and sD */
 				*++sDvec -= (D_ik + D_kj - dist);
@@ -1529,9 +1533,9 @@ void updateD_CF(Matrix *D, Vector *sD, int *N, int i, int j, double Li, double L
 				} else if(Dfmat) {
 					Dfmat[k][j] = D_ik;
 				} else if(Dsmat) {
-					Dsmat[k][j] = dtouc(D_ik);
+					Dsmat[k][j] = dtouc(D_ik, 0);
 				} else {
-					Dbmat[k][j] = dtouc(D_ik);
+					Dbmat[k][j] = dtouc(D_ik, 0);
 				}
 				/* update N and sD, sD(k) is new */
 				++sDvec;

@@ -19,6 +19,7 @@
 
 #include <stdio.h>
 #include "bytescale.h"
+#include "cmdline.h"
 #include "filebuff.h"
 #include "hashmapstr.h"
 #include "hashmapstrindex.h"
@@ -28,8 +29,6 @@
 #include "qseqs.h"
 #include "ulist.h"
 #include "tmp.h"
-#define missArg(opt) fprintf(stderr, "Missing argument at %s.\n", opt); exit(1);
-#define invaArg(opt) fprintf(stderr, "Invalid value parsed at %s.\n", opt); exit(1);
 
 static void syncMatrices(HashMapStr *names_index, uList *dist_index, Qseqs **names, unsigned n, Matrix *dist, Matrix *num) {
 	
@@ -81,9 +80,9 @@ static void normalize_ltdMatrix(Matrix *D, Matrix *N) {
 		while(--i) {
 			if(*++Nsptr != 0) {
 				++Dsptr;
-				*Dsptr = dtouc(((uctod(*Dsptr)) / (uctod(*Nsptr))));
+				*Dsptr = dtouc(((uctod(*Dsptr)) / (uctod(*Nsptr))), 0.5);
 			} else {
-				*++Dsptr = uctod(-1.0);
+				*++Dsptr = dtouc(-1.0, 0);
 			}
 		}
 	} else {
@@ -92,9 +91,9 @@ static void normalize_ltdMatrix(Matrix *D, Matrix *N) {
 		while(--i) {
 			if(*++Nbptr != 0) {
 				++Dbptr;
-				*Dbptr = dtouc(((uctod(*Dbptr)) / (uctod(*Nbptr))));
+				*Dbptr = dtouc(((uctod(*Dbptr)) / (uctod(*Nbptr))), 0.5);
 			} else {
-				*++Dbptr = uctod(-1.0);
+				*++Dbptr = dtouc(-1.0, 0);
 			}
 		}
 	}
@@ -255,10 +254,10 @@ char ** merge(Matrix *dist, Matrix *num, FileBuff *phyfile, FileBuff *numfile) {
 					n = *++distIndexN;
 					/* update cell */
 					if(m < n) {
-						distsMat[n][m] += dtouc((uctod(*++Dsptr) * uctod(*++Nsptr)));
+						distsMat[n][m] += dtouc((uctod(*++Dsptr) * uctod(*++Nsptr)), 0.5);
 						numsMat[n][m] += *Nsptr;
 					} else {
-						distsMat[m][n] += dtouc((uctod(*++Dsptr) * uctod(*++Nsptr)));
+						distsMat[m][n] += dtouc((uctod(*++Dsptr) * uctod(*++Nsptr)), 0.5);
 						numsMat[m][n] += *Nsptr;
 					}
 				}
@@ -279,10 +278,10 @@ char ** merge(Matrix *dist, Matrix *num, FileBuff *phyfile, FileBuff *numfile) {
 					n = *++distIndexN;
 					/* update cell */
 					if(m < n) {
-						distbMat[n][m] += dtouc((uctod(*++Dbptr) * uctod(*++Nbptr)));
+						distbMat[n][m] += dtouc((uctod(*++Dbptr) * uctod(*++Nbptr)), 0.5);
 						numbMat[n][m] += *Nbptr;
 					} else {
-						distbMat[m][n] += dtouc((uctod(*++Dbptr) * uctod(*++Nbptr)));
+						distbMat[m][n] += dtouc((uctod(*++Dbptr) * uctod(*++Nbptr)), 0.5);
 						numbMat[m][n] += *Nbptr;
 					}
 				}
@@ -501,14 +500,14 @@ int merger(char *phyfilename, char *numfilename, char *outphyfilename, char *out
 	destroyFileBuff(phyfile);
 	
 	/* output new matrices */
-	if(outphyfilename == 0 || (*outphyfilename == '-' && outphyfilename[1] == '-' && outphyfilename[2] == 0)) {
+	if(outphyfilename == 0 || (*outphyfilename == '-' && outphyfilename[1] == 0)) {
 		outphy = stdout;
 	} else {
 		outphy = sfopen(outphyfilename, "wb");
 	}
 	printphy(outphy, dist, names, 0, "Merged", format);
 	if(numfilename) {
-		if(*outnumfilename == '-' && outnumfilename[1] == '-' && outnumfilename[2] == 0) {
+		if(*outnumfilename == '-' && outnumfilename[1] == 0) {
 			outnum = stdout;
 		} else {
 			outnum = sfopen(outnumfilename, "wb");
@@ -530,128 +529,183 @@ int merger(char *phyfilename, char *numfilename, char *outphyfilename, char *out
 static int helpMessage(FILE *out) {
 	
 	fprintf(out, "#CCPhylo merges matrices from a multi Phylip file into one matrix\n");
-	fprintf(out, "# %16s\t%-32s\t%s\n", "Options are:", "Desc:", "Default:");
-	fprintf(out, "# %16s\t%-32s\t%s\n", "-i", "Input multi phylip distance file", "stdin");
-	fprintf(out, "# %16s\t%-32s\t%s\n", "-o", "Output file", "stdout");
-	fprintf(out, "# %16s\t%-32s\t%s\n", "-n", "Weigh distance with this Phylip file", "None");
-	fprintf(out, "# %16s\t%-32s\t%s\n", "-no", "Output number of nucleotides included", "stdout");
-	fprintf(out, "# %16s\t%-32s\t%s\n", "-f", "Output format", "1");
-	fprintf(out, "# %16s\t%-32s\t%s\n", "-fh", "Help on option \"-f\"", "");
-	fprintf(out, "# %16s\t%-32s\t%s\n", "-fp", "Float precision on distance matrix", "double");
-	//fprintf(out, "# %16s\t%-32s\t%s\n", "-sp", "Short precision on distance matrix", "double / 1e0");
-	fprintf(out, "# %16s\t%-32s\t%s\n", "-bp", "Byte precision on distance matrix", "double / 1e0");
-	fprintf(out, "# %16s\t%-32s\t%s\n", "-mm", "Allocate matrix on the disk", "False");
-	fprintf(out, "# %16s\t%-32s\t%s\n", "-tmp", "Set directory for temporary files", "");
-	fprintf(out, "# %16s\t%-32s\t%s\n", "-h", "Shows this helpmessage", "");
+	fprintf(out, "#   %-24s\t%-32s\t%s\n", "Options are:", "Desc:", "Default:");
+	fprintf(out, "#    -%c, --%-16s\t%-32s\t%s\n", 'i', "input", "Input multi phylip distance file", "stdin");
+	fprintf(out, "#    -%c, --%-16s\t%-32s\t%s\n", 'o', "output", "Output file", "stdout");
+	fprintf(out, "#    -%c, --%-16s\t%-32s\t%s\n", 'w', "nucleotides_weights", "Weigh distance with this Phylip file", "");
+	fprintf(out, "#    -%c, --%-16s\t%-32s\t%s\n", 'n', "nucleotide_numbers", "Output number of nucleotides included", "False/None");
+	fprintf(out, "#    -%c, --%-16s\t%-32s\t%s\n", 'f', "flag", "Output flags", "1");
+	fprintf(out, "#    -%c, --%-16s\t%-32s\t%s\n", 'F', "flag_help", "Help on option \"-f\"", "");
+	fprintf(out, "#    -%c, --%-16s\t%-32s\t%s\n", 'p', "float_precision", "Float precision on distance matrix", "double");
+	fprintf(out, "#    -%c, --%-16s\t%-32s\t%s\n", 's', "short_precision", "Short precision on distance matrix", "double / 1e0");
+	fprintf(out, "#    -%c, --%-16s\t%-32s\t%s\n", 'b', "byte_precision", "Byte precision on distance matrix", "double / 1e0");
+	fprintf(out, "#    -%c, --%-16s\t%-32s\t%s\n", 'H', "mmap", "Allocate matrix on the disk", "False");
+	fprintf(out, "#    -%c, --%-16s\t%-32s\t%s\n", 'T', "tmp", "Set directory for temporary files", "");
+	fprintf(out, "#    -%c, --%-16s\t%-32s\t%s\n", 'h', "help", "Shows this helpmessage", "");
 	return (out == stderr);
+	
+	/*
+	i	i	input
+	o	o	output
+	n	w	nucleotides_weights
+	no	n	nucleotide_numbers
+	f	f	flag
+	fh	F	flag_help
+	fp	p	float_precision
+	sp	s	short_precision
+	bp	b	byte_precision
+	mm	H	mmap
+	tmp	T	tmp
+	h	h	help
+	*/
 }
 
-int main_merge(int argc, char *argv[]) {
+int main_merge(int argc, char **argv) {
 	
-	int size;
-	unsigned args, format;
-	char *arg, *phyfilename, *numfilename, *outphyfilename, *outnumfilename;
-	char *errorMsg;
+	const char *stdstream = "-";
+	int args, flag, size, len, offset;
+	char **Arg, *arg, *phyfilename, *numfilename, *outphyfilename;
+	char *outnumfilename, *tmp, opt;
 	
 	/* set defaults */
 	size = sizeof(double);
-	format = 1;
-	phyfilename = "--";
+	flag = 1;
+	phyfilename = (char *)(stdstream);
 	numfilename = 0;
-	outphyfilename = "--";
-	outnumfilename = "--";
+	outphyfilename = (char *)(stdstream);
+	outnumfilename = (char *)(stdstream);
+	tmp = 0;
 	
-	args = 1;
-	while(args < argc) {
-		arg = argv[args];
+	/* parse cmd-line */
+	args = argc - 1;
+	Arg = argv;
+	if(args && **++Arg == '-') {
+		len = 1;
+		--Arg;
+	} else {
+		len = 0;
+	}
+	while(args && len) {
+		arg = *++Arg;
 		if(*arg++ == '-') {
-			if(strcmp(arg, "i") == 0) {
-				if(++args < argc) {
-					phyfilename = argv[args];
+			if(*arg == '-') {
+				/* check if argument is included */
+				len = getOptArg(++arg);
+				offset = 2 + (arg[len] ? 1 : 0);
+				
+				/* long option */
+				if(*arg == 0) {
+					/* terminate cmd-line */
+					++Arg;
+				} else if(strncmp(arg, "input", len) == 0) {
+					phyfilename = getArgDie(&Arg, &args, len + offset, "input");
+				} else if(strncmp(arg, "output", len) == 0) {
+					outphyfilename = getArgDie(&Arg, &args, len + offset, "output");
+				} else if(strncmp(arg, "nucleotides_weights", len) == 0) {
+					numfilename = getArgDie(&Arg, &args, len + offset, "nucleotides_weights");
+				} else if(strncmp(arg, "nucleotide_numbers", len) == 0) {
+					outnumfilename = getArgDie(&Arg, &args, len + offset, "nucleotide_numbers");
+				} else if(strncmp(arg, "flag", len) == 0) {
+					flag = getNumArg(&Arg, &args, len + offset, "flag");
+				} else if(strncmp(arg, "flag_help", len) == 0) {
+					flag = -1;
+				} else if(strncmp(arg, "float_precision", len) == 0) {
+					size = sizeof(float);
+				} else if(strncmp(arg, "short_precision", len) == 0) {
+					size = sizeof(short unsigned);
+					ByteScale = getdDefArg(&Arg, &args, len + offset, ByteScale, "short_precision");
+				} else if(strncmp(arg, "byte_precision", len) == 0) {
+					size = sizeof(unsigned char);
+					ByteScale = getdDefArg(&Arg, &args, len + offset, ByteScale, "byte_precision");
+				} else if(strncmp(arg, "mmap", len) == 0) {
+					ltdMatrix_init = &ltdMatrixMinit;
+				} else if(strncmp(arg, "tmp", len) == 0) {
+					tmp = getArgDie(&Arg, &args, len + offset, "tmp");
+				} else if(strncmp(arg, "help", len) == 0) {
+					return helpMessage(stdout);
 				} else {
-					missArg("\"-i\"");
+					unknArg(arg - 2);
 				}
-			} else if(strcmp(arg, "o") == 0) {
-				if(++args < argc) {
-					outphyfilename = argv[args];
-				} else {
-					missArg("\"-o\"");
-				}
-			} else if(strcmp(arg, "n") == 0) {
-				if(++args < argc) {
-					numfilename = argv[args];
-				} else {
-					numfilename = "--";
-				}
-			} else if(strcmp(arg, "no") == 0) {
-				if(++args < argc) {
-					outnumfilename = argv[args];
-				} else {
-					outnumfilename = "--";
-				}
-			} else if(strcmp(arg, "f") == 0) {
-				if(++args < argc) {
-					format = strtoul(argv[args], &arg, 10);
-					if(*arg != 0) {
-						invaArg("\"-f\"");
-					}
-				} else {
-					missArg("\"-f\"");
-				}
-			} else if(strcmp(arg, "fh") == 0) {
-				fprintf(stdout, "# Format flags output, add them to combine them.\n");
-				fprintf(stdout, "#\n");
-				fprintf(stdout, "#   1:\tRelaxed Phylip\n");
-				fprintf(stdout, "#   2:\tDistances are pairwise, always true on *.mat files\n");
-				fprintf(stdout, "#   4:\tInclude template name in phylip file\n");
-				fprintf(stdout, "#   8:\tInclude insignificant bases in distance calculation, only affects fasta input\n");
-				fprintf(stdout, "#  16:\tInclude reference, only affects fasta input\n");
-				fprintf(stdout, "#  32:\tDistances based on fasta input\n");
-				fprintf(stdout, "#\n");
-				return 0;
-			} else if(strcmp(arg, "fp") == 0) {
-				size = sizeof(float);
-			} else if(strcmp(arg, "sp") == 0) {
-				if(++args < argc && argv[args][0] != '-') {
-					ByteScale = strtod(argv[args], &errorMsg);
-					if(*errorMsg != 0 || ByteScale == 0) {
-						invaArg("\"-sp\"");
-					}
-				} else {
-					--args;
-				}
-				size = sizeof(short unsigned);
-			} else if(strcmp(arg, "bp") == 0) {
-				if(++args < argc && argv[args][0] != '-') {
-					ByteScale = strtod(argv[args], &errorMsg);
-					if(*errorMsg != 0 || ByteScale == 0) {
-						invaArg("\"-bp\"");
-					}
-				} else {
-					--args;
-				}
-				size = sizeof(unsigned char);
-			} else if(strcmp(arg, "mm") == 0) {
-				ltdMatrix_init = &ltdMatrixMinit;
-			} else if(strcmp(arg, "tmp") == 0) {
-				if(++args < argc) {
-					if(argv[args][0] != '-') {
-						tmpF(argv[args]);
-					} else {
-						invaArg("\"-tmp\"");
-					}
-				}
-			} else if(strcmp(arg, "h") == 0) {
-				return helpMessage(stdout);
 			} else {
-				fprintf(stderr, "Unknown option:%s\n", arg - 1);
-				return helpMessage(stderr);
+				/* multiple option */
+				len = 1;
+				opt = *arg;
+				while(opt && (opt = *arg++)) {
+					++len;
+					if(opt == 'i') {
+						phyfilename = getArgDie(&Arg, &args, len, "i");
+						opt = 0;
+					} else if(opt == 'o') {
+						outphyfilename = getArgDie(&Arg, &args, len, "o");
+						opt = 0;
+					} else if(opt == 'w') {
+						numfilename = getArgDie(&Arg, &args, len, "w");
+						opt = 0;
+					} else if(opt == 'n') {
+						outnumfilename = getArgDie(&Arg, &args, len, "n");
+						opt = 0;
+					} else if(opt == 'f') {
+						flag = getNumArg(&Arg, &args, len, "f");
+						opt = 0;
+					} else if(opt == 'F') {
+						flag = -1;
+					} else if(opt == 'p') {
+						size = sizeof(float);
+					} else if(opt == 's') {
+						size = sizeof(short unsigned);
+						ByteScale = getdDefArg(&Arg, &args, len, ByteScale, "s");
+						opt = 0;
+					} else if(opt == 'b') {
+						size = sizeof(unsigned char);
+						ByteScale = getdDefArg(&Arg, &args, len, ByteScale, "b");
+						opt = 0;
+					} else if(opt == 'H') {
+						ltdMatrix_init = &ltdMatrixMinit;
+						opt = 0;
+					} else if(opt == 'T') {
+						tmp = getArgDie(&Arg, &args, len, "T");
+						opt = 0;
+					} else if(opt == 'h') {
+						return helpMessage(stdout);
+					} else {
+						*arg = 0;
+						unknArg(arg - 1);
+					}
+				}
 			}
 		} else {
-			fprintf(stderr, "Unknown argument:%s\n", arg - 1);
-			return helpMessage(stderr);
+			/* terminate cmd-line */
+			--arg;
+			++args;
+			len = 0;
 		}
-		++args;
+		--args;
+	}
+	
+	/* non-options */
+	if(args) {
+		phyfilename = *Arg;
+		if(--args) {
+			nonOptError();
+		}
+	}
+	
+	/* tmp dir */
+	if(tmp) {
+		tmpF(tmp);
+	}
+	
+	if(flag == -1) {
+		fprintf(stdout, "# Format flags output, add them to combine them.\n");
+		fprintf(stdout, "#\n");
+		fprintf(stdout, "#   1:\tRelaxed Phylip\n");
+		fprintf(stdout, "#   2:\tDistances are pairwise, always true on *.mat files\n");
+		fprintf(stdout, "#   4:\tInclude template name in phylip file\n");
+		fprintf(stdout, "#   8:\tInclude insignificant bases in distance calculation, only affects fasta input\n");
+		fprintf(stdout, "#  16:\tInclude reference, only affects fasta input\n");
+		fprintf(stdout, "#  32:\tDistances based on fasta input\n");
+		fprintf(stdout, "#\n");
+		return 0;
 	}
 	
 	/* set precision */
@@ -659,5 +713,5 @@ int main_merge(int argc, char *argv[]) {
 	ltdMatrixMinit(-size);
 	
 	/* merge matrices */
-	return merger(phyfilename, numfilename, outphyfilename, outnumfilename, format);
+	return merger(phyfilename, numfilename, outphyfilename, outnumfilename, flag);
 }

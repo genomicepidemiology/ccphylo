@@ -338,14 +338,14 @@ void * cmpMatThrd(void *arg) {
 					Nfptr[j] = mat2->total;
 				}
 			} else if(Dsptr) {
-				Dsptr[j] = dtouc(dist);
+				Dsptr[j] = dtouc(dist, 0.5);
 				if(N) {
-					Nsptr[j] = dtouc(mat2->total);
+					Nsptr[j] = dtouc(mat2->total, 0.5);
 				}
 			} else {
-				Dbptr[j] = dtouc(dist);
+				Dbptr[j] = dtouc(dist, 0.5);
 				if(N) {
-					Nbptr[j] = dtouc(mat2->total);
+					Nbptr[j] = dtouc(mat2->total, 0.5);
 				}
 			}
 			

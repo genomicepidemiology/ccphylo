@@ -19,5 +19,5 @@
 
 extern double ByteScale;
 
-#define dtouc(src) (src * ByteScale + 0.5)
+#define dtouc(src, round) (src * ByteScale + round)
 #define uctod(src) (src / ByteScale)

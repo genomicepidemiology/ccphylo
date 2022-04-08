@@ -17,6 +17,8 @@
  * limitations under the License.
 */
 
-void printTrimFsa(char *filename, unsigned char *seq, int len, unsigned *includes, int flag);
-void fsaTrim(int numFile, char *targetTemplate, char **filenames, unsigned minLength, double minCov, unsigned flag, unsigned proxi, char *methfilename);
-int main_trim(int argc, char *argv[]);
+#include <stdio.h>
+
+void printTrimFsa(FILE *out, char *filename, unsigned char *seq, int len, unsigned *includes, int flag);
+void fsaTrim(int numFile, char *targetTemplate, char **filenames, char *outputfilename, unsigned minLength, double minCov, unsigned flag, unsigned proxi, char *methfilename);
+int main_trim(int argc, char **argv);

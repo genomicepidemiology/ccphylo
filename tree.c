@@ -20,6 +20,7 @@
 #include <stdio.h>
 #include <time.h>
 #include "bytescale.h"
+#include "cmdline.h"
 #include "dnj.h"
 #include "filebuff.h"
 #include "hclust.h"
@@ -32,8 +33,6 @@
 #include "tmp.h"
 #include "tree.h"
 #include "vector.h"
-#define missArg(opt) fprintf(stderr, "Missing argument at %s.", opt); exit(1);
-#define invaArg(opt) fprintf(stderr, "Invalid value parsed at %s.\n", opt); exit(1);
 
 void formTree(char *inputfilename, char *outputfilename, int flag, char m, int thread_num) {
 	
@@ -46,7 +45,7 @@ void formTree(char *inputfilename, char *outputfilename, int flag, char m, int t
 	time_t t0, t1;
 	
 	/* init */
-	outfile = (*outputfilename == '-' && outputfilename[1] == '-' && outputfilename[2] == 0) ? stdout : sfopen(outputfilename, "wb");
+	outfile = (*outputfilename == '-' && outputfilename[1] == 0) ? stdout : sfopen(outputfilename, "wb");
 	infile = setFileBuff(1048576);
 	header = setQseqs(64);
 	i = 32;
@@ -103,9 +102,9 @@ void formTree(char *inputfilename, char *outputfilename, int flag, char m, int t
 		} else if(D->n == 2) {
 			/* output tree */
 			if(header->len) {
-				fprintf(outfile, ">%s(%s,%s:%.2f);\n", header->seq, (*names)->seq, names[1]->seq, **(D->mat));
+				fprintf(outfile, ">%s(%s,%s:%.2f);\n", header->seq, (*names)->seq, names[1]->seq, (D->mat ? **(D->mat) : D->fmat ? **(D->fmat) : D->smat ? uctod(**(D->smat)) : uctod(**(D->bmat))));
 			} else {
-				fprintf(outfile, "(%s,%s:%.2f);\n", (*names)->seq, names[1]->seq, **(D->mat));
+				fprintf(outfile, "(%s,%s:%.2f);\n", (*names)->seq, names[1]->seq, (D->mat ? **(D->mat) : D->fmat ? **(D->fmat) : D->smat ? uctod(**(D->smat)) : uctod(**(D->bmat))));
 			}
 		}
 		t1 = clock();
@@ -126,133 +125,174 @@ void formTree(char *inputfilename, char *outputfilename, int flag, char m, int t
 static int helpMessage(FILE *out) {
 	
 	fprintf(out, "#CCPhylo forms tree(s) in newick format given a set of phylip distance matrices.\n");
-	fprintf(out, "# %16s\t%-32s\t%s\n", "Options are:", "Desc:", "Default:");
-	fprintf(out, "# %16s\t%-32s\t%s\n", "-i", "Input file.", "stdin");
-	fprintf(out, "# %16s\t%-32s\t%s\n", "-o", "Output file", "stdout");
-	fprintf(out, "# %16s\t%-32s\t%s\n", "-f", "Output flags", "0");
-	fprintf(out, "# %16s\t%-32s\t%s\n", "-fh", "Help on option \"-f\"", "");
-	fprintf(out, "# %16s\t%-32s\t%s\n", "-m", "Tree construction method.", "dnj");
-	fprintf(out, "# %16s\t%-32s\t%s\n", "-mh", "Help on option \"-m\"", "");
-	fprintf(out, "# %16s\t%-32s\t%s\n", "-fp", "Float precision on distance matrix", "double");
-	fprintf(out, "# %16s\t%-32s\t%s\n", "-sp", "Short precision on distance matrix", "double / 1e0");
-	fprintf(out, "# %16s\t%-32s\t%s\n", "-bp", "Byte precision on distance matrix", "double / 1e0");
-	fprintf(out, "# %16s\t%-32s\t%s\n", "-gf", "Gradually free up D", "False");
-	fprintf(out, "# %16s\t%-32s\t%s\n", "-mm", "Allocate matrix on the disk", "False");
-	fprintf(out, "# %16s\t%-32s\t%s\n", "-tmp", "Set directory for temporary files", "");
-	fprintf(out, "# %16s\t%-32s\t%s\n", "-t", "Number of threads", "1");
-	fprintf(out, "# %16s\t%-32s\t%s\n", "-h", "Shows this helpmessage", "");
+	fprintf(out, "#   %-24s\t%-32s\t%s\n", "Options are:", "Desc:", "Default:");
+	fprintf(out, "#    -%c, --%-16s\t%-32s\t%s\n", 'i', "input", "Input file", "stdin");
+	fprintf(out, "#    -%c, --%-16s\t%-32s\t%s\n", 'o', "output", "Output file", "stdout");
+	fprintf(out, "#    -%c, --%-16s\t%-32s\t%s\n", 'm', "method", "Tree construction method.", "dnj");
+	fprintf(out, "#    -%c, --%-16s\t%-32s\t%s\n", 'M', "method_help", "Help on option \"-m\"", "");
+	fprintf(out, "#    -%c, --%-16s\t%-32s\t%s\n", 'f', "flag", "Output flags", "0");
+	fprintf(out, "#    -%c, --%-16s\t%-32s\t%s\n", 'F', "flag_help", "Help on option \"-f\"", "");
+	fprintf(out, "#    -%c, --%-16s\t%-32s\t%s\n", 'p', "float_precision", "Float precision on distance matrix", "False / double");
+	fprintf(out, "#    -%c, --%-16s\t%-32s\t%s\n", 's', "short_precision", "Short precision on distance matrix", "False / double / 1e0");
+	fprintf(out, "#    -%c, --%-16s\t%-32s\t%s\n", 'b', "byte_precision", "Byte precision on distance matrix", "False / double / 1e0");
+	fprintf(out, "#    -%c, --%-16s\t%-32s\t%s\n", 'g', "free", "Gradually free up D", "False");
+	fprintf(out, "#    -%c, --%-16s\t%-32s\t%s\n", 'H', "mmap", "Allocate matrix on the disk", "False");
+	fprintf(out, "#    -%c, --%-16s\t%-32s\t%s\n", 'T', "tmp", "Set directory for temporary files", "");
+	fprintf(out, "#    -%c, --%-16s\t%-32s\t%s\n", 't', "threads", "Number of threads", "1");
+	fprintf(out, "#    -%c, --%-16s\t%-32s\t%s\n", 'h', "help", "Shows this helpmessage", "");
 	return (out == stderr);
 }
 
-int main_tree(int argc, char *argv[]) {
+int main_tree(int argc, char **argv) {
 	
-	int size;
-	unsigned args, flag, thread_num;
-	char *arg, *inputfilename, *outputfilename, *method, *errorMsg, m;
+	const char *stdstream = "-";
+	int size, len, offset, args, flag, thread_num;
+	char **Arg, *arg, *inputfilename, *outputfilename, *method, *tmp, m, opt;
 	
 	/* set defaults */
 	size = sizeof(double);
 	flag = 0;
 	thread_num = 1;
-	inputfilename = "--";
-	outputfilename = "--";
+	inputfilename = (char *)(stdstream);
+	outputfilename = (char *)(stdstream);
 	method = "dnj";
 	m = 'd';
+	tmp = 0;
 	
-	args = 1;
-	while(args < argc) {
-		arg = argv[args];
+	/* parse cmd-line */
+	args = argc - 1;
+	Arg = argv;
+	if(args && **++Arg == '-') {
+		len = 1;
+		--Arg;
+	} else {
+		len = 0;
+	}
+	while(args && len) {
+		arg = *++Arg;
 		if(*arg++ == '-') {
-			if(strcmp(arg, "i") == 0) {
-				if(++args < argc) {
-					inputfilename = argv[args];
+			if(*arg == '-') {
+				/* check if argument is included */
+				len = getOptArg(++arg);
+				offset = 2 + (arg[len] ? 1 : 0);
+				
+				/* long option */
+				if(*arg == 0) {
+					/* terminate cmd-line */
+					++Arg;
+				} else if(strncmp(arg, "input", len) == 0) {
+					inputfilename = getArgDie(&Arg, &args, len + offset, "input");
+				} else if(strncmp(arg, "output", len) == 0) {
+					outputfilename = getArgDie(&Arg, &args, len + offset, "output");
+				} else if(strncmp(arg, "method", len) == 0) {
+					method = getArgDie(&Arg, &args, len + offset, "method");
+				} else if(strncmp(arg, "method_help", len) == 0) {
+					method = "mh";
+				} else if(strncmp(arg, "flag", len) == 0) {
+					flag = getNumArg(&Arg, &args, len + offset, "flag");
+				} else if(strncmp(arg, "flag_help", len) == 0) {
+					flag = -1;
+				} else if(strncmp(arg, "threads", len) == 0) {
+					thread_num = getNumArg(&Arg, &args, len + offset, "threads");
+				} else if(strncmp(arg, "float_precision", len) == 0) {
+					size = sizeof(float);
+				} else if(strncmp(arg, "short_precision", len) == 0) {
+					size = sizeof(short unsigned);
+					ByteScale = getdDefArg(&Arg, &args, len + offset, ByteScale, "short_precision");
+				} else if(strncmp(arg, "byte_precision", len) == 0) {
+					size = sizeof(unsigned char);
+					ByteScale = getdDefArg(&Arg, &args, len + offset, ByteScale, "byte_precision");
+				} else if(strncmp(arg, "free", len) == 0) {
+					ltdMatrixShrink = &ltdMatrix_shrink;
+				} else if(strncmp(arg, "mmap", len) == 0) {
+					ltdMatrix_init = &ltdMatrixMinit;
+				} else if(strncmp(arg, "tmp", len) == 0) {
+					tmp = getArgDie(&Arg, &args, len + offset, "tmp");
+				} else if(strncmp(arg, "help", len) == 0) {
+					return helpMessage(stdout);
 				} else {
-					missArg("\"-o\"");
+					unknArg(arg - 2);
 				}
-			} else if(strcmp(arg, "o") == 0) {
-				if(++args < argc) {
-					outputfilename = argv[args];
-				} else {
-					missArg("\"-o\"");
-				}
-			} else if(strcmp(arg, "m") == 0) {
-				if(++args < argc) {
-					method = argv[args];
-				} else {
-					missArg("\"-m\"");
-				}
-			} else if(strcmp(arg, "mh") == 0) {
-				method = "mh";
-			} else if(strcmp(arg, "f") == 0) {
-				if(++args < argc) {
-					flag = strtoul(argv[args], &errorMsg, 10);
-					if(*errorMsg != 0) {
-						invaArg("\"-f\"");
-					}
-				} else {
-					missArg("\"-f\"");
-				}
-			} else if(strcmp(arg, "fh") == 0) {
-				fprintf(stdout, "# Format flags output, add them to combine them.\n");
-				fprintf(stdout, "#\n");
-				fprintf(stdout, "#   1:\tStrictly bifurcate the root\n");
-				fprintf(stdout, "#   2:\tAllow negative branchlengths\n");
-				fprintf(stdout, "#\n");
-				return 0;
-			} else if(strcmp(arg, "t") == 0) {
-				if(++args < argc) {
-					thread_num = strtoul(argv[args], &errorMsg, 10);
-					if(*errorMsg != 0) {
-						invaArg("\"-t\"");
-					}
-				} else {
-					missArg("\"-t\"");
-				}
-			} else if(strcmp(arg, "fp") == 0) {
-				size = sizeof(float);
-			} else if(strcmp(arg, "sp") == 0) {
-				if(++args < argc && argv[args][0] != '-') {
-					ByteScale = strtod(argv[args], &errorMsg);
-					if(*errorMsg != 0 || ByteScale == 0) {
-						invaArg("\"-sp\"");
-					}
-				} else {
-					--args;
-				}
-				size = sizeof(short unsigned);
-			} else if(strcmp(arg, "bp") == 0) {
-				if(++args < argc && argv[args][0] != '-') {
-					ByteScale = strtod(argv[args], &errorMsg);
-					if(*errorMsg != 0 || ByteScale == 0) {
-						invaArg("\"-bp\"");
-					}
-				} else {
-					--args;
-				}
-				size = sizeof(unsigned char);
-			} else if(strcmp(arg, "gf") == 0) {
-				ltdMatrixShrink = &ltdMatrix_shrink;
-			} else if(strcmp(arg, "mm") == 0) {
-				ltdMatrix_init = &ltdMatrixMinit;
-			} else if(strcmp(arg, "tmp") == 0) {
-				if(++args < argc) {
-					if(argv[args][0] != '-') {
-						tmpF(argv[args]);
-					} else {
-						invaArg("\"-tmp\"");
-					}
-				}
-			} else if(strcmp(arg, "h") == 0) {
-				return helpMessage(stdout);
 			} else {
-				fprintf(stderr, "Unknown option:%s\n", arg - 1);
-				return helpMessage(stderr);
+				/* multiple option */
+				len = 1;
+				opt = *arg;
+				while(opt && (opt = *arg++)) {
+					++len;
+					if(opt == 'i') {
+						inputfilename = getArgDie(&Arg, &args, len, "i");
+						opt = 0;
+					} else if(opt == 'o') {
+						outputfilename = getArgDie(&Arg, &args, len, "o");
+						opt = 0;
+					} else if(opt == 'm') {
+						method = getArgDie(&Arg, &args, len, "m");
+						opt = 0;
+					} else if(opt == 'M') {
+						method = "mh";
+					} else if(opt == 'f') {
+						flag = getNumArg(&Arg, &args, len, "f");
+						opt = 0;
+					} else if(opt == 'F') {
+						flag = -1;
+					} else if(opt == 't') {
+						thread_num = getNumArg(&Arg, &args, len, "t");
+						opt = 0;
+					} else if(opt == 'p') {
+						size = sizeof(float);
+					} else if(opt == 's') {
+						size = sizeof(short unsigned);
+						ByteScale = getdDefArg(&Arg, &args, len, ByteScale, "s");
+						opt = 0;
+					} else if(opt == 'b') {
+						size = sizeof(unsigned char);
+						ByteScale = getdDefArg(&Arg, &args, len, ByteScale, "b");
+						opt = 0;
+					} else if(opt == 'g') {
+						ltdMatrixShrink = &ltdMatrix_shrink;
+					} else if(opt == 'H') {
+						ltdMatrix_init = &ltdMatrixMinit;
+					} else if(opt == 'T') {
+						tmp = getArgDie(&Arg, &args, len, "T");
+						opt = 0;
+					} else if(opt == 'h') {
+						return helpMessage(stdout);
+					} else {
+						*arg = 0;
+						unknArg(arg - 1);
+					}
+				}
 			}
 		} else {
-			fprintf(stderr, "Unknown argument:%s\n", arg - 1);
-			return helpMessage(stderr);
+			/* terminate cmd-line */
+			--arg;
+			++args;
+			len = 0;
 		}
-		++args;
+		--args;
+	}
+	
+	/* non-options */
+	if(args) {
+		inputfilename = *Arg;
+		if(--args) {
+			nonOptError();
+		}
+	}
+	
+	/* flag help */
+	if(flag == -1) {
+		fprintf(stdout, "# Format flags output, add them to combine them.\n");
+		fprintf(stdout, "#\n");
+		fprintf(stdout, "#   1:\tStrictly bifurcate the root\n");
+		fprintf(stdout, "#   2:\tAllow negative branchlengths\n");
+		fprintf(stdout, "#\n");
+		return 0;
+	}
+	
+	/* tmp dir */
+	if(tmp) {
+		tmpF(tmp);
 	}
 	
 	/* set precision */
@@ -322,7 +362,7 @@ int main_tree(int argc, char *argv[]) {
 		minDchunkPtr = &minDchunk;
 		*/
 	} else if(strcmp(method, "mn") == 0) {
-		/* minimum neighbours */
+		/* minimum neighbors */
 		m = 'e';
 		updateDptr = &updateD;
 		minDist = &initQ_MN;

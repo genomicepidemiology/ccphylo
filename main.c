@@ -19,6 +19,7 @@
 
 #include <stdio.h>
 #include <string.h>
+#include "cmdline.h"
 #include "dbscan.h"
 #include "dist.h"
 #include "fullphy.h"
@@ -33,27 +34,68 @@
 
 static int helpMessage(FILE *out) {
 	
-	fprintf(out, "# CCPhylo enables phylogenetic analysis of samples based on overlaps between nucleotide created by e.g. KMA.\n");
-	fprintf(out, "# %16s\t%-32s\n", "Options are:", "Desc:");
-	fprintf(out, "# %16s\t%-32s\n", "dist", "make distance matrices");
-	fprintf(out, "# %16s\t%-32s\n", "tree", "make tree(s)");
-	fprintf(out, "# %16s\t%-32s\n", "dbscan", "make DBSCAN(s)");
-	fprintf(out, "# %16s\t%-32s\n", "union", "Find union of templates between samples");
-	fprintf(out, "# %16s\t%-32s\n", "merge", "merge distance matrices");
-	fprintf(out, "# %16s\t%-32s\n", "nwck2phy", "Convert newick file to phylip distance file");
-	fprintf(out, "# %16s\t%-32s\n", "tsv2phy", "Convert tsv file to phylip distance file");
-	fprintf(out, "# %16s\t%-32s\n", "rarify", "Rarify a KMA matrix");
-	fprintf(out, "# %16s\t%-32s\n", "trim", "Trim multiple alignments");
-	fprintf(out, "# %16s\t%-32s\n", "fullphy", "Convert ltd phy to full phy");
-	fprintf(out, "# %16s\t%-32s\n", "-c", "Citation");
-	fprintf(out, "# %16s\t%-32s\n", "-v", "Version");
-	fprintf(out, "# %16s\t%-32s\n", "-h", "Shows this helpmessage");
+	/* All options:
+	a	add
+	A	fragment_amount
+	b	byte_precision
+	B	database
+	c	citation
+	C	min_cov
+	d	distance
+	D	distance_help
+	e	max_distance
+	E	min_depth
+	f	flag
+	F	flag_help
+	g	free
+	h	help
+	H	mmap
+	i	input
+	l	significance_lvl
+	L	min_len
+	m	method
+	M	method_help
+	n	nucleotide_numbers
+	N	min_neighbors
+	o	output
+	O	nucletides_included
+	P	proximity
+	p	float_precision
+	r	reference
+	R	rarification_factor
+	s	short_precision 
+	S	separator
+	t	threads
+	T	tmp
+	v	version
+	V	nucleotide_variations
+	w	nucleotides_weights
+	W	normalization_weight
+	y	methylation_motifs
+	*/
+	
+	fprintf(out, "# CCPhylo enables phylogenetic analysis of samples based on overlaps between nucleotide created by e.g. KMA. Input file(s) may be given as non-option arguments succeding all options\n");
+	fprintf(out, "#   %-24s\t%-32s\n", "Options are:", "Desc:");
+	fprintf(out, "#    %-23s\t%-32s\n", "dist", "make distance matrices");
+	fprintf(out, "#    %-23s\t%-32s\n", "tree", "make tree(s)");
+	fprintf(out, "#    %-23s\t%-32s\n", "dbscan", "make DBSCAN(s)");
+	fprintf(out, "#    %-23s\t%-32s\n", "union", "Find union of templates between samples");
+	fprintf(out, "#    %-23s\t%-32s\n", "merge", "merge distance matrices");
+	fprintf(out, "#    %-23s\t%-32s\n", "nwck2phy", "Convert newick file to phylip distance file");
+	fprintf(out, "#    %-23s\t%-32s\n", "tsv2phy", "Convert tsv file to phylip distance file");
+	fprintf(out, "#    %-23s\t%-32s\n", "rarify", "Rarify a KMA matrix");
+	fprintf(out, "#    %-23s\t%-32s\n", "trim", "Trim multiple alignments");
+	fprintf(out, "#    %-23s\t%-32s\n", "fullphy", "Convert ltd phy to full phy");
+	fprintf(out, "#    -%c, --%-17s\t%-32s\n", 'v', "version", "Version");
+	fprintf(out, "#    -%c, --%-17s\t%-32s\n", 'c', "citation", "Citation");
+	fprintf(out, "#    -%c, --%-17s\t%-32s\n", 'h', "help", "Shows this helpmessage");
 	return (out == stderr);
 }
 
-int main(int argc, char *argv[]) {
+int main(int argc, char **argv) {
 	
-	char *arg;
+	int args, len, offset, flag;
+	char **Arg, *arg, opt;
 	
 	arg = *++argv;
 	if(--argc < 1) {
@@ -79,12 +121,77 @@ int main(int argc, char *argv[]) {
 		return main_dbscan(argc, argv);
 	} else if(strcmp(arg, "fullphy") == 0) {
 		return main_fullphy(argc, argv);
-	} else if(strcmp(arg, "-c") == 0) {
-		fprintf(stdout, "Malte B. Hallgren, Soeren Overballe-Petersen, Ole Lund, Henrik Hasman, Philip T.L.C. Clausen, \"MINTyper: an outbreak-detection method for accurate and rapid SNP typing of clonal clusters with noisy long reads\", Biology Methods & Protocols,  https://doi.org/10.1093/biomethods/bpab008.\n");
-	} else if(strcmp(arg, "-v") == 0) {
-		fprintf(stdout, "CCPhylo-%s\n", CCPHYLO_VERSION);
-	} else if(strcmp(arg, "-h") == 0) {
-		return helpMessage(stdout);
+	} else if(*arg == '-') {
+		/* parse options */
+		flag = 0;
+		args = argc;
+		Arg = argv;
+		if(args && **Arg == '-') {
+			len = 1;
+			--Arg;
+		} else {
+			len = 0;
+		}
+		while(args && len) {
+			arg = *++Arg;
+			if(*arg++ == '-') {
+				if(*arg == '-') {
+					/* check if argument is included */
+					len = getOptArg(++arg);
+					offset = 2 + (arg[len] ? 1 : 0);
+					
+					/* long option */
+					if(*arg == 0) {
+						/* terminate cmd-line */
+						++Arg;
+					} else if(strncmp(arg, "version", len + offset) == 0) {
+						flag |= 1;
+					} else if(strncmp(arg, "citation", len + offset) == 0) {
+						flag |= 2;
+					} else if(strncmp(arg, "help", len + offset) == 0) {
+						flag |= 4;
+					} else {
+						unknArg(arg - 2);
+					}
+				} else {
+					/* multiple option */
+					len = 1;
+					opt = *arg;
+					while(opt && (opt = *arg++)) {
+						++len;
+						if(opt == 'v') {
+							flag |= 1;
+						} else if(opt == 'c') {
+							flag |= 2;
+						} else if(opt == 'h') {
+							flag |= 4;
+						} else {
+							*arg = 0;
+							unknArg(arg - 1);
+						}
+					}
+				}
+			} else {
+				unknArg(arg - 1);
+			}
+			--args;
+		}
+		
+		/* non-options */
+		if(args) {
+			nonOptError();
+		}
+		
+		/* print specified output */
+		if(flag & 1) {
+			fprintf(stdout, "CCPhylo-%s\n", CCPHYLO_VERSION);
+		}
+		if(flag & 2) {
+			fprintf(stdout, "Malte B. Hallgren, Soeren Overballe-Petersen, Ole Lund, Henrik Hasman, Philip T.L.C. Clausen, \"MINTyper: an outbreak-detection method for accurate and rapid SNP typing of clonal clusters with noisy long reads\", Biology Methods & Protocols,  https://doi.org/10.1093/biomethods/bpab008.\n");
+		}
+		if(flag & 4) {
+			return helpMessage(stdout);
+		}
 	} else {
 		fprintf(stderr, "Unknown argument:%s\n", arg);
 		return helpMessage(stderr);

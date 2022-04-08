@@ -18,4 +18,4 @@
 */
 
 void formTree(char *inputfilename, char *outputfilename, int flag, char m, int thread_num);
-int main_tree(int argc, char *argv[]);
+int main_tree(int argc, char **argv);

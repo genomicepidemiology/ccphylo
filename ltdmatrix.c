@@ -168,11 +168,11 @@ void ltdMatrix_get(Matrix *dest, Matrix *nDest, MatrixCounts *mat1, NucCount *ma
 							*fmat++ = dist;
 							*nfMat++ = mat2->total;
 						} else if(smat) {
-							*smat++ = dtouc(dist);
-							*nsMat++ = dtouc(mat2->total);
+							*smat++ = dtouc(dist, 0.5);
+							*nsMat++ = dtouc(mat2->total, 0.5);
 						} else {
-							*bmat++ = dtouc(dist);
-							*nbMat++ = dtouc(mat2->total);
+							*bmat++ = dtouc(dist, 0.5);
+							*nbMat++ = dtouc(mat2->total, 0.5);
 						}
 					} else {
 						include[n] = 0;

@@ -17,4 +17,4 @@
  * limitations under the License.
 */
 
-int main_dist(int argc, char *argv[]);
+int main_dist(int argc, char **argv);

@@ -240,7 +240,7 @@ int ltdFsaRow_get(double *D, double *N, FileBuff *infile, char *targetTemplate, 
 		free(seqL);
 		return 1;
 	}  else if(diffilename) {
-		if(*diffilename == '-' && diffilename[1] == '-' && diffilename[2] == 0) {
+		if(*diffilename == '-' && diffilename[1] == 0) {
 			diffile = stdout;
 		} else {
 			diffile = sfopen(diffilename, "ab");

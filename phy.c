@@ -431,9 +431,9 @@ Qseqs ** loadPhy(Matrix *src, Qseqs **names, Qseqs *header, FileBuff *infile) {
 			} else if(fmat) {
 				*fmat++ = strtod(strbuff, &msg);
 			} else if(smat) {
-				*smat++ = dtouc(strtod(strbuff, &msg));
+				*smat++ = dtouc(strtod(strbuff, &msg), 0.5);
 			} else {
-				*bmat++ = dtouc(strtod(strbuff, &msg));
+				*bmat++ = dtouc(strtod(strbuff, &msg), 0.5);
 			}
 			if(*msg != 0) {
 				fprintf(stderr, "Malformatted distance at pos:\t(%d,%d)\n\"%s\"\n", i, i - j - 1, strbuff);

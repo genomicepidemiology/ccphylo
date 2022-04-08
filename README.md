@@ -12,7 +12,7 @@ cd ccphylo && make
 
 # Introduction #
 CCPhylo is a software suite designed to easen phylogenitic analysis based on alignments from KMA. 
-Neighbour-Joining can be run without KMA alignments, if a Phylip distance matrix is given using "ccphylo tree".
+Neighbor-Joining can be run without KMA alignments, if a Phylip distance matrix is given using "ccphylo tree".
 
 If you use CCPhylo for your published research, then please cite:
 Malte B. Hallgren, Søren Overballe-Petersen, Ole Lund, Henrik Hasman & Philip T.L.C. Clausen
@@ -47,14 +47,14 @@ ccphylo tree -i path/to/ccphylo/results/result.phy -o path/to/ccphylo/results/re
 
 Find all pairwise shared templates between samples, and make a diatance matrix and tree for each of them.
 ```
-ccphylo union -i path/to/kma/alignments/*.res -o path/to/ccphylo/results/result.union -t_db path/to/kma/db
+ccphylo union -i path/to/kma/alignments/*.res -o path/to/ccphylo/results/result.union -B path/to/kma/db
 ccphylo dist -i path/to/ccphylo/results/result.union -o path/to/ccphylo/results/result.phy
 ccphylo tree -i path/to/ccphylo/results/result.phy -o path/to/ccphylo/results/result.nwck
 ```
 
 This can also be done without saving the intermediate results of CCPhylo, with:
 ```
-ccphylo union -i path/to/kma/alignments/*.res -t_db path/to/kma/db | ccphylo dist | ccphylo tree
+ccphylo union -i path/to/kma/alignments/*.res -B path/to/kma/db | ccphylo dist | ccphylo tree
 ```
 
 

@@ -171,7 +171,7 @@ FileBuff * setFileBuff(int buffSize) {
 }
 
 void openFileBuff(FileBuff *dest, char *filename, char *mode) {
-	if(*filename == '-' && filename[1] == '-' &&  filename[2] == 0) {
+	if(*filename == '-' && filename[1] == 0) {
 		if(*mode == 'r') {
 			dest->file = stdin;
 		} else {

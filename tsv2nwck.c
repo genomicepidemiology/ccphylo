@@ -21,6 +21,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "bytescale.h"
+#include "cmdline.h"
 #include "dat.h"
 #include "datclust.h"
 #include "distcmp.h"
@@ -33,8 +34,6 @@
 #include "tsv.h"
 #include "tsv2nwck.h"
 #include "vector.h"
-#define missArg(opt) fprintf(stderr, "Missing argument at %s.\n", opt); exit(1);
-#define invaArg(opt) fprintf(stderr, "Invalid value parsed at %s.\n", opt); exit(1);
 
 int tsv2nwck(char *inputfilename, char *outputfilename, unsigned char sep) {
 	
@@ -48,7 +47,7 @@ int tsv2nwck(char *inputfilename, char *outputfilename, unsigned char sep) {
 	/* init */
 	infile = setFileBuff(1048576);
 	openAndDetermine(infile, inputfilename);
-	if(*outputfilename == '-' && outputfilename[1] == '-' && outputfilename[2] == 0) {
+	if(*outputfilename == '-' && outputfilename[1] == 0) {
 		outfile = stdout;
 	} else {
 		outfile = sfopen(outputfilename, "wb");
@@ -98,158 +97,203 @@ int tsv2nwck(char *inputfilename, char *outputfilename, unsigned char sep) {
 static int helpMessage(FILE *out) {
 	
 	fprintf(out, "#CCPhylo tsv2phy converts tsv files to phylip distance files.\n");
-	fprintf(out, "# %16s\t%-32s\t%s\n", "Options are:", "Desc:", "Default:");
-	fprintf(out, "# %16s\t%-32s\t%s\n", "-i", "Input file", "stdin");
-	fprintf(out, "# %16s\t%-32s\t%s\n", "-o", "Output file", "stdout");
-	fprintf(out, "# %16s\t%-32s\t%s\n", "-s", "Separator", "\\t");
-	fprintf(out, "# %16s\t%-32s\t%s\n", "-d", "Distance method", "cos");
-	fprintf(out, "# %16s\t%-32s\t%s\n", "-dh", "Help on option \"-d\"", "");
-	fprintf(out, "# %16s\t%-32s\t%s\n", "-fp", "Float precision on matrix", "double");
-	fprintf(out, "# %16s\t%-32s\t%s\n", "-sp", "Short precision on matrix", "double / 1e0");
-	fprintf(out, "# %16s\t%-32s\t%s\n", "-bp", "Byte precision on matrix", "double / 1e0");
-	fprintf(out, "# %16s\t%-32s\t%s\n", "-mm", "Allocate matrix on the disk", "False");
-	fprintf(out, "# %16s\t%-32s\t%s\n", "-tmp", "Set directory for temporary files", "");
-	fprintf(out, "# %16s\t%-32s\t%s\n", "-h", "Shows this helpmessage", "");
+	fprintf(out, "#   %-24s\t%-32s\t%s\n", "Options are:", "Desc:", "Default:");
+	fprintf(out, "#    -%c, --%-16s\t%-32s\t%s\n", 'i', "input", "Input file", "stdin");
+	fprintf(out, "#    -%c, --%-16s\t%-32s\t%s\n", 'o', "output", "Output file", "stdout");
+	fprintf(out, "#    -%c, --%-16s\t%-32s\t%s\n", 's', "separator", "Separator", "\\t");
+	fprintf(out, "#    -%c, --%-16s\t%-32s\t%s\n", 'd', "distance", "Distance method", "cos");
+	fprintf(out, "#    -%c, --%-16s\t%-32s\t%s\n", 'D', "distance_help", "Help on option \"-d\"", "");
+	fprintf(out, "#    -%c, --%-16s\t%-32s\t%s\n", 'p', "float_precision", "Float precision on distance matrix", "False / double");
+	fprintf(out, "#    -%c, --%-16s\t%-32s\t%s\n", 's', "short_precision", "Short precision on distance matrix", "False / double / 1e0");
+	fprintf(out, "#    -%c, --%-16s\t%-32s\t%s\n", 'b', "byte_precision", "Byte precision on distance matrix", "False / double / 1e0");
+	fprintf(out, "#    -%c, --%-16s\t%-32s\t%s\n", 'H', "mmap", "Allocate matrix on the disk", "False");
+	fprintf(out, "#    -%c, --%-16s\t%-32s\t%s\n", 'T', "tmp", "Set directory for temporary files", "");
+	fprintf(out, "#    -%c, --%-16s\t%-32s\t%s\n", 'h', "help", "Shows this helpmessage", "");
 	return (out == stderr);
 }
 
 int main_tsv2nwck(int argc, char *argv[]) {
 	
-	int args, size;
-	char *arg, *inputfilename, *outputfilename, *errorMsg;
+	const char *stdstream = "-";
+	int args, len, offset, size;
+	char **Arg, *arg, *inputfilename, *outputfilename, *tmp, *method;
+	char *errorMsg, opt;
 	unsigned char sep;
 	double exponent;
 	
 	/* init */
 	size = sizeof(double);
-	inputfilename = "--";
-	outputfilename = "--";
+	inputfilename = (char *)(stdstream);
+	outputfilename = (char *)(stdstream);
 	sep = '\t';
+	method = "cos";
+	tmp = 0;
 	
-	args = 1;
-	while(args < argc) {
-		arg = argv[args];
+	/* parse cmd-line */
+	args = argc - 1;
+	Arg = argv;
+	if(args && **++Arg == '-') {
+		len = 1;
+		--Arg;
+	} else {
+		len = 0;
+	}
+	while(args && len) {
+		arg = *++Arg;
 		if(*arg++ == '-') {
-			if(strcmp(arg, "i") == 0) {
-				if(++args < argc) {
-					inputfilename = argv[args];
+			if(*arg == '-') {
+				/* check if argument is included */
+				len = getOptArg(++arg);
+				offset = 2 + (arg[len] ? 1 : 0);
+				
+				/* long option */
+				if(*arg == 0) {
+					/* terminate cmd-line */
+					++Arg;
+				} else if(strncmp(arg, "input", len) == 0) {
+					inputfilename = getArgDie(&Arg, &args, len + offset, "input");
+				} else if(strncmp(arg, "output", len) == 0) {
+					outputfilename = getArgDie(&Arg, &args, len + offset, "output");
+				} else if(strncmp(arg, "separator", len) == 0) {
+					sep = getcArgDie(&Arg, &args, len + offset, "separator");
+				} else if(strncmp(arg, "distance", len) == 0) {
+					method = getArgDie(&Arg, &args, len + offset, "distance");
+				} else if(strncmp(arg, "distance_help", len) == 0) {
+					method = 0;
+				} else if(strncmp(arg, "float_precision", len) == 0) {
+					size = sizeof(float);
+				} else if(strncmp(arg, "short_precision", len) == 0) {
+					size = sizeof(short unsigned);
+					ByteScale = getdDefArg(&Arg, &args, len + offset, ByteScale, "short_precision");
+				} else if(strncmp(arg, "byte_precision", len) == 0) {
+					size = sizeof(unsigned char);
+					ByteScale = getdDefArg(&Arg, &args, len + offset, ByteScale, "byte_precision");
+				} else if(strncmp(arg, "mmap", len) == 0) {
+					Dat_init = &DatMinit;
+				} else if(strncmp(arg, "tmp", len) == 0) {
+					tmp = getArgDie(&Arg, &args, len + offset, "tmp");
+				} else if(strncmp(arg, "help", len) == 0) {
+					return helpMessage(stdout);
 				} else {
-					missArg("\"-i\"");
+					unknArg(arg - 2);
 				}
-			} else if(strcmp(arg, "o") == 0) {
-				if(++args < argc) {
-					outputfilename = argv[args];
-				} else {
-					missArg("\"-o\"");
-				}
-			} else if(strcmp(arg, "s") == 0) {
-				if(argc <= ++args) {
-					missArg("\"-s\"");
-				} else if((sep = argv[args][0]) == 0 || argv[args][1] != 0) {
-					invaArg("\"-s\"");
-				}
-			} else if(strcmp(arg, "d") == 0) {
-				if(++args < argc) {
-					arg = argv[args];
-					if(strcmp(arg, "cos") == 0) {
-						distcmp_d = &coscmp_d;
-						distcmp_f = &coscmp_f;
-						distcmp_b = &coscmp_b;
-					} else if(strcmp(arg, "chi2") == 0) {
-						distcmp_d = &chi2cmp_d;
-						distcmp_f = &chi2cmp_f;
-						distcmp_b = &chi2cmp_b;
-					} else if(strcmp(arg, "bc") == 0) {
-						distcmp_d = &bccmp_d;
-						distcmp_f = &bccmp_f;
-						distcmp_b = &bccmp_b;
-					} else if(strcmp(arg, "l1") == 0) {
-						distcmp_d = &l1cmp_d;
-						distcmp_f = &l1cmp_f;
-						distcmp_b = &l1cmp_b;
-					} else if(strcmp(arg, "l2") == 0) {
-						distcmp_d = &l2cmp_d;
-						distcmp_f = &l2cmp_f;
-						distcmp_b = &l2cmp_b;
-					} else if(strcmp(arg, "linf") == 0) {
-						distcmp_d = &linfcmp_d;
-						distcmp_f = &linfcmp_f;
-						distcmp_b = &linfcmp_b;
-					} else if(*arg == 'l') {
-						distcmp_d = &lncmp_d;
-						distcmp_f = &lncmp_f;
-						distcmp_b = &lncmp_b;
-						exponent = strtod(arg + 1, &errorMsg);
-						if(*errorMsg != 0) {
-							invaArg("\"-d ln\"");
-						}
-						distcmp_d(0, &exponent, 0);
-						distcmp_f(0, (float *)(&exponent), 0);
-						distcmp_b(0, (unsigned char *)(&exponent), 0);
-					} else if(strcmp(arg, "p") == 0) {
-						distcmp_d = &pearcmp_d;
-						distcmp_f = &pearcmp_f;
-						distcmp_b = &pearcmp_b;
-					} else {
-						invaArg("\"-d\"");
-					}
-				} else {
-					missArg("\"-d\"");
-				}
-			} else if(strcmp(arg, "dh") == 0) {
-				fprintf(stdout, "# Distance calculation methods:\n");
-				fprintf(stdout, "#\n");
-				fprintf(stdout, "# cos:\tCalculate cosine distance between vectors.\n");
-				fprintf(stdout, "# chi2:\tCalculate the chi square distance\n");
-				fprintf(stdout, "# bc:\tCalculate the Bray-Curtis dissimilarity between vectors.\n");
-				fprintf(stdout, "# ln:\tCalculate distance between vectors as the n-norm distance between the count vectors. Replace \"n\" with the waned norm\n");
-				fprintf(stdout, "# linf:\tCalculate distance between vectors as the l_infinity distance between the count vectors.\n");
-				fprintf(stdout, "# p:\tCalculate Pearsons correlation between vectors.\n");
-				fprintf(stdout, "#\n");
-				return 0;
-			} else if(strcmp(arg, "fp") == 0) {
-				size = sizeof(float);
-			} else if(strcmp(arg, "sp") == 0) {
-				if(++args < argc && argv[args][0] != '-') {
-					ByteScale = strtod(argv[args], &errorMsg);
-					if(*errorMsg != 0 || ByteScale == 0) {
-						invaArg("\"-sp\"");
-					}
-				} else {
-					--args;
-				}
-				size = sizeof(short unsigned);
-			} else if(strcmp(arg, "bp") == 0) {
-				if(++args < argc && argv[args][0] != '-') {
-					ByteScale = strtod(argv[args], &errorMsg);
-					if(*errorMsg != 0 || ByteScale == 0) {
-						invaArg("\"-bp\"");
-					}
-				} else {
-					--args;
-				}
-				size = sizeof(unsigned char);
-			} else if(strcmp(arg, "mm") == 0) {
-				Dat_init = &DatMinit;
-			} else if(strcmp(arg, "tmp") == 0) {
-				if(++args < argc) {
-					if(argv[args][0] != '-') {
-						tmpF(argv[args]);
-					} else {
-						invaArg("\"-tmp\"");
-					}
-				}
-			} else if(strcmp(arg, "h") == 0) {
-				return helpMessage(stdout);
 			} else {
-				fprintf(stderr, "Unknown option:%s\n", arg - 1);
-				return helpMessage(stderr);
+				/* multiple option */
+				len = 1;
+				opt = *arg;
+				while(opt && (opt = *arg++)) {
+					++len;
+					if(opt == 'i') {
+						inputfilename = getArgDie(&Arg, &args, len, "i");
+						opt = 0;
+					} else if(opt == 'o') {
+						outputfilename = getArgDie(&Arg, &args, len, "o");
+						opt = 0;
+					} else if(opt == 'S') {
+						sep = getcArgDie(&Arg, &args, len, "S");
+					} else if(opt == 'd') {
+						method = getArgDie(&Arg, &args, len, "d");
+						opt = 0;
+					} else if(opt == 'D') {
+						method = 0;
+					} else if(opt == 'p') {
+						size = sizeof(float);
+					} else if(opt == 's') {
+						size = sizeof(short unsigned);
+						ByteScale = getdDefArg(&Arg, &args, len, ByteScale, "s");
+						opt = 0;
+					} else if(opt == 'b') {
+						size = sizeof(unsigned char);
+						ByteScale = getdDefArg(&Arg, &args, len, ByteScale, "b");
+						opt = 0;
+					} else if(opt == 'H') {
+						Dat_init = &DatMinit;
+					} else if(opt == 'T') {
+						tmp = getArgDie(&Arg, &args, len, "T");
+						opt = 0;
+					} else if(opt == 'h') {
+						return helpMessage(stdout);
+					} else {
+						*arg = 0;
+						unknArg(arg - 1);
+					}
+				}
 			}
 		} else {
-			fprintf(stderr, "Unknown argument:%s\n", arg - 1);
-			return helpMessage(stderr);
+			/* terminate cmd-line */
+			--arg;
+			++args;
+			len = 0;
 		}
-		++args;
+		--args;
+	}
+	
+	/* non-options */
+	if(args) {
+		inputfilename = *Arg;
+		if(--args) {
+			nonOptError();
+		}
+	}
+	
+	/* distance method */
+	if(method == 0) {
+		fprintf(stdout, "# Distance calculation methods:\n");
+		fprintf(stdout, "#\n");
+		fprintf(stdout, "# cos:\tCalculate cosine distance between vectors.\n");
+		fprintf(stdout, "# chi2:\tCalculate the chi square distance\n");
+		fprintf(stdout, "# bc:\tCalculate the Bray-Curtis dissimilarity between vectors.\n");
+		fprintf(stdout, "# ln:\tCalculate distance between vectors as the n-norm distance between the count vectors. Replace \"n\" with the waned norm\n");
+		fprintf(stdout, "# linf:\tCalculate distance between vectors as the l_infinity distance between the count vectors.\n");
+		fprintf(stdout, "# p:\tCalculate Pearsons correlation between vectors.\n");
+		fprintf(stdout, "#\n");
+		return 0;
+	}if(strcmp(method, "cos") == 0) {
+		distcmp_d = &coscmp_d;
+		distcmp_f = &coscmp_f;
+		distcmp_b = &coscmp_b;
+	} else if(strcmp(method, "chi2") == 0) {
+		distcmp_d = &chi2cmp_d;
+		distcmp_f = &chi2cmp_f;
+		distcmp_b = &chi2cmp_b;
+	} else if(strcmp(method, "bc") == 0) {
+		distcmp_d = &bccmp_d;
+		distcmp_f = &bccmp_f;
+		distcmp_b = &bccmp_b;
+	} else if(strcmp(method, "l1") == 0) {
+		distcmp_d = &l1cmp_d;
+		distcmp_f = &l1cmp_f;
+		distcmp_b = &l1cmp_b;
+	} else if(strcmp(method, "l2") == 0) {
+		distcmp_d = &l2cmp_d;
+		distcmp_f = &l2cmp_f;
+		distcmp_b = &l2cmp_b;
+	} else if(strcmp(method, "linf") == 0) {
+		distcmp_d = &linfcmp_d;
+		distcmp_f = &linfcmp_f;
+		distcmp_b = &linfcmp_b;
+	} else if(*method == 'l') {
+		distcmp_d = &lncmp_d;
+		distcmp_f = &lncmp_f;
+		distcmp_b = &lncmp_b;
+		exponent = strtod(method + 1, &errorMsg);
+		if(*errorMsg != 0) {
+			invaArg("\"--distance ln\"");
+		}
+		distcmp_d(0, &exponent, 0);
+		distcmp_f(0, (float *)(&exponent), 0);
+		distcmp_b(0, (unsigned char *)(&exponent), 0);
+	} else if(strcmp(method, "p") == 0) {
+		distcmp_d = &pearcmp_d;
+		distcmp_f = &pearcmp_f;
+		distcmp_b = &pearcmp_b;
+	} else {
+		invaArg("\"--distance\"");
+	}
+	
+	/* tmp dir */
+	if(tmp) {
+		tmpF(tmp);
 	}
 	
 	/* set precision */
