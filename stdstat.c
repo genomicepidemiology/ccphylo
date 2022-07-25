@@ -196,3 +196,15 @@ unsigned minimum(unsigned *src, unsigned n) {
 	
 	return min;
 }
+
+long nearestPower(long num) {
+	
+	--num;
+	num |= num >> 1;
+	num |= num >> 2;
+	num |= num >> 4;
+	num |= num >> 8;
+	num |= num >> 16;
+	num |= num >> 32;
+	return ++num;
+}

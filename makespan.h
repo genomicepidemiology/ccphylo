@@ -1,7 +1,7 @@
-/* Philip T.L.C. Clausen Jan 2017 plan@dtu.dk */
+/* Philip T.L.C. Clausen Jul 2022 plan@dtu.dk */
 
 /*
- * Copyright (c) 2017, Philip Clausen, Technical University of Denmark
+ * Copyright (c) 2022, Philip Clausen, Technical University of Denmark
  * All rights reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -17,4 +17,14 @@
  * limitations under the License.
 */
 
-#define CCPHYLO_VERSION "0.6.1"
+#include "jobs.h"
+#include "machines.h"
+
+extern Machine * (*makespan_method)(Machine *M, Job *J, int m, int n);
+
+Machine * DBF(Machine *M, Job *J, int m, int n);
+Machine * FirstFit(Machine *M, Job *J, int m);
+Machine * DFF(Machine *M, Job *J, int m, int n);
+void print_makespan(Machine *M, FILE *out);
+void makespan(char *inputfilename, char *outputfilename, int m, double *loads, double base, unsigned char sep, int col);
+int main_makespan(int argc, char **argv);

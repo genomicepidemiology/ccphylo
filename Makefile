@@ -1,6 +1,6 @@
 CFLAGS ?= -Wall -O3
 CFLAGS += -std=c99
-LIBS = bytescale.o cdist.o cmdline.o dat.o datclust.o dbscan.o dbparse.o distcmp.o dist.o dnj.o fbseek.o filebuff.o fsacmp.o fsacmpthrd.o fullphy.o hashmapstr.o hashmapstrindex.o hclust.o ltdmatrix.o ltdmatrixthrd.o matcmp.o matparse.o matrix.o merge.o meth.o methparse.o nj.o nwck.o nwck2phy.o pherror.o phy.o qseqs.o rarify.o resparse.o seqparse.o seq2fasta.o stdnuc.o stdstat.o str.o tmp.o tree.o trim.o tsv.o tsv2nwck.o tsv2phy.o ulist.o union.o unionparse.o vector.o
+LIBS = bytescale.o cdist.o cmdline.o dat.o datclust.o dbscan.o dbparse.o distcmp.o dist.o dnj.o fbseek.o filebuff.o fsacmp.o fsacmpthrd.o fullphy.o hashmapstr.o hashmapstrindex.o hclust.o jobs.o ltdmatrix.o ltdmatrixthrd.o machines.o makespan.o matcmp.o matparse.o matrix.o merge.o meth.o methparse.o nj.o nwck.o nwck2phy.o pherror.o phy.o qseqs.o rarify.o resparse.o seqparse.o seq2fasta.o stdnuc.o stdstat.o str.o tmp.o tree.o tradespan.o trim.o tsv.o tsv2nwck.o tsv2phy.o ulist.o union.o unionparse.o vector.o
 PROGS = ccphylo
 
 .c .o:
@@ -35,8 +35,11 @@ fullphy.o: fullphy.h bytescale.h cmdline.h filebuff.h matrix.h pherror.h phy.h q
 hashmapstr.o: hashmapstr.h pherror.h
 hashmapstrindex.o: hashmapstrindex.h hashmapstr.h pherror.h
 hclust.o: hclust.h matrix.h nj.h nwck.h qseqs.h pherror.h str.h vector.h
+jobs.o: jobs.h filebuff.h pherror.h
 ltdmatrix.o: ltdmatrix.h filebuff.h ltdmatrix.h matcmp.h matparse.h pherror.h
 ltdmatrixthrd.o: ltdmatrixthrd.h filebuff.h matcmp.h matparse.h matrix.h pherror.h threader.h
+machines.o: machines.h jobs.h pherror.h
+makespan.o: makespan.h filebuff.h jobs.h machines.h pherror.h tradespan.h tsv.h
 matcmp.o: matcmp.h filebuff.h matparse.h stdstat.h
 matparse.o: matparse.h filebuff.h pherror.h qseqs.h
 matrix.o: matrix.h pherror.h tmp.h
@@ -58,8 +61,9 @@ stdstat.o: stdstat.h
 str.o: str.h
 tmp.o: tmp.h pherror.h threader.h
 tree.o: tree.h bytescale.h cmdline.h dnj.h filebuff.h hclust.h matrix.h nj.h pherror.h phy.h qseqs.h tmp.h vector.h
+tradespan.o: tradespan.h jobs.h machines.h
 trim.o: trim.h cmdline.h filebuff.h fsacmp.h matrix.h meth.h methparse.h pherror.h phy.h seqparse.h
-tsv.o: tsv.h bytescale.h dat.h filebuff.h pherror.h 
+tsv.o: tsv.h bytescale.h dat.h filebuff.h jobs.h pherror.h stdstat.h
 tsv2nwck.o: tsv2nwck.h bytescale.h dat.h datclust.h distcmp.h filebuff.h hclust.h nwck.h pherror.h qseqs.h tmp.h tsv.h vector.h
 tsv2phy.o: tsv2phy.h bytescale.h cmdline.h dat.h distcmp.h filebuff.h pherror.h tmp.h tsv.h
 ulist.o: ulist.h pherror.h

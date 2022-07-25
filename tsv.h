@@ -19,5 +19,7 @@
 
 #include "dat.h"
 #include "filebuff.h"
+#include "jobs.h"
 
 Dat * loadTsv(FileBuff *infile, unsigned char sep);
+Job * loadJobs(FileBuff *infile, unsigned char sep, int col, int *N);

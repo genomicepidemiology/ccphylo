@@ -165,7 +165,8 @@ int dbscan(Matrix *D, int *N, int *C, double maxDist, int minN) {
 void print_dbscan(Qseqs **names, int *N, int *C, int Dn, int nClust, double maxDist, int minN, FILE *out) {
 	
 	/* print header */
-	fprintf(out, "# %d\t%d\t%lf\t%d\n", Dn, nClust, maxDist, minN);
+	fprintf(out, "## %d\t%d\t%lf\t%d\n", Dn, nClust, maxDist, minN);
+	fprintf(out, "#%s\t%s\t%s\n", "Sample", "Neighbors", "Cluster");
 	
 	/* name, #Neighbors, Cluster */
 	--names;
