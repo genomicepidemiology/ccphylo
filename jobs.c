@@ -102,6 +102,42 @@ Job * jobmerge(Job *L1, Job *L2) {
 	return dest;
 }
 
+Job * jobmerge_inc(Job *L1, Job *L2) {
+	
+	Job *dest, *ptr;
+	
+	/* set dest to higher value */
+	if(!L1) {
+		return L2;
+	} else if(!L2) {
+		return L1;
+	} else if(L2->weight < L1->weight) {
+		dest = L2;
+		L2 = L2->next;
+	} else {
+		dest = L1;
+		L1 = L1->next;
+	}
+	ptr = dest;
+	
+	/* merge lists */
+	while(L1 && L2) {
+		if(L2->weight < L1->weight) {
+			ptr->next = L2;
+			L2 = L2->next;
+		} else {
+			ptr->next = L1;
+			L1 = L1->next;
+		}
+		ptr = ptr->next;
+	}
+	
+	/* link remaining */
+	ptr->next = L1 ? L1 : L2;
+	
+	return dest;
+}
+
 Job * jobsort(Job *src, int n) {
 	
 	int mid;

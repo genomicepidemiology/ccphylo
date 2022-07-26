@@ -125,30 +125,50 @@ void insertJob(Machine *M, Job *J) {
 
 void exchangeJobs(Machine *Mm, Machine *Mn, Job *Jm, Job *Jn) {
 	
-	if(!Jm || !Jn) {
-		return;
+	Job *J;
+	
+	/* isolate jobs for exchange */
+	if(Jm) {
+		J = Jm->next;
+		Jm->next = J->next;
+	} else {
+		J = Mm->jobs;
+		Mm->jobs = J->next;
 	}
+	J->next = 0;
+	Jm = J;
+	if(Jn) {
+		J = Jn->next;
+		Jn->next = J->next;
+	} else {
+		J = Mn->jobs;
+		Mn->jobs = J->next;
+	}
+	J->next = 0;
+	Jn = J;
+	
+	/* insert jobs in new machines */
+	/* here */
+	/* fix to increasing order instead of decreasing */
+	Mn->jobs = jobmerge_inc(Mn->jobs, Jm);
+	Mm->jobs = jobmerge_inc(Mm->jobs, Jn);
 	
 	/* adjust availability of machines */
-	Mm->avail += (Jn->next->weight - Jm->next->weight);
-	Mn->avail += (Jm->next->weight - Jn->next->weight);
-	
-	/* move jobs to sorted position */
-	insertJob(Mm, Jm);
-	insertJob(Mn, Jn);
+	Mm->avail += (Jm->weight - Jn->weight);
+	Mn->avail += (Jn->weight - Jm->weight);
 }
 
 double negotiateM(Machine *Mm, Machine *Mn, Job **Jmbest, Job **Jnbest) {
 	
 	double Mmj, Mnj, w1, w2, min, test, best;
-	Job *Jm, *Jn, *next, *Jmin, *JmPrev;
+	Job *Jm, *Jn, *next, *Jmin, *JmPrev, *JnPrev;
 	
 	/* exchange example:
-	M1: aaabbcc
-	M2: dddee
+	M1: eeddd
+	M2: ccbbaaa
 	 to
-	M1: eebbcc
-	M2: dddaaa
+	M1: aaaddd
+	M2: ccbbee
 	*/
 	
 	/* no chance of improvement */
@@ -158,44 +178,54 @@ double negotiateM(Machine *Mm, Machine *Mn, Job **Jmbest, Job **Jnbest) {
 	
 	/* init minimum trade value */
 	best = (Mm->avail * Mm->avail) + (Mn->avail * Mn->avail);
+	min = best;
 	*Jmbest = 0;
 	*Jnbest = 0;
 	
 	/* identify best trade option by minimizing:
-	(Mm->avail - Mm->job_i + Mn->job_j)^2 + (Mn->avail + Mm->job_i - Mn->job_j)^2
-	(Mmj + Mn->job_j)^2 + (Mnj - Mn->job_j)^2
+	(Mm->avail + Mm->job_i - Mn->job_j)^2 + (Mn->avail - Mm->job_i + Mn->job_j)^2
+	(Mmj - Mn->job_j)^2 + (Mnj + Mn->job_j)^2
 	*/
-	Jn = Mn->jobs;
 	Jm = Mm->jobs;
-	JmPrev = Jm;
+	JmPrev = 0;
+	Jn = Mn->jobs;
+	JnPrev = 0;
 	while(Jm) {
 		/* set constants */
-		Mmj = Mm->avail - Jm->weight;
-		Mnj = Mn->avail + Jm->weight;
+		Mmj = Mm->avail + Jm->weight;
+		Mnj = Mn->avail - Jm->weight;
 		
 		/* set first option as best */
-		w1 = (Mmj + Jn->weight);
-		w2 = (Mnj - Jn->weight);
-		min = w1 * w1 + w2 * w2;
-		Jmin = Jn;
+		w1 = (Mmj - Jn->weight);
+		w2 = (Mnj + Jn->weight);
+		min = Jm->weight != Jn->weight ? w1 * w1 + w2 * w2 : min; /* avoid double approximations */
+		Jmin = JnPrev; /* set pointer to prev job to allow post-merging */
 		next = Jn->next;
+		
 		/* since both list of jobs are sorted the best trade option can be 
-		identified by a merge search in O(m + n) */
+		identified by a merge search in O(m + n / m) */
 		while(next) {
-			/* test next trade option */
-			w1 = (Mmj + next->weight);
-			w2 = (Mnj - next->weight);
-			test = w1 * w1 + w2 * w2;
-			
-			/* advance Jn if value-error is decreasing */
-			if(test < min) {
-				min = test;
-				Jmin = Jn; /* set pointer to prev job to allow post-merging */
+			if(Jm->weight != next->weight) { /* avoid double approximations */
+				/* test next trade option */
+				w1 = (Mmj - next->weight);
+				w2 = (Mnj + next->weight);
+				test = w1 * w1 + w2 * w2;
+				
+				/* advance Jn if value-error is not increasing */
+				if(test <= min) {
+					min = test;
+					Jmin = Jn; /* set pointer to prev job to allow post-merging */
+					JnPrev = Jn;
+					Jn = next;
+					next = next->next;
+				} else {
+					/* continuing will decrease trade value */
+					next = 0;
+				}
+			} else {
+				JnPrev = Jn;
 				Jn = next;
 				next = next->next;
-			} else {
-				/* continuing will decrease trade value */
-				next = 0;
 			}
 		}
 		
@@ -257,7 +287,7 @@ int tradeM(Machine *M) {
 			}
 			
 			/* exchange jobs */
-			if(min != 0) {
+			if(min < 0) {
 				exchangeJobs(Mm, Mbest, JmBest, JnBest);
 				++trades;
 			} else {

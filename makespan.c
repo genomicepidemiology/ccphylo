@@ -121,17 +121,24 @@ Machine * DFF(Machine *M, Job *J, int m, int n) {
 
 void print_makespan(Machine *M, FILE *out) {
 	
-	int num;
+	int num, size;
+	double weight;
 	Job *J;
 	
-	fprintf(out, "#%s\t%s\n", "Cluster", "Partition");
+	fprintf(out, "#%s\t%s\t%s\t%s\n", "Cluster", "Cluster_size", "Cluster_weight", "Partition");
+	fprintf(stderr, "#%s\t%s\t%s\t%s\t%s\n", "Partition", "Cluster_quantity", "Partition_size", "Partition_weight", "Partition_error");
 	while(M) {
 		num = M->num;
+		size = 0;
+		weight = 0;
 		J = M->jobs;
 		while(J) {
-			fprintf(out, "%d\t%d\n", J->num, num);
+			fprintf(out, "%d\t%d\t%f\t%d\n", J->num, J->size, J->weight, num);
+			size += J->size;
+			weight += J->weight;
 			J = J->next;
 		}
+		fprintf(stderr, "%d\t%d\t%d\t%f\t%f\n", num, M->n, size, weight, M->avail);
 		M = M->next;
 	}
 }
@@ -161,9 +168,6 @@ void makespan(char *inputfilename, char *outputfilename, int m, double *loads, d
 	/* get job weights */
 	jobWeight(J, n, base);
 	
-	/* rm invalid jobs (weight <= 0) */
-	//n = cleanJobs(J, n);
-	
 	/* get machines */
 	if(loads) {
 		M = initSkewM(m, n, J, loads);
@@ -175,12 +179,12 @@ void makespan(char *inputfilename, char *outputfilename, int m, double *loads, d
 	M = makespan_method(M, J, m, n);
 	
 	/* trade jobs */
-	fprintf(stderr, "Number of trades:\t%d\n", tradeM(M));
+	fprintf(stderr, "## Trades:\t%d\n", tradeM(M));
 	
 	/* print results */
+	fprintf(stderr, "## MSE:\t%f\n", machineMSE(M));
 	print_makespan(M, outfile);
 	fclose(outfile);
-	fprintf(stderr, "MSE:\t%f\n", machineMSE(M));
 }
 
 static double * getLoads(char *src) {
@@ -359,7 +363,7 @@ int main_makespan(int argc, char **argv) {
 	/* get method */
 	if(!method) {
 		fprintf(stderr, "Makespan methods:\n");
-		fprintf(stderr, "DBF:\tDecreasing Best First\n");
+		fprintf(stderr, "DBF:\tDecreasing Best First / Longest Processing Time (LPT)\n");
 		fprintf(stderr, "DFF:\tDecreasing First Fit\n");
 		return 0;
 	} else if(strcmp(method, "DBF") == 0) {

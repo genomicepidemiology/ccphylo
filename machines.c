@@ -92,7 +92,9 @@ Machine * initM(int m, int n, Job *J) {
 	ptr = dest - 1;
 	++m;
 	while(--m) {
-		(++ptr)->avail = m_target;
+		(++ptr)->num = m;
+		ptr->n = 0;
+		ptr->avail = m_target;
 		ptr->jobs = 0;
 		ptr->next = ptr + 1;
 	}

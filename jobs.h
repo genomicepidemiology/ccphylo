@@ -32,6 +32,7 @@ extern void (*jobWeight)(Job *src, int n, double logbase);
 
 Job * job_realloc(Job *src, int oldsize, int newsize);
 Job * jobmerge(Job *L1, Job *L2);
+Job * jobmerge_inc(Job *L1, Job *L2);
 Job * jobsort(Job *src, int n);
 double totM(Job *J, int n);
 double optM(Job *J, int n, int m);
