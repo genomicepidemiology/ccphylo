@@ -27,7 +27,52 @@
 #include "tradespan.h"
 #include "tsv.h"
 
-Machine * (*makespan_method)(Machine *M, Job *J, int m, int n) = &DBF;
+Machine * (*makespan_method)(Machine *, Job *, int, int) = &DBF;
+
+Machine * DBE(Machine *M, Job *J, int m, int n) {
+	
+	Job *nextJ;
+	Machine *nextM, *E;
+	
+	/* sort both machines and jobs in descending order */
+	M = machinesort(M, m);
+	J = jobsort(J, n);
+	
+	/* init full machines */
+	E = 0;
+	while(J) {
+		/* put job on least loaded machine */
+		if(!M) {
+			/* n / m is not a Natural number */
+			M = E;
+			E = 0;
+		}
+		M->n++;
+		nextJ = J->next;
+		J->next = M->jobs;
+		M->jobs = J;
+		M->avail -= J->weight;
+		
+		/* move machine down the qeue */
+		nextM = M->next;
+		M->next = 0;
+		if(M->n < n / m) {
+			M = machinemerge(nextM, M);
+		} else {
+			/* remove machine from available list */
+			E = machinemerge(E, M);
+			M = nextM;
+		}
+		
+		/* move on to next job */
+		J = nextJ;
+	}
+	
+	/* merge E and M */
+	M = machinemerge(M, E);
+	
+	return M;
+}
 
 Machine * DBF(Machine *M, Job *J, int m, int n) {
 	
@@ -119,6 +164,92 @@ Machine * DFF(Machine *M, Job *J, int m, int n) {
 	return nextM;
 }
 
+Machine * FirstFet(Machine *M, Job *J) {
+	
+	double weight, best;
+	Machine *F, *prev, *prevF;
+	
+	weight = J->weight;
+	best = M->avail;
+	F = M;
+	prev = 0;
+	prevF = 0;
+	while(M) {
+		if(weight <= M->avail) {
+			/* job fits */
+			M->n++;
+			J->next = M->jobs;
+			M->jobs = J;
+			M->avail -= weight;
+			return prev;
+		} else if(best < M->avail) {
+			/* machine is less filled than the previous */
+			best = M->avail;
+			prevF = prev;
+			F = M;
+		}
+		
+		/* go to next machine */
+		prev = M;
+		M = M->next;
+	}
+	
+	/* job does not fit anywhere */
+	F->n++;
+	J->next = F->jobs;
+	F->jobs = J;
+	F->avail -= weight;
+	
+	return prevF;
+}
+
+Machine * DFE(Machine *M, Job *J, int m, int n) {
+	
+	Job *nextJ;
+	Machine *nextM, *E, *F;
+	
+	/* sort jobs in descending order */
+	J = jobsort(J, n);
+	
+	E = 0;
+	while(J) {
+		nextJ = J->next;
+		if(!M) {
+			/* n / m is not a Natural number */
+			M = E;
+			E = 0;
+		}
+		
+		/* put job on first fit (or least loaded) machine */
+		F = FirstFet(M, J);
+		
+		/* remove machine from available list */
+		if(F) {
+			if(n / m <= F->next->n) {
+				nextM = F->next;
+				F->next = F->next->next;
+				nextM->next = E;
+				E = nextM;
+			}
+		} else {
+			if(n / m <= M->n) {
+				nextM = M;
+				M = M->next;
+				nextM->next = E;
+				E = nextM;
+			}
+		}
+		
+		/* move on to next job */
+		J = nextJ;
+	}
+	
+	/* merge E and M */
+	M = machinemerge(M, E);
+	
+	return M;
+}
+
 void print_makespan(Machine *M, FILE *out) {
 	
 	int num, size;
@@ -179,7 +310,9 @@ void makespan(char *inputfilename, char *outputfilename, int m, double *loads, d
 	M = makespan_method(M, J, m, n);
 	
 	/* trade jobs */
-	fprintf(stderr, "## Trades:\t%d\n", tradeM(M));
+	if(tradeM) {
+		fprintf(stderr, "## Trades:\t%d\n", tradeM(M));
+	}
 	
 	/* print results */
 	fprintf(stderr, "## MSE:\t%f\n", machineMSE(M));
@@ -232,6 +365,8 @@ static int helpMessage(FILE *out) {
 	fprintf(out, "#    -%c, --%-16s\t%-32s\t%s\n", 'k', "key", "Field containing cluster number", "3");
 	fprintf(out, "#    -%c, --%-16s\t%-32s\t%s\n", 'm', "method", "Makespan method", "DBF");
 	fprintf(out, "#    -%c, --%-16s\t%-32s\t%s\n", 'M', "method_help", "Help on option \"-m\"", "");
+	fprintf(out, "#    -%c, --%-16s\t%-32s\t%s\n", 't', "trade", "Makespan trading method", "BB");
+	fprintf(out, "#    -%c, --%-16s\t%-32s\t%s\n", 'T', "trade_help", "Help on option \"-t\"", "");
 	fprintf(out, "#    -%c, --%-16s\t%-32s\t%s\n", 'w', "weight", "Weighing method", "none");
 	fprintf(out, "#    -%c, --%-16s\t%-32s\t%s\n", 'W', "weight_help", "Help on option \"-w\"", "");
 	fprintf(out, "#    -%c, --%-16s\t%-32s\t%s\n", 'l', "loads", "Load on machines double[,double...]", "5");
@@ -245,7 +380,7 @@ int main_makespan(int argc, char **argv) {
 	int args, m, len, col, offset;
 	double *loads, base;
 	char **Arg, *arg, *inputfilename, *outputfilename, *method, *strLoads;
-	char *weight, *errMsg, sep, opt;
+	char *trade, *weight, *errMsg, sep, opt;
 	
 	/* set defaults */
 	m = 5;
@@ -255,6 +390,7 @@ int main_makespan(int argc, char **argv) {
 	inputfilename = (char *)(stdstream);
 	outputfilename = (char *)(stdstream);
 	method = "DBF";
+	trade = "BB";
 	strLoads = 0;
 	weight = "none";
 	errMsg = 0;
@@ -293,6 +429,10 @@ int main_makespan(int argc, char **argv) {
 					method = getArgDie(&Arg, &args, len + offset, "method");
 				} else if(strncmp(arg, "method_help", len) == 0) {
 					method = 0;
+				} else if(strncmp(arg, "trade", len) == 0) {
+					trade = getArgDie(&Arg, &args, len + offset, "trade");
+				} else if(strncmp(arg, "trade_help", len) == 0) {
+					trade = 0;
 				} else if(strncmp(arg, "weight", len) == 0) {
 					weight = getArgDie(&Arg, &args, len + offset, "weight");
 				} else if(strncmp(arg, "weight_help", len) == 0) {
@@ -327,8 +467,13 @@ int main_makespan(int argc, char **argv) {
 						opt = 0;
 					} else if(opt == 'M') {
 						method = 0;
+					} else if(opt == 't') {
+						trade = getArgDie(&Arg, &args, len, "t");
+						opt = 0;
+					} else if(opt == 'T') {
+						trade = 0;
 					} else if(opt == 'w') {
-						weight = getArgDie(&Arg, &args, len, "w");
+						weight = getArgDie(&Arg, &args, len, "T");
 						opt = 0;
 					} else if(opt == 'W') {
 						weight = 0;
@@ -365,13 +510,34 @@ int main_makespan(int argc, char **argv) {
 		fprintf(stderr, "Makespan methods:\n");
 		fprintf(stderr, "DBF:\tDecreasing Best First / Longest Processing Time (LPT)\n");
 		fprintf(stderr, "DFF:\tDecreasing First Fit\n");
+		fprintf(stderr, "DBE:\tDecreasing Best First with equal number of jobs\n");
+		fprintf(stderr, "DFE:\tDecreasing First First with equal number of jobs\n");
 		return 0;
 	} else if(strcmp(method, "DBF") == 0) {
 		makespan_method = &DBF;
 	} else if(strcmp(method, "DFF") == 0) {
 		makespan_method = &DFF;
+	} else if(strcmp(method, "DBE") == 0) {
+		makespan_method = &DBE;
+	} else if(strcmp(method, "DFE") == 0) {
+		makespan_method = &DFE;
 	} else {
 		invaArg("method");
+	}
+	
+	/* get trading method */
+	if(!trade) {
+		fprintf(stderr, "Trading methods:\n");
+		fprintf(stderr, "BB:\tBabettes buckets\n");
+		fprintf(stderr, "DBEB:\tTrades has to be with two jobs\n");
+		fprintf(stderr, "None:\tNo trading\n");
+		return 0;
+	} else if(strcmp(trade, "BB") == 0) {
+		tradeM = &tradeBB;
+	} else if(strcmp(trade, "DBEB") == 0) {
+		tradeM = &tradeDBEB;
+	} else if(strcmp(trade, "None") == 0) {
+		tradeM = 0;
 	}
 	
 	/* get loads */

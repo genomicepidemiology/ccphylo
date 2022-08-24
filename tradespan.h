@@ -20,6 +20,8 @@
 #include "jobs.h"
 #include "machines.h"
 
+extern int (*tradeM)(Machine *);
+
 Job ** sequenceJobs(Machine *M, Job *J, int m, int n);
 void moveUp(Job **sJ);
 void moveDown(Job **sJ);
@@ -27,5 +29,7 @@ void exchange(Job **sJ, unsigned m, unsigned n);
 void insertJob(Machine *M, Job *J);
 void exchangeJobs(Machine *Mm, Machine *Mn, Job *Jm, Job *Jn);
 double negotiateM(Machine *Mm, Machine *Mn, Job **Jmbest, Job **Jnbest);
-int tradeM(Machine *M);
+int tradeDBEB(Machine *M);
+int handover(Machine *Mm, Machine *Mn);
+int tradeBB(Machine *M);
 Job * tradeMsequential(Machine *M, Job *J, int m, int n);

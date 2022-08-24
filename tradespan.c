@@ -22,6 +22,8 @@
 #include "pherror.h"
 #include "tradespan.h"
 
+int (*tradeM)(Machine *) = &tradeBB;
+
 Job ** sequenceJobs(Machine *M, Job *J, int m, int n) {
 	
 	Job **sJ, **sJptr, *Jptr;
@@ -84,9 +86,11 @@ void exchange(Job **sJ, unsigned m, unsigned n) {
 	num = Jm->num;
 	size = Jm->size;
 	weight = Jm->weight;
+	
 	Jm->num = Jn->num;
 	Jm->size = Jn->size;
 	Jm->weight = Jm->weight;
+	
 	Jn->num = num;
 	Jn->size = size;
 	Jn->weight = weight;
@@ -148,8 +152,6 @@ void exchangeJobs(Machine *Mm, Machine *Mn, Job *Jm, Job *Jn) {
 	Jn = J;
 	
 	/* insert jobs in new machines */
-	/* here */
-	/* fix to increasing order instead of decreasing */
 	Mn->jobs = jobmerge_inc(Mn->jobs, Jm);
 	Mm->jobs = jobmerge_inc(Mm->jobs, Jn);
 	
@@ -160,7 +162,7 @@ void exchangeJobs(Machine *Mm, Machine *Mn, Job *Jm, Job *Jn) {
 
 double negotiateM(Machine *Mm, Machine *Mn, Job **Jmbest, Job **Jnbest) {
 	
-	double Mmj, Mnj, w1, w2, min, test, best;
+	double Mmj, Mnj, w1, w2, min, test, best, base;
 	Job *Jm, *Jn, *next, *Jmin, *JmPrev, *JnPrev;
 	
 	/* exchange example:
@@ -172,12 +174,15 @@ double negotiateM(Machine *Mm, Machine *Mn, Job **Jmbest, Job **Jnbest) {
 	*/
 	
 	/* no chance of improvement */
-	if(Mm->avail == Mn->avail || Mm->n < 2 || Mn->n < 2) {
+	if(Mm->avail == Mn->avail || (Mm->n <= 1 && Mn->n <= 1)) {
 		return 0;
 	}
 	
 	/* init minimum trade value */
-	best = (Mm->avail * Mm->avail) + (Mn->avail * Mn->avail);
+	w1 = Mm->avail < 0 ? -Mm->avail : Mm->avail;
+	w2 = Mn->avail < 0 ? -Mn->avail : Mn->avail;
+	base = w1 + w2;
+	best = base;
 	min = best;
 	*Jmbest = 0;
 	*Jnbest = 0;
@@ -197,8 +202,10 @@ double negotiateM(Machine *Mm, Machine *Mn, Job **Jmbest, Job **Jnbest) {
 		
 		/* set first option as best */
 		w1 = (Mmj - Jn->weight);
+		w1 = w1 < 0 ? -w1 : w1;
 		w2 = (Mnj + Jn->weight);
-		min = Jm->weight != Jn->weight ? w1 * w1 + w2 * w2 : min; /* avoid double approximations */
+		w2 = w2 < 0 ? -w2 : w2;
+		min = Jm->weight != Jn->weight ? w1 + w2 : base; /* avoid double approximations */
 		Jmin = JnPrev; /* set pointer to prev job to allow post-merging */
 		next = Jn->next;
 		
@@ -208,8 +215,10 @@ double negotiateM(Machine *Mm, Machine *Mn, Job **Jmbest, Job **Jnbest) {
 			if(Jm->weight != next->weight) { /* avoid double approximations */
 				/* test next trade option */
 				w1 = (Mmj - next->weight);
+				w1 = w1 < 0 ? -w1 : w1;
 				w2 = (Mnj + next->weight);
-				test = w1 * w1 + w2 * w2;
+				w2 = w2 < 0 ? -w2 : w2;
+				test = w1 + w2;
 				
 				/* advance Jn if value-error is not increasing */
 				if(test <= min) {
@@ -240,19 +249,48 @@ double negotiateM(Machine *Mm, Machine *Mn, Job **Jmbest, Job **Jnbest) {
 		Jm = Jm->next;
 	}
 	
-	/* return reduction in squared error */
-	return best - ((Mm->avail * Mm->avail) + (Mn->avail * Mn->avail));
+	/* avoid double approximations */
+	if(*Jmbest) {
+		Jm = (*Jmbest)->next;
+	} else {
+		Jm = Mm->jobs;
+	}
+	if(*Jnbest) {
+		Jn = (*Jnbest)->next;
+	} else {
+		Jn = Mn->jobs;
+	}
+	
+	/* avoid double approximations */
+	Mmj = Mm->avail;
+	Mmj += (Jm->weight - Jn->weight);
+	Mmj = Mmj < 0 ? -Mmj : Mmj;
+	Mnj = Mn->avail;
+	Mnj += (Jn->weight - Jm->weight);
+	Mnj = Mnj < 0 ? -Mnj : Mnj;
+	if(base != Mmj + Mnj && Jm->weight != Jn->weight) {
+		best -= base;
+	} else {
+		best = 0;
+	}
+	
+	/* return absolute reduction in error */
+	return best;
 }
 
-int tradeM(Machine *M) {
+int tradeDBEB(Machine *M) {
 	
+	/* Der Bor En Bager */
 	int trades;
 	double min, test;
 	Job *Jn, *Jm, *JnBest, *JmBest;
 	Machine *Mm, *Mn, *Mbest;
 	
 	/* check MSE */
-	if(machineMSE(M) == 0) {
+	/* check MSE */
+	test = machineMSE(M);
+	fprintf(stderr, "## Pre-trading MSE:\t%f\n", test);
+	if(test == 0) {
 		return 0;
 	}
 	
@@ -272,6 +310,114 @@ int tradeM(Machine *M) {
 			JnBest = 0;
 			Mn = Mm->next;
 			while(Mn) {
+				/* Negotiate trade options between Mm and Mn */
+				test = negotiateM(Mm, Mn, &Jm, &Jn);
+				
+				/* check negotiation between machines */
+				if(test < min) {
+					min = test;
+					JmBest = Jm;
+					JnBest = Jn;
+					Mbest = Mn;
+				}
+				
+				Mn = Mn->next;
+			}
+			
+			/* exchange jobs */
+			if(min < 0) {
+				exchangeJobs(Mm, Mbest, JmBest, JnBest);
+				++trades;
+			} else {
+				Mm = Mm->next;
+			}
+		}
+		break;
+	} while(Mbest);
+	
+	return trades;
+}
+
+int testHandover(Machine *Mm, Machine *Mn, Job *J) {
+	
+	double test = J ? Mm->avail - Mn->avail + J->weight : -1;
+	return (test < 0 || (test == 0 && Mm->n < Mn->n));
+}
+
+int handover(Machine *Mm, Machine *Mn) {
+	
+	int handovers;
+	Job *J;
+	Machine *middleman;
+	
+	if(Mn->avail < Mm->avail) {
+		middleman = Mn;
+		Mn = Mm;
+		Mm = middleman;
+	}
+	
+	/* handover jobs as long as there is an improvement */
+	/*
+		(mma + j)**2 + (mna - j)**2 < mma**2 + mna**2
+		mma**2 + j**2 + 2 mma j + mna**2 + j**2 - 2 mna j < mma**2 + mna**2
+		2 j**2 + 2 mma j - 2 mna j < 0
+		2 j (j + mma - mna) < 0 ->
+		j + mma - mna < 0
+		mma < mna - j
+	*/
+	handovers = 0;
+	J = Mm->jobs;
+	//while(testHandover(Mm, Mn, J)) {
+	while(J && Mm->avail < Mn->avail - J->weight) {
+		/* handover job */
+		Mm->n--;
+		Mn->n++;
+		Mm->avail += J->weight;
+		Mn->avail -= J->weight;
+		Mm->jobs = J->next;
+		J->next = 0;
+		Mn->jobs = jobmerge_inc(Mn->jobs, J);
+		++handovers;
+		J = Mm->jobs;
+	}
+	
+	return handovers;
+}
+
+int tradeBB(Machine *M) {
+	
+	/* Babettes Buckets */
+	int trades;
+	double min, test;
+	Job *Jn, *Jm, *JnBest, *JmBest;
+	Machine *Mm, *Mn, *Mbest;
+	
+	/* check MSE */
+	test = machineMSE(M);
+	fprintf(stderr, "## Pre-trading MSE:\t%f\n", test);
+	if(test == 0) {
+		return 0;
+	}
+	
+	/* trade as long as there is an improvement */
+	trades = 0;
+	do {
+		Mbest = 0;
+		
+		/* go through machines */
+		Mm = M;
+		while(Mm) {
+			/* Negotiate trade options and handovers for Mm */
+			min = 0;
+			Jm = 0;
+			Jn = 0;
+			JmBest = 0;
+			JnBest = 0;
+			Mn = Mm->next;
+			while(Mn) {
+				/* check handover */
+				trades += handover(Mm, Mn);
+				
 				/* Negotiate trade options between Mm and Mn */
 				test = negotiateM(Mm, Mn, &Jm, &Jn);
 				
