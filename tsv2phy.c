@@ -119,7 +119,7 @@ static int helpMessage(FILE *out) {
 	fprintf(out, "#   %-24s\t%-32s\t%s\n", "Options are:", "Desc:", "Default:");
 	fprintf(out, "#    -%c, --%-16s\t%-32s\t%s\n", 'i', "input", "Input file", "stdin");
 	fprintf(out, "#    -%c, --%-16s\t%-32s\t%s\n", 'o', "output", "Output file", "stdout");
-	fprintf(out, "#    -%c, --%-16s\t%-32s\t%s\n", 's', "separator", "Separator", "\\t");
+	fprintf(out, "#    -%c, --%-16s\t%-32s\t%s\n", 'S', "separator", "Separator", "\\t");
 	fprintf(out, "#    -%c, --%-16s\t%-32s\t%s\n", 'd', "distance", "Distance method", "cos");
 	fprintf(out, "#    -%c, --%-16s\t%-32s\t%s\n", 'D', "distance_help", "Help on option \"-d\"", "");
 	fprintf(out, "#    -%c, --%-16s\t%-32s\t%s\n", 'f', "flag", "Output flags", "1");
@@ -233,6 +233,7 @@ int main_tsv2phy(int argc, char **argv) {
 						opt = 0;
 					} else if(opt == 'S') {
 						sep = getcArgDie(&Arg, &args, len, "S");
+						opt = 0;
 					} else if(opt == 'd') {
 						method = getArgDie(&Arg, &args, len, "d");
 						opt = 0;

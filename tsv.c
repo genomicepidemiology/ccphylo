@@ -22,7 +22,9 @@
 #include "bytescale.h"
 #include "dat.h"
 #include "filebuff.h"
+#include "jobs.h"
 #include "pherror.h"
+#include "stdstat.h"
 #include "tsv.h"
 
 Dat * loadTsv(FileBuff *infile, unsigned char sep) {
@@ -47,24 +49,26 @@ Dat * loadTsv(FileBuff *infile, unsigned char sep) {
 	}
 	
 	/* skip header and get dimensions */
-	N = 1;
-	while(*buff++ != '\n') {
+	do {
+		N = 1;
+		while(*buff++ != '\n') {
+			if(--avail == 0) {
+				if((avail = buffFileBuff(infile)) == 0) {
+					return 0;
+				}
+				buff = infile->buffer;
+			}
+			if(*buff == sep) {
+				++N;
+			}
+		}
 		if(--avail == 0) {
 			if((avail = buffFileBuff(infile)) == 0) {
 				return 0;
 			}
 			buff = infile->buffer;
 		}
-		if(*buff == sep) {
-			++N;
-		}
-	}
-	if(--avail == 0) {
-		if((avail = buffFileBuff(infile)) == 0) {
-			return 0;
-		}
-		buff = infile->buffer;
-	}
+	} while(*buff == '#');
 	
 	/* allocate matrix */
 	dest = Dat_init(1048576, N);
@@ -143,6 +147,153 @@ Dat * loadTsv(FileBuff *infile, unsigned char sep) {
 	
 	infile->bytes = avail;
 	infile->next = buff;
+	
+	return dest;
+}
+
+Job * loadJobs(FileBuff *infile, unsigned char sep, int col, int *N) {
+	
+	int avail, size, sizeJ, dim, entry, i, n, (*buffFileBuff)(FileBuff *);
+	char *msg, strbuff[32];
+	unsigned char c, stop, *buff, *num;
+	Job *dest;
+	
+	/* init */
+	avail = infile->bytes;
+	buff = infile->next;
+	buffFileBuff = infile->buffFileBuff;
+	if(avail == 0) {
+		if((avail = buffFileBuff(infile)) == 0) {
+			return 0;
+		}
+		buff = infile->buffer;
+	}
+	
+	/* skip header and get dimensions */
+	do {
+		dim = 1;
+		while(*buff++ != '\n') {
+			if(--avail == 0) {
+				if((avail = buffFileBuff(infile)) == 0) {
+					return 0;
+				}
+				buff = infile->buffer;
+			}
+			if(*buff == sep) {
+				++dim;
+			}
+		}
+		if(--avail == 0) {
+			if((avail = buffFileBuff(infile)) == 0) {
+				return 0;
+			}
+			buff = infile->buffer;
+		}
+	} while(*buff == '#');
+	
+	/* check dimensions */
+	if(dim < col) {
+		fprintf(stderr, "Invalid target column\n");
+		exit(1);
+	}
+	
+	/* allocate jobs */
+	sizeJ = 1024;
+	dest = job_realloc(0, 0, 1024);
+	n = 0; /* number of jobs */
+	
+	/* load rows */
+	entry = 1;
+	while(avail) {
+		/* skip rows up to col */
+		i = col;
+		while(--i) {
+			while((c = *buff++) != sep) {
+				if(--avail == 0) {
+					if((avail = buffFileBuff(infile)) == 0) {
+						fprintf(stderr, "Unexpected end of file\n");
+						exit(errno | 1);
+					}
+					buff = infile->buffer;
+				}
+			}
+			if(--avail == 0) {
+				avail = buffFileBuff(infile);
+				buff = infile->buffer;
+			}
+		}
+		
+		/* read col */
+		stop = dim == col ? '\n' : sep;
+		num = (unsigned char *) strbuff;
+		size = 32;
+		while((c = *buff++) != stop) {
+			*num++ = c;
+			if(--size == 0) {
+				fprintf(stderr, "Malformatted entry at:\t%d\n", entry);
+				exit(1);
+			}
+			if(--avail == 0) {
+				if((avail = buffFileBuff(infile)) == 0) {
+					fprintf(stderr, "Unexpected end of file\n");
+					exit(errno | 1);
+				}
+				buff = infile->buffer;
+			}
+		}
+		*num = 0;
+		if(--avail == 0) {
+			avail = buffFileBuff(infile);
+			buff = infile->buffer;
+		}
+		
+		/* convert col to cluster number */
+		i = strtol(strbuff, &msg, 10);
+		if(*msg != 0) {
+			fprintf(stderr, "Malformatted cluster at:\t%d\n", entry);
+			exit(errno | 1);
+		}
+		
+		/* check allocated jobs */
+		if(sizeJ <= i) {
+			size = nearestPower(i+1);
+			dest = job_realloc(dest, sizeJ, size);
+			sizeJ = size;
+		}
+		
+		/* update cluster entry */
+		if(n <= i) {
+			n = i + 1;
+		}
+		dest[i].size++;
+		
+		/* skip rest */
+		if(stop != '\n') {
+			while((c = *buff++) != '\n') {
+				if(--avail == 0) {
+					if((avail = buffFileBuff(infile)) == 0) {
+						fprintf(stderr, "Unexpected end of file\n");
+						exit(errno | 1);
+					}
+					buff = infile->buffer;
+				}
+			}
+			if(--avail == 0) {
+				avail = buffFileBuff(infile);
+				buff = infile->buffer;
+			}
+		}
+		++entry;
+	}
+	infile->bytes = avail;
+	infile->next = buff;
+	
+	/* clean up jobs */
+	n = cleanJobs(dest, n); /* so far n has been zero-indexed */
+	if(n < sizeJ) {
+		dest = job_realloc(dest, sizeJ, n);
+	}
+	*N = n;
 	
 	return dest;
 }

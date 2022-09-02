@@ -23,6 +23,7 @@
 #include "dbscan.h"
 #include "dist.h"
 #include "fullphy.h"
+#include "makespan.h"
 #include "merge.h"
 #include "nwck2phy.h"
 #include "rarify.h"
@@ -86,6 +87,7 @@ static int helpMessage(FILE *out) {
 	fprintf(out, "#    %-23s\t%-32s\n", "rarify", "Rarify a KMA matrix");
 	fprintf(out, "#    %-23s\t%-32s\n", "trim", "Trim multiple alignments");
 	fprintf(out, "#    %-23s\t%-32s\n", "fullphy", "Convert ltd phy to full phy");
+	fprintf(out, "#    %-23s\t%-32s\n", "makespan", "make Makespan");
 	fprintf(out, "#    -%c, --%-17s\t%-32s\n", 'v', "version", "Version");
 	fprintf(out, "#    -%c, --%-17s\t%-32s\n", 'c', "citation", "Citation");
 	fprintf(out, "#    -%c, --%-17s\t%-32s\n", 'h', "help", "Shows this helpmessage");
@@ -121,6 +123,8 @@ int main(int argc, char **argv) {
 		return main_dbscan(argc, argv);
 	} else if(strcmp(arg, "fullphy") == 0) {
 		return main_fullphy(argc, argv);
+	} else if(strcmp(arg, "makespan") == 0) {
+		return main_makespan(argc, argv);
 	} else if(*arg == '-') {
 		/* parse options */
 		flag = 0;

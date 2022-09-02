@@ -27,3 +27,4 @@ double fastp(long double q);
 double p_chisqr(long double q);
 double binP(int n, int k, double p);
 unsigned minimum(unsigned *src, unsigned n);
+long nearestPower(long num);
