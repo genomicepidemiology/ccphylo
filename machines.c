@@ -148,3 +148,51 @@ double machineMSE(Machine *M) {
 	
 	return mse / m;
 }
+
+void print_stats(Machine *M) {
+	
+	int m;
+	double mse, Cmax, Cmin, L1, OPT, Jmax;
+	Job *J;
+	
+	m = 0;
+	mse = 0;
+	Cmax = M->avail;
+	Cmin = M->avail;
+	L1 = 0;
+	Jmax = M->jobs->weight;
+	OPT = 0;
+	while(M) {
+		/* Update Machine stats */
+		if(Cmax < M->avail) {
+			Cmax = M->avail;
+		} else if(M->avail < Cmin) {
+			Cmin = M->avail;
+		}
+		L1 += M->avail < 0 ? -M->avail : M->avail;
+		mse += M->avail * M->avail;
+		++m;
+		
+		/* Update OPT */
+		J = M->jobs;
+		while(J) {
+			OPT += J->weight;
+			if(Jmax < J->weight) {
+				Jmax = J->weight;
+			}
+			J = J->next;
+		}
+		M = M->next;
+	}
+	mse /= m;
+	OPT /= m;
+	Cmax += OPT;
+	Cmin += OPT;
+	OPT = OPT < Jmax ? Jmax : OPT;
+	
+	fprintf(stderr, "## MSE:\t%f\n", mse);
+	fprintf(stderr, "## L1:\t%f\n", L1);
+	fprintf(stderr, "## OPT:\t%f\n", OPT);
+	fprintf(stderr, "## Cmax:\t%f\n", Cmax);
+	fprintf(stderr, "## Cmin:\t%f\n", Cmin);
+}

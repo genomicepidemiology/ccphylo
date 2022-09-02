@@ -24,7 +24,7 @@
 #include "machines.h"
 #include "makespan.h"
 #include "pherror.h"
-#include "tradespan.h"
+#include "tabusearch.h"
 #include "tsv.h"
 
 Machine * (*makespan_method)(Machine *, Job *, int, int) = &DBF;
@@ -250,34 +250,64 @@ Machine * DFE(Machine *M, Job *J, int m, int n) {
 	return M;
 }
 
-void print_makespan(Machine *M, FILE *out) {
+void print_makespan(Machine *M, FILE *out, FILE *mout) {
 	
 	int num, size;
 	double weight;
 	Job *J;
+	Machine *Mptr;
 	
-	fprintf(out, "#%s\t%s\t%s\t%s\n", "Cluster", "Cluster_size", "Cluster_weight", "Partition");
-	fprintf(stderr, "#%s\t%s\t%s\t%s\t%s\n", "Partition", "Cluster_quantity", "Partition_size", "Partition_weight", "Partition_error");
-	while(M) {
-		num = M->num;
-		size = 0;
-		weight = 0;
-		J = M->jobs;
-		while(J) {
-			fprintf(out, "%d\t%d\t%f\t%d\n", J->num, J->size, J->weight, num);
-			size += J->size;
-			weight += J->weight;
-			J = J->next;
+	if(out != mout) {
+		fprintf(out, "#%s\t%s\t%s\t%s\n", "Cluster", "Cluster_size", "Cluster_weight", "Partition");
+		fprintf(mout, "#%s\t%s\t%s\t%s\t%s\n", "Partition", "Cluster_quantity", "Partition_size", "Partition_weight", "Partition_error");
+		while(M) {
+			num = M->num;
+			size = 0;
+			weight = 0;
+			J = M->jobs;
+			while(J) {
+				fprintf(out, "%d\t%d\t%f\t%d\n", J->num, J->size, J->weight, num);
+				size += J->size;
+				weight += J->weight;
+				J = J->next;
+			}
+			fprintf(mout, "%d\t%d\t%d\t%f\t%f\n", num, M->n, size, weight, M->avail);
+			M = M->next;
 		}
-		fprintf(stderr, "%d\t%d\t%d\t%f\t%f\n", num, M->n, size, weight, M->avail);
-		M = M->next;
+	} else {
+		fprintf(mout, "#%s\t%s\t%s\t%s\t%s\n", "Partition", "Cluster_quantity", "Partition_size", "Partition_weight", "Partition_error");
+		Mptr = M;
+		while(Mptr) {
+			num = Mptr->num;
+			size = 0;
+			weight = 0;
+			J = Mptr->jobs;
+			while(J) {
+				size += J->size;
+				weight += J->weight;
+				J = J->next;
+			}
+			fprintf(mout, "%d\t%d\t%d\t%f\t%f\n", num, Mptr->n, size, weight, Mptr->avail);
+			Mptr = Mptr->next;
+		}
+		
+		fprintf(out, "#%s\t%s\t%s\t%s\n", "Cluster", "Cluster_size", "Cluster_weight", "Partition");
+		while(M) {
+			num = M->num;
+			J = M->jobs;
+			while(J) {
+				fprintf(out, "%d\t%d\t%f\t%d\n", J->num, J->size, J->weight, num);
+				J = J->next;
+			}
+			M = M->next;
+		}
 	}
 }
 
-void makespan(char *inputfilename, char *outputfilename, int m, double *loads, double base, unsigned char sep, int col) {
+void makespan(char *inputfilename, char *outputfilename, char *moutputfilename, int m, double *loads, double base, unsigned char sep, int col) {
 	
 	int n;
-	FILE *outfile;
+	FILE *outfile, *moutfile;
 	FileBuff *infile;
 	Job *J;
 	Machine *M;
@@ -289,6 +319,13 @@ void makespan(char *inputfilename, char *outputfilename, int m, double *loads, d
 		outfile = stdout;
 	} else {
 		outfile = sfopen(outputfilename, "wb");
+	}
+	if(*moutputfilename == '-' && moutputfilename[1] == 0) {
+		moutfile = stdout;
+	} else if(strcmp(outputfilename, moutputfilename) == 0) {
+		moutfile = outfile;
+	} else {
+		moutfile = sfopen(moutputfilename, "wb");
 	}
 	
 	/* load jobs */
@@ -315,8 +352,12 @@ void makespan(char *inputfilename, char *outputfilename, int m, double *loads, d
 	}
 	
 	/* print results */
-	fprintf(stderr, "## MSE:\t%f\n", machineMSE(M));
-	print_makespan(M, outfile);
+	//fprintf(stderr, "## MSE:\t%f\n", machineMSE(M));
+	print_stats(M);
+	print_makespan(M, outfile, moutfile);
+	if(outfile != moutfile) {
+		fclose(moutfile);
+	}
 	fclose(outfile);
 }
 
@@ -361,12 +402,13 @@ static int helpMessage(FILE *out) {
 	fprintf(out, "#   %-24s\t%-32s\t%s\n", "Options are:", "Desc:", "Default:");
 	fprintf(out, "#    -%c, --%-16s\t%-32s\t%s\n", 'i', "input", "Input file", "stdin");
 	fprintf(out, "#    -%c, --%-16s\t%-32s\t%s\n", 'o', "output", "Output file", "stdout");
+	fprintf(out, "#    -%c, --%-16s\t%-32s\t%s\n", 'O', "machine_output", "Machine output file", "stdout");
 	fprintf(out, "#    -%c, --%-16s\t%-32s\t%s\n", 'S', "separator", "Separator", "\\t");
 	fprintf(out, "#    -%c, --%-16s\t%-32s\t%s\n", 'k', "key", "Field containing cluster number", "3");
-	fprintf(out, "#    -%c, --%-16s\t%-32s\t%s\n", 'm', "method", "Makespan method", "DBF");
+	fprintf(out, "#    -%c, --%-16s\t%-32s\t%s\n", 'm', "method", "Makespan initial method", "DBF");
 	fprintf(out, "#    -%c, --%-16s\t%-32s\t%s\n", 'M', "method_help", "Help on option \"-m\"", "");
-	fprintf(out, "#    -%c, --%-16s\t%-32s\t%s\n", 't', "trade", "Makespan trading method", "BB");
-	fprintf(out, "#    -%c, --%-16s\t%-32s\t%s\n", 'T', "trade_help", "Help on option \"-t\"", "");
+	fprintf(out, "#    -%c, --%-16s\t%-32s\t%s\n", 't', "tabu", "Makespan tabu search method", "BB");
+	fprintf(out, "#    -%c, --%-16s\t%-32s\t%s\n", 'T', "tabu_help", "Help on option \"-t\"", "");
 	fprintf(out, "#    -%c, --%-16s\t%-32s\t%s\n", 'w', "weight", "Weighing method", "none");
 	fprintf(out, "#    -%c, --%-16s\t%-32s\t%s\n", 'W', "weight_help", "Help on option \"-w\"", "");
 	fprintf(out, "#    -%c, --%-16s\t%-32s\t%s\n", 'l', "loads", "Load on machines double[,double...]", "5");
@@ -379,8 +421,8 @@ int main_makespan(int argc, char **argv) {
 	const char *stdstream = "-";
 	int args, m, len, col, offset;
 	double *loads, base;
-	char **Arg, *arg, *inputfilename, *outputfilename, *method, *strLoads;
-	char *trade, *weight, *errMsg, sep, opt;
+	char **Arg, *arg, *inputfilename, *outputfilename, *moutputfilename;
+	char *method, *strLoads, *trade, *weight, *errMsg, sep, opt;
 	
 	/* set defaults */
 	m = 5;
@@ -389,6 +431,7 @@ int main_makespan(int argc, char **argv) {
 	base = 1;
 	inputfilename = (char *)(stdstream);
 	outputfilename = (char *)(stdstream);
+	moutputfilename = (char *)(stdstream);
 	method = "DBF";
 	trade = "BB";
 	strLoads = 0;
@@ -421,6 +464,8 @@ int main_makespan(int argc, char **argv) {
 					inputfilename = getArgDie(&Arg, &args, len + offset, "input");
 				} else if(strncmp(arg, "output", len) == 0) {
 					outputfilename = getArgDie(&Arg, &args, len + offset, "output");
+				} else if(strncmp(arg, "machine_output", len) == 0) {
+					moutputfilename = getArgDie(&Arg, &args, len + offset, "output");
 				} else if(strncmp(arg, "separator", len) == 0) {
 					sep = getcArgDie(&Arg, &args, len + offset, "separator");
 				} else if(strncmp(arg, "key", len) == 0) {
@@ -429,9 +474,9 @@ int main_makespan(int argc, char **argv) {
 					method = getArgDie(&Arg, &args, len + offset, "method");
 				} else if(strncmp(arg, "method_help", len) == 0) {
 					method = 0;
-				} else if(strncmp(arg, "trade", len) == 0) {
+				} else if(strncmp(arg, "tabu", len) == 0) {
 					trade = getArgDie(&Arg, &args, len + offset, "trade");
-				} else if(strncmp(arg, "trade_help", len) == 0) {
+				} else if(strncmp(arg, "tabu_help", len) == 0) {
 					trade = 0;
 				} else if(strncmp(arg, "weight", len) == 0) {
 					weight = getArgDie(&Arg, &args, len + offset, "weight");
@@ -455,6 +500,9 @@ int main_makespan(int argc, char **argv) {
 						opt = 0;
 					} else if(opt == 'o') {
 						outputfilename = getArgDie(&Arg, &args, len, "o");
+						opt = 0;
+					} else if(opt == 'O') {
+						moutputfilename = getArgDie(&Arg, &args, len, "o");
 						opt = 0;
 					} else if(opt == 'S') {
 						sep = getcArgDie(&Arg, &args, len, "S");
@@ -507,7 +555,7 @@ int main_makespan(int argc, char **argv) {
 	
 	/* get method */
 	if(!method) {
-		fprintf(stderr, "Makespan methods:\n");
+		fprintf(stderr, "Makespan initial methods:\n");
 		fprintf(stderr, "DBF:\tDecreasing Best First / Longest Processing Time (LPT)\n");
 		fprintf(stderr, "DFF:\tDecreasing First Fit\n");
 		fprintf(stderr, "DBE:\tDecreasing Best First with equal number of jobs\n");
@@ -527,8 +575,8 @@ int main_makespan(int argc, char **argv) {
 	
 	/* get trading method */
 	if(!trade) {
-		fprintf(stderr, "Trading methods:\n");
-		fprintf(stderr, "BB:\tBabettes buckets\n");
+		fprintf(stderr, "Tabu search methods:\n");
+		fprintf(stderr, "BB:\tBabettes buckets, local search + job trade\n");
 		fprintf(stderr, "DBEB:\tTrades has to be with two jobs\n");
 		fprintf(stderr, "None:\tNo trading\n");
 		return 0;
@@ -588,7 +636,7 @@ int main_makespan(int argc, char **argv) {
 	}
 	
 	/* make tree */
-	makespan(inputfilename, outputfilename, m, loads, base, sep, col);
+	makespan(inputfilename, outputfilename, moutputfilename, m, loads, base, sep, col);
 	
 	return 0;
 }
