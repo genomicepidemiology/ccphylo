@@ -5,7 +5,7 @@ git clone https://bitbucket.org/genomicepidemiology/ccphylo.git
 cd ccphylo && make
 
 ./ccphylo -h
-./ccphylo dist -i path/to/kma/alignments/*.mat.gz -o results.phy
+./ccphylo dist -i path/to/kma/alignments/\*.mat.gz -o results.phy
 ./ccphylo tree -i results.phy -o results.nwck
 ./ccphylo union -i path/to/kma/alignments/*.res
 ```
