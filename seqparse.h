@@ -21,5 +21,6 @@
 #include "qseqs.h"
 
 /* get entry from fastafile */
+int FileBuffgetFsa(FileBuff *src, Qseqs *header, Qseqs *qseq, unsigned char *trans);
 int FileBuffgetFsaHeader(FileBuff *src, Qseqs *header);
 int FileBuffgetFsaSeq(FileBuff *src, Qseqs *qseq, unsigned char *trans);

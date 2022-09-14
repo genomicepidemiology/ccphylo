@@ -179,6 +179,190 @@ int ltdFsaMatrix_get(Matrix *D, Matrix *N, int numFile, long unsigned **seqs, in
 	return cSize;
 }
 
+int ltdMsaMatrix_get(FileBuff *infile, FILE *outfile, FILE *noutfile, Qseqs *ref, Qseqs *seq, Qseqs *header, unsigned char *trans, unsigned norm, unsigned minLength, double minCov, unsigned flag, unsigned proxi, MethMotif *motif, FILE *diffile, int tnum) {
+	
+	int i, n, size, cSize, len, pair;
+	unsigned **includes, **includesPtr;
+	long unsigned **seqs, **seqsPtr;
+	char **headers, **headersPtr;
+	unsigned char *include;
+	Matrix *D, *N;
+	
+	/* init */
+	pair = flag & 2 ? 1 : 0;
+	len = 0;
+	cSize = 0;
+	n = 0;
+	size = 16;
+	includes = pair ? smalloc(size * sizeof(unsigned *)) : smalloc(sizeof(unsigned *));
+	seqs = smalloc(size * sizeof(long unsigned *));
+	headers = smalloc(size * sizeof(char *));
+	includesPtr = includes;
+	seqsPtr = seqs;
+	headersPtr = headers;
+	
+	/* load sequences from msa */
+	while(FileBuffgetFsa(infile, header, seq, trans)) {
+		/* realloc */
+		if(n == size) {
+			size <<= 1;
+			includes = pair ? realloc(includes, size * sizeof(unsigned *)) : includes;
+			seqs = realloc(seqs, size * sizeof(long unsigned *));
+			headers = realloc(headers, size * sizeof(char *));
+			if(!includes || !seqs || !headers) {
+				ERROR();
+			}
+			for(i = n; i < size; ++i) {
+				seqs[i] = smalloc(cSize * sizeof(long unsigned));
+				if(pair) {
+					includes[i] = smalloc(cSize * sizeof(unsigned));
+				}
+			}
+			
+			/* set pointers */
+			includesPtr = pair ? includes + n : includes;
+			seqsPtr = seqs + n;
+			headersPtr = headers + n;
+		}
+		++n;
+		
+		/* add seq */
+		if(ref->len) {
+			if(seq->len != ref->len) {
+				fprintf(stderr, "Sequences does not match: %s\n", header->seq);
+				exit(1);
+			}
+			
+			/* make / update inclusion array(s) */
+			if(pair) {
+				initIncPos(*includesPtr, len);
+				qseq2nibble(seq, *seqsPtr);
+				maskMotifs(*seqsPtr, *includesPtr, len, motif);
+				getIncPosPtr(*includesPtr, seq, seq, proxi);
+				*headersPtr = smalloc(header->len); 
+				strcpy(*headersPtr, (char *)(header->seq + 1));
+				if(getNpos(*includesPtr, len) < minLength) {
+					fprintf(stderr, "Template (\"%s\") did not exceed threshold for inclusion\n", header->seq);
+					--n;
+				} else {
+					++seqsPtr;
+					++headersPtr;
+					includesPtr += pair;
+				}
+			} else {
+				qseq2nibble(seq, *seqsPtr);
+				maskMotifs(*seqsPtr, *includes, len, motif);
+				getIncPosPtr(*includes, seq, ref, proxi);
+				*headersPtr = smalloc(header->len); 
+				strcpy(*headersPtr, (char *)(header->seq + 1));
+				++seqsPtr;
+				++headersPtr;
+				includesPtr += pair;
+			}
+		} else { /* use first valid sequence as validater */
+			len = seq->len;
+			minLength = minLength < minCov * len ? minCov * len : minLength;
+			cSize = len / 32 + 1;
+			for(i = 0; i < size; ++i) {
+				seqs[i] = smalloc(cSize * sizeof(long unsigned));
+				if(pair) {
+					includes[i] = smalloc(cSize * sizeof(unsigned));
+				}
+			}
+			if(!pair) {
+				*includes = smalloc(cSize * sizeof(unsigned));
+			}
+			initIncPos(*includesPtr, len);
+			qseq2nibble(seq, *seqsPtr);
+			maskMotifs(*seqsPtr, *includesPtr, len, motif);
+			getIncPosPtr(*includesPtr, seq, seq, proxi);
+			
+			if(getNpos(*includesPtr, len) < minLength) {
+				fprintf(stderr, "Template (\"%s\") did not exceed threshold for inclusion\n", header->seq);
+				ref->len = 0;
+				--n;
+			} else {
+				*headersPtr = smalloc(header->len); 
+				strcpy(*headersPtr, (char *)(header->seq + 1));
+				/* swap seq and ref */
+				exchange(seq->size, ref->size, len);
+				exchange(seq->len, ref->len, len);
+				exchange(seq->seq, ref->seq, include);
+				++seqsPtr;
+				++headersPtr;
+				includesPtr += pair;
+			}
+		}
+	}
+	
+	/* adjust size of arrays */
+	includes = pair ? realloc(includes, n * sizeof(unsigned *)) : includes;
+	seqs = realloc(seqs, n * sizeof(long unsigned *));
+	headers = realloc(headers, n * sizeof(char *));
+	if(!includes || !seqs || !headers) {
+		ERROR();
+	}
+	include = smalloc(n);
+	memset(include, 1, n);
+	D = ltdMatrix_init(n);
+	if(noutfile) {
+		N = ltdMatrix_init(n);
+	} else {
+		N = 0;
+	}
+	
+	/* adjust number of threads */
+	if(n * (n - 1) / 2 < tnum) {
+		fprintf(stderr, "Adjustning number of nodes to %d, to conform with the matrix size.\n", (tnum = n * (n - 1) / 2));
+	}
+	
+	/* make ltd matrix */
+	if(!n) {
+		D->n = 0;
+		errno = 1;
+		fprintf(stderr, "All sequences were trimmed away.\n");
+	} else if(pair) {
+		fsaCmpThreadOut(tnum, &cmpairFsaThrd, D, N, n, len, seqs, include, includes, norm, minLength, minCov, diffile, 0, ref, 0, proxi);
+		//cmpairFsa(D, N, numFile, len, seqs, include, includes, norm, minLength, minCov, proxi, diffile);
+	} else if(minLength <= getNpos(*includes, len)) {
+		fsaCmpThreadOut(tnum, &cmpFsaThrd, D, N, n, len, seqs, include, includes, norm, minLength, minCov, diffile, 0, ref, 0, proxi);
+		/* i = cmpFsa(D, numFile, len, seqs, include, includes, norm, diffile);
+		fprintf(stderr, "# %d / %d bases included in distance matrix.\n", i, len); */
+	} else {
+		D->n = 0;
+		errno = 1;
+		fprintf(stderr, "No sufficient overlap was found.\n");
+	}
+	
+	/* print matrix */
+	if(1 < D->n) {
+		printphy(outfile, D, headers, include, 0, flag);
+		if(N && 1 < N->n) {
+			printphy(outfile, N, headers, include, 0, flag);
+		}
+	}
+	
+	/* clean up */
+	for(i = 0; i < n; ++i) {
+		free(seqs[i]);
+		free(headers[i]);
+		if(pair) {
+			free(includes[i]);
+		}
+	}
+	if(!pair && n) {
+		free(*includes);
+	}
+	free(seqs);
+	free(headers);
+	free(include);
+	free(includes);
+	Matrix_destroy(D);
+	Matrix_destroy(N);
+	
+	return D->n;
+}
+
 int ltdFsaRow_get(double *D, double *N, FileBuff *infile, char *targetTemplate, char *addfilename, char *diffilename, Qseqs **filenames, int n, unsigned norm, unsigned minLength, double minCov, unsigned flag, unsigned proxi) {
 	/* doesn't work with floats, but its deprecated and unused anyway */
 	char *filename;

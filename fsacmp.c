@@ -366,9 +366,9 @@ void maskProxi(unsigned *include, unsigned *include1, unsigned *include2, long u
 	seqlen = len;
 	/* convert length to compressed length */
 	if(len & 31) {
-		len = (len >> 5) + 2;
-	} else {
 		len = (len >> 5) + 1;
+	} else {
+		len = (len >> 5);
 	}
 	include += len;
 	include1 += len;
@@ -378,6 +378,7 @@ void maskProxi(unsigned *include, unsigned *include1, unsigned *include2, long u
 	if((i = seqlen) & 31) {
 		i = ((i >> 5) + 1) << 5;
 	}
+	++len;
 	while(--len) {
 		kmer1 = *--seq1;
 		kmer2 = *--seq2;
@@ -552,6 +553,7 @@ long unsigned fsacmpair(long unsigned *seq1, long unsigned *seq2, unsigned *incl
 	} else {
 		len = (len >> 5) + 1;
 	}
+	
 	while(--len) {
 		kmer1 = *++seq1;
 		kmer2 = *++seq2;

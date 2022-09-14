@@ -41,7 +41,7 @@
 
 static void makeMatrix(unsigned numFile, char **filenames, char *outputfilename, char *noutputfilename, char *diffilename, char *targetTemplate, double minCov, double alpha, unsigned norm, unsigned minDepth, unsigned minLength, unsigned proxi, unsigned flag, double (*veccmp)(short unsigned*, short unsigned*, int, int), char *methfilename, int tnum) {
 	
-	int i, informat, cSize;
+	int i, informat, cSize, unionin;
 	unsigned n, pos, len, **includes;
 	long unsigned **seqs;
 	unsigned char *include, *trans;
@@ -54,6 +54,16 @@ static void makeMatrix(unsigned numFile, char **filenames, char *outputfilename,
 	Qseqs *ref, *seq, *header;
 	TimeStamp **targetStamps;
 	UnionEntry *entry;
+	
+	/* init */
+	distMat = 0;
+	nDest = 0;
+	targetStamps = 0;
+	include = 0;
+	motif = 0;
+	unionin = 0;
+	seqs = 0;
+	includes = 0;
 	
 	/* open output */
 	if(*outputfilename == '-' && outputfilename[1] == 0) {
@@ -83,17 +93,22 @@ static void makeMatrix(unsigned numFile, char **filenames, char *outputfilename,
 	} else {
 		diffile = 0;
 	}
-	motif = 0;
 	
 	/* determine format of input */
 	infile = setFileBuff(1048576);
 	if(flag & 16) {
 		informat = '>';
-	} else if(numFile && numFile != 1) {
+	} else if(numFile) {
 		informat = fileExist(infile, *filenames);
 	} else {
-		informat = '#';
+		informat = getc(stdout);
+		ungetc(informat, stdout);
 	}
+	if(informat != '>') {
+		informat = '#';
+		unionin = 1;
+	}
+	
 	if(informat == '#') {
 		mat1 = initMat(1048576, 128);
 		mat2 = initNucCount(128);
@@ -163,14 +178,14 @@ static void makeMatrix(unsigned numFile, char **filenames, char *outputfilename,
 				printphy(noutfile, nDest, filenames, include, targetTemplate, flag);
 			}
 		}
-	} else if(numFile < 2) {
+	} else if(numFile < 2 && unionin) {
 		/* create many matrices */
 		/* requires *.union */
 		unionfile = setFileBuff(524288);
 		if(filenames) {
 			openAndDetermine(unionfile, *filenames);
 		} else {
-			openAndDetermine(unionfile, "--");
+			openAndDetermine(unionfile, "-");
 		}
 		
 		/* get samplenames */
@@ -262,6 +277,14 @@ static void makeMatrix(unsigned numFile, char **filenames, char *outputfilename,
 		closeFileBuff(unionfile);
 		destroyFileBuff(unionfile);
 		UnionEntry_destroy(entry);
+	} else if(numFile < 2) {
+		/* msa input */
+		if(filenames) {
+			openAndDetermine(infile, *filenames);
+		} else {
+			openAndDetermine(infile, "-");
+		}
+		cSize = ltdMsaMatrix_get(infile, outfile, noutfile, ref,seq, header, trans, norm, minLength, minCov, flag, proxi, motif, diffile, tnum);
 	} else {
 		fprintf(stderr, "Invalid argument combination.\n");
 		exit(1);
@@ -274,17 +297,19 @@ static void makeMatrix(unsigned numFile, char **filenames, char *outputfilename,
 		destroyMat(mat1);
 		destroyNucCount(mat2);
 	} else if(informat == '>') {
-		i = numFile;
-		while(--i) {
-			free(seqs[i]);
-			if(flag & 2) {
-				free(includes[i]);
+		if(unionin || 1 < numFile) {
+			i = numFile;
+			while(--i) {
+				free(seqs[i]);
+				if(flag & 2) {
+					free(includes[i]);
+				}
 			}
+			free(*seqs);
+			free(*includes);
+			free(seqs);
+			free(includes);
 		}
-		free(*seqs);
-		free(*includes);
-		free(seqs);
-		free(includes);
 		destroyQseqs(ref);
 		destroyQseqs(seq);
 		destroyQseqs(header);
@@ -399,7 +424,7 @@ static int helpMessage(FILE *out) {
 	fprintf(out, "#    -%c, --%-16s\t%-32s\t%s\n", 'E', "min_depth", "Minimum depth", "15");
 	fprintf(out, "#    -%c, --%-16s\t%-32s\t%s\n", 'C', "min_cov", "Minimum coverage", "50.0%");
 	fprintf(out, "#    -%c, --%-16s\t%-32s\t%s\n", 'L', "min_len", "Minimum overlapping length", "1");
-	fprintf(out, "#    -%c, --%-16s\t%-32s\t%s\n", 'W', "normalization_weight", "Normalization weight", "1000000");
+	fprintf(out, "#    -%c, --%-16s\t%-32s\t%s\n", 'W', "normalization_weight", "Normalization weight", "0 / None");
 	fprintf(out, "#    -%c, --%-16s\t%-32s\t%s\n", 'P', "proximity", "Minimum proximity between SNPs", "0");
 	fprintf(out, "#    -%c, --%-16s\t%-32s\t%s\n", 'f', "flag", "Output flags", "1");
 	fprintf(out, "#    -%c, --%-16s\t%-32s\t%s\n", 'F', "flag_help", "Help on option \"-f\"", "");
@@ -458,7 +483,7 @@ int main_dist(int argc, char **argv) {
 	size = sizeof(double);
 	numFile = 0;
 	flag = 1;
-	norm = 1000000;
+	norm = 0;
 	minDepth = 15;
 	minLength = 1;
 	proxi = 0;
@@ -668,8 +693,12 @@ int main_dist(int argc, char **argv) {
 	if(flag == -1) {
 		fprintf(stdout, "# Format flags output, add them to combine them.\n");
 		fprintf(stdout, "#\n");
-		fprintf(stdout, "#   1:\tStrictly bifurcate the root\n");
-		fprintf(stdout, "#   2:\tAllow negative branchlengths\n");
+		fprintf(stdout, "#   1:\tRelaxed Phylip\n");
+		fprintf(stdout, "#   2:\tDistances are pairwise, always true on *.mat files\n");
+		fprintf(stdout, "#   4:\tInclude template name in phylip file\n");
+		fprintf(stdout, "#   8:\tInclude insignificant bases in distance calculation, only affects fasta input\n");
+		fprintf(stdout, "#  16:\tDistances based on fasta input\n");
+		fprintf(stdout, "#  32:\tDo not include insignificant bases in pruning\n");
 		fprintf(stdout, "#\n");
 		return 0;
 	}
