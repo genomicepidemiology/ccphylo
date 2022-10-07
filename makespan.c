@@ -329,31 +329,31 @@ void makespan(char *inputfilename, char *outputfilename, char *moutputfilename, 
 	}
 	
 	/* load jobs */
-	J = loadJobs(infile, sep, col, &n);
+	J = loadJobs(infile, sep, col, &n); /* here multi-class */
 	closeFileBuff(infile);
 	destroyFileBuff(infile);
 	
 	/* get job weights */
-	jobWeight(J, n, base);
+	jobWeight(J, n, base); /* here multi-class */
 	
 	/* get machines */
 	if(loads) {
-		M = initSkewM(m, n, J, loads);
+		M = initSkewM(m, n, J, loads); /* here multi-class */
 	} else {
-		M = initM(m, n, J);
+		M = initM(m, n, J); /* here multi-class */
 	}
 	
 	/* run makespan */
-	M = makespan_method(M, J, m, n);
+	M = makespan_method(M, J, m, n); /* here multi-class */
 	
 	/* trade jobs */
 	if(tradeM) {
-		fprintf(stderr, "## Trades:\t%d\n", tradeM(M));
+		fprintf(stderr, "## Trades:\t%d\n", tradeM(M)); /* here multi-class */
 	}
 	
 	/* print results */
 	//fprintf(stderr, "## MSE:\t%f\n", machineMSE(M));
-	print_stats(M);
+	print_stats(M); /* here multi-class */
 	print_makespan(M, outfile, moutfile);
 	if(outfile != moutfile) {
 		fclose(moutfile);

@@ -94,6 +94,8 @@ Machine * initM(int m, int n, Job *J) {
 	while(--m) {
 		(++ptr)->num = m;
 		ptr->n = 0;
+		ptr->m = 0; /* here */
+		ptr->buff = 0;
 		ptr->avail = m_target;
 		ptr->jobs = 0;
 		ptr->next = ptr + 1;
@@ -124,6 +126,8 @@ Machine * initSkewM(int m, int n, Job *J, double *loads) {
 	while(--i) {
 		(++ptr)->num = i;
 		ptr->n = 0;
+		ptr->m = 0; /* here */
+		ptr->buff = 0;
 		ptr->avail = m_target * *++loads;
 		ptr->jobs = 0;
 		ptr->next = ptr + 1;

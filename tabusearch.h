@@ -25,7 +25,7 @@ extern int (*tradeM)(Machine *);
 Job ** sequenceJobs(Machine *M, Job *J, int m, int n);
 void moveUp(Job **sJ);
 void moveDown(Job **sJ);
-void exchange(Job **sJ, unsigned m, unsigned n);
+void jobexchange(Job **sJ, unsigned m, unsigned n);
 void insertJob(Machine *M, Job *J);
 void exchangeJobs(Machine *Mm, Machine *Mn, Job *Jm, Job *Jn);
 double negotiateM(Machine *Mm, Machine *Mn, Job **Jmbest, Job **Jnbest);

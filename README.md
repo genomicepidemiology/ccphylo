@@ -8,7 +8,7 @@ cd ccphylo && make
 ```
 
 # Introduction #
-CCPhylo is a software suite designed to easen phylogenitic analysis based on alignments from KMA. 
+CCPhylo is a software suite designed to easen phylogenetic analysis based on alignments from KMA. 
 Neighbor-Joining can be run without KMA alignments, if a Phylip distance matrix is given using "ccphylo tree".
 
 If you use CCPhylo for your published research, then please cite:

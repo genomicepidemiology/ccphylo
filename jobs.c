@@ -58,6 +58,7 @@ Job * job_realloc(Job *src, int oldsize, int newsize) {
 			ptr->num = ++oldsize;
 			ptr->size = 0;
 			ptr->weight = 0;
+			ptr->Weights = 0;
 			ptr->next = ptr + 1;
 			++ptr;
 		}

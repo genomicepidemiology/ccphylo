@@ -26,6 +26,7 @@
 #include "makespan.h"
 #include "merge.h"
 #include "nwck2phy.h"
+#include "phycmp.h"
 #include "rarify.h"
 #include "tree.h"
 #include "trim.h"
@@ -86,6 +87,7 @@ static int helpMessage(FILE *out) {
 	fprintf(out, "#    %-23s\t%-32s\n", "tsv2phy", "Convert tsv file to phylip distance file");
 	fprintf(out, "#    %-23s\t%-32s\n", "rarify", "Rarify a KMA matrix");
 	fprintf(out, "#    %-23s\t%-32s\n", "trim", "Trim multiple alignments");
+	fprintf(out, "#    %-23s\t%-32s\n", "phycmp", "Compare two phylip matrices");
 	fprintf(out, "#    %-23s\t%-32s\n", "fullphy", "Convert ltd phy to full phy");
 	fprintf(out, "#    %-23s\t%-32s\n", "makespan", "make Makespan");
 	fprintf(out, "#    -%c, --%-17s\t%-32s\n", 'v', "version", "Version");
@@ -121,6 +123,8 @@ int main(int argc, char **argv) {
 		return main_trim(argc, argv);
 	} else if(strcmp(arg, "dbscan") == 0) {
 		return main_dbscan(argc, argv);
+	} else if(strcmp(arg, "phycmp") == 0) {
+		return main_phycmp(argc, argv);
 	} else if(strcmp(arg, "fullphy") == 0) {
 		return main_fullphy(argc, argv);
 	} else if(strcmp(arg, "makespan") == 0) {

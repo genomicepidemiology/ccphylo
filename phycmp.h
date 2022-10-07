@@ -17,4 +17,8 @@
  * limitations under the License.
 */
 
-#define CCPHYLO_VERSION "0.6.5"
+#include "qseqs.h"
+
+int entriescmp(Qseqs **names1, Qseqs **names2, int n);
+void phyfilecmp(char **inputfilenames, int filenum, char *outputfilename, int flag);
+int main_phycmp(int argc, char **argv);

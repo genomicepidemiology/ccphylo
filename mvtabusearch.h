@@ -1,7 +1,7 @@
-/* Philip T.L.C. Clausen Jan 2017 plan@dtu.dk */
+/* Philip T.L.C. Clausen Oct 2022 plan@dtu.dk */
 
 /*
- * Copyright (c) 2017, Philip Clausen, Technical University of Denmark
+ * Copyright (c) 2022, Philip Clausen, Technical University of Denmark
  * All rights reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -17,4 +17,12 @@
  * limitations under the License.
 */
 
-#define CCPHYLO_VERSION "0.6.5"
+#include "jobs.h"
+#include "machines.h"
+
+void exchangeMVJobs(Machine *Mm, Machine *Mn, Job *Jm, Job *Jn);
+double negotiateMVM(Machine *Mm, Machine *Mn, Job **Jmbest, Job **Jnbest);
+double testMVhandover(Machine *Mm, Machine *Mn, Job *J);
+void rmMVjob(Machine *M, Job *J);
+void addMVjob(Machine *M, Job *J);
+int mvhandover(Machine *Mm, Machine *Mn);

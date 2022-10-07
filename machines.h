@@ -22,9 +22,12 @@
 #ifndef MACHINES
 typedef struct machine Machine;
 struct machine {
-	int num;
-	int n;
-	double avail;
+	int num; /* machine number */
+	int n; /* number of jobs */
+	int m; /* number of classes */
+	int buff; /* 64-bit overhang */
+	double avail; /* availability of machine */
+	double *Avails; /* availability on different classes */
 	Job *jobs;
 	struct machine *next;
 };

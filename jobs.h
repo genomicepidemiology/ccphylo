@@ -23,6 +23,7 @@ struct job {
 	int num;
 	int size;
 	double weight;
+	double *Weights;
 	struct job *next;
 };
 #define JOB 1

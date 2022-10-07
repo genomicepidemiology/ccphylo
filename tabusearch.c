@@ -19,6 +19,7 @@
 
 #include "jobs.h"
 #include "machines.h"
+#include "mvtabusearch.h"
 #include "pherror.h"
 #include "tabusearch.h"
 
@@ -73,10 +74,10 @@ void moveDown(Job **sJ) {
 	}
 }
 
-void exchange(Job **sJ, unsigned m, unsigned n) {
+void jobexchange(Job **sJ, unsigned m, unsigned n) {
 	
 	int num, size;
-	double weight;
+	double weight, *Weights;
 	Job *Jm, *Jn;
 	
 	Jm = sJ[m];
@@ -86,14 +87,17 @@ void exchange(Job **sJ, unsigned m, unsigned n) {
 	num = Jm->num;
 	size = Jm->size;
 	weight = Jm->weight;
+	Weights = Jm->Weights;
 	
 	Jm->num = Jn->num;
 	Jm->size = Jn->size;
-	Jm->weight = Jm->weight;
+	Jm->weight = Jn->weight;
+	Jm->Weights = Jn->Weights;
 	
 	Jn->num = num;
 	Jn->size = size;
 	Jn->weight = weight;
+	Jn->Weights = Weights;
 	
 	/* rearrange sequential jobs */
 	if(Jm->weight < Jn->weight) {
@@ -158,6 +162,13 @@ void exchangeJobs(Machine *Mm, Machine *Mn, Job *Jm, Job *Jn) {
 	/* adjust availability of machines */
 	Mm->avail += (Jm->weight - Jn->weight);
 	Mn->avail += (Jn->weight - Jm->weight);
+	
+	/* adjust class availability of machines */
+	rmMVjob(Mm, Jm);
+	addMVjob(Mm, Jn);
+	rmMVjob(Mn, Jn);
+	addMVjob(Mn, Jm);
+	
 }
 
 double negotiateM(Machine *Mm, Machine *Mn, Job **Jmbest, Job **Jnbest) {
@@ -311,6 +322,8 @@ int tradeDBEB(Machine *M) {
 			Mn = Mm->next;
 			while(Mn) {
 				/* Negotiate trade options between Mm and Mn */
+				/* here */
+				/* function ptr needed */
 				test = negotiateM(Mm, Mn, &Jm, &Jn);
 				
 				/* check negotiation between machines */
@@ -332,7 +345,6 @@ int tradeDBEB(Machine *M) {
 				Mm = Mm->next;
 			}
 		}
-		break;
 	} while(Mbest);
 	
 	return trades;
@@ -416,9 +428,13 @@ int tradeBB(Machine *M) {
 			Mn = Mm->next;
 			while(Mn) {
 				/* check handover */
+				/* here */
+				/* function ptr needed */
 				trades += handover(Mm, Mn);
 				
 				/* Negotiate trade options between Mm and Mn */
+				/* here */
+				/* function ptr needed */
 				test = negotiateM(Mm, Mn, &Jm, &Jn);
 				
 				/* check negotiation between machines */
@@ -474,7 +490,7 @@ Job * tradeMsequential(Machine *M, Job *J, int m, int n) {
 			
 			/* exchange jobs */
 			if(pos) {
-				exchange(sJ, pos >> 32, pos & 4294967295);
+				jobexchange(sJ, pos >> 32, pos & 4294967295);
 				++trades;
 			}
 			if(!pos) {
