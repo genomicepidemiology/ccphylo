@@ -17,5 +17,5 @@
  * limitations under the License.
 */
 
-void formFullPhy(char *inputfilename, char *outputfilename, int flag);
+void formFullPhy(char *inputfilename, char *outputfilename, int flag, char sep, char quotes);
 int main_fullphy(int argc, char **argv);

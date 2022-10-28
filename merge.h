@@ -20,6 +20,7 @@
 #include "filebuff.h"
 #include "matrix.h"
 
-char ** merge(Matrix *dist, Matrix *num, FileBuff *phyfile, FileBuff *numfile);
-char ** jl_merge();
+char ** merge(Matrix *dist, Matrix *num, FileBuff *phyfile, FileBuff *numfile, char sep, char quotes);
+char ** jl_merge(Matrix *dist, Matrix *num, FileBuff *phyfile, char sep, char quotes);
+int merger(char *phyfilename, char *numfilename, char *outphyfilename, char *outnumfilename, unsigned format, char sep, char quotes);
 int main_merge(int argc, char **argv);

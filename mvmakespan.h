@@ -1,4 +1,4 @@
-/* Philip T.L.C. Clausen Jul 2022 plan@dtu.dk */
+/* Philip T.L.C. Clausen Oct 2022 plan@dtu.dk */
 
 /*
  * Copyright (c) 2022, Philip Clausen, Technical University of Denmark
@@ -20,19 +20,7 @@
 #include "jobs.h"
 #include "machines.h"
 
-extern int (*tradeM)(Machine *);
-extern double (*negotiatePtr)(Machine *, Machine *, Job **, Job **);
-extern int (*handoverPtr)(Machine *, Machine *);
-
-
-Job ** sequenceJobs(Machine *M, Job *J, int m, int n);
-void moveUp(Job **sJ);
-void moveDown(Job **sJ);
-void jobexchange(Job **sJ, unsigned m, unsigned n);
-void insertJob(Machine *M, Job *J);
-void exchangeJobs(Machine *Mm, Machine *Mn, Job *Jm, Job *Jn);
-double negotiateM(Machine *Mm, Machine *Mn, Job **Jmbest, Job **Jnbest);
-int tradeDBEB(Machine *M);
-int handover(Machine *Mm, Machine *Mn);
-int tradeBB(Machine *M);
-Job * tradeMsequential(Machine *M, Job *J, int m, int n);
+void addMVDBE(Machine **Mdest, Machine **Edest, Job *J, int m, int n);
+Machine * addMVDBF(Machine *M, Job *J);
+Machine * MVFirstFit(Machine *M, Job *J, int m);
+Machine * MVFirstFet(Machine *M, Job *J);

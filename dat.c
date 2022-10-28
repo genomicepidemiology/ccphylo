@@ -151,7 +151,8 @@ Dat * DatMinit(int M, int N) {
 	if(dest->mat) {
 		*(dest->mat) = mmap(0, Size, PROT_READ | PROT_WRITE, MAP_SHARED, fileno(tmp), 0);
 		if(*(dest->mat) == MAP_FAILED) {
-				ERROR();
+			fprintf(stderr, "MMAP failed:\n");
+			ERROR();
 		}
 		//posix_madvise(*(dest->mat), Size, POSIX_MADV_SEQUENTIAL);
 		
@@ -165,7 +166,8 @@ Dat * DatMinit(int M, int N) {
 	} else if(dest->fmat) {
 		*(dest->fmat) = mmap(0, Size, PROT_READ | PROT_WRITE, MAP_SHARED, fileno(tmp), 0);
 		if(*(dest->fmat) == MAP_FAILED) {
-				ERROR();
+			fprintf(stderr, "MMAP failed:\n");
+			ERROR();
 		}
 		//posix_madvise(*(dest->fmat), Size, POSIX_MADV_SEQUENTIAL);
 		
@@ -179,7 +181,8 @@ Dat * DatMinit(int M, int N) {
 	} else if(dest->smat) {
 		*(dest->smat) = mmap(0, Size, PROT_READ | PROT_WRITE, MAP_SHARED, fileno(tmp), 0);
 		if(*(dest->smat) == MAP_FAILED) {
-				ERROR();
+			fprintf(stderr, "MMAP failed:\n");
+			ERROR();
 		}
 		//posix_madvise(*(dest->smat), Size, POSIX_MADV_SEQUENTIAL);
 		
@@ -193,7 +196,8 @@ Dat * DatMinit(int M, int N) {
 	} else {
 		*(dest->bmat) = mmap(0, Size, PROT_READ | PROT_WRITE, MAP_SHARED, fileno(tmp), 0);
 		if(*(dest->bmat) == MAP_FAILED) {
-				ERROR();
+			fprintf(stderr, "MMAP failed:\n");
+			ERROR();
 		}
 		//posix_madvise(*(dest->bmat), Size, POSIX_MADV_SEQUENTIAL);
 		
@@ -254,6 +258,7 @@ void Dat_mrealloc(Dat *src, int M) {
 	if(type == sizeof(double)) {
 		mat = mmap(0, Size, PROT_READ | PROT_WRITE, MAP_SHARED, fileno(tmp), 0);
 		if(mat == MAP_FAILED) {
+			fprintf(stderr, "MMAP failed:\n");
 			ERROR();
 		}
 		//posix_madvise(mat, Size, POSIX_MADV_SEQUENTIAL);
@@ -273,6 +278,7 @@ void Dat_mrealloc(Dat *src, int M) {
 	} else if(type == sizeof(float)) {
 		fmat = mmap(0, Size, PROT_READ | PROT_WRITE, MAP_SHARED, fileno(tmp), 0);
 		if(fmat == MAP_FAILED) {
+			fprintf(stderr, "MMAP failed:\n");
 			ERROR();
 		}
 		//posix_madvise(fmat, Size, POSIX_MADV_SEQUENTIAL);
@@ -292,6 +298,7 @@ void Dat_mrealloc(Dat *src, int M) {
 	} else if(type == sizeof(short unsigned)) {
 		smat = mmap(0, Size, PROT_READ | PROT_WRITE, MAP_SHARED, fileno(tmp), 0);
 		if(smat == MAP_FAILED) {
+			fprintf(stderr, "MMAP failed:\n");
 			ERROR();
 		}
 		//posix_madvise(smat, Size, POSIX_MADV_SEQUENTIAL);
@@ -311,6 +318,7 @@ void Dat_mrealloc(Dat *src, int M) {
 	} else {
 		bmat = mmap(0, Size, PROT_READ | PROT_WRITE, MAP_SHARED, fileno(tmp), 0);
 		if(bmat == MAP_FAILED) {
+			fprintf(stderr, "MMAP failed:\n");
 			ERROR();
 		}
 		//posix_madvise(bmat, Size, POSIX_MADV_SEQUENTIAL);

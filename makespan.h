@@ -21,8 +21,14 @@
 #include "machines.h"
 
 extern Machine * (*makespan_method)(Machine *, Job *, int, int);
+extern void (*addDBEptr)(Machine **, Machine **, Job *, int, int);
+extern Machine * (*addDBFptr)(Machine *, Job *);
+extern Machine *(*FirstFitptr)(Machine *, Job *, int);
+extern Machine *(*FirstFetptr)(Machine *, Job *);
 
+void addDBE(Machine **Mdest, Machine **Edest, Job *J, int m, int n);
 Machine * DBE(Machine *M, Job *J, int m, int n);
+Machine * addDBF(Machine *M, Job *J);
 Machine * DBF(Machine *M, Job *J, int m, int n);
 Machine * FirstFit(Machine *M, Job *J, int m);
 Machine * DFF(Machine *M, Job *J, int m, int n);

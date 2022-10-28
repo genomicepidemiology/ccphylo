@@ -22,6 +22,7 @@
 #define exchange(src1, src2, tmp) tmp = src1; src1 = src2; src2 = tmp;
 
 extern void (*formLastNodePtr)(Qseqs *, Qseqs *, double);
+void setPrecisionNwck(int precision);
 void formNode(Qseqs *node1, Qseqs *node2, double L1, double L2);
 void formLastNode(Qseqs *node1, Qseqs *node2, double L);
 void formLastBiNode(Qseqs *node1, Qseqs *node2, double L);

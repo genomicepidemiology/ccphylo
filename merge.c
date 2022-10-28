@@ -119,7 +119,7 @@ static char ** getOrderedNames(HashMapStr *names_index) {
 	return (char **) distNames;
 }
 
-char ** merge(Matrix *dist, Matrix *num, FileBuff *phyfile, FileBuff *numfile) {
+char ** merge(Matrix *dist, Matrix *num, FileBuff *phyfile, FileBuff *numfile, char sep, char quotes) {
 	
 	unsigned i, j, m, n, *distIndex, *distIndexM, *distIndexN;
 	double *Dptr, *Nptr, **distMat, **numMat;
@@ -140,8 +140,8 @@ char ** merge(Matrix *dist, Matrix *num, FileBuff *phyfile, FileBuff *numfile) {
 	names_index = HashMapStr_init(128);
 	dist_index = uList_init(32);
 	names = smalloc(dist->size * sizeof(char *));
-	names = loadPhy(dist, 0, 0, phyfile);
-	loadPhy(num, names, 0, numfile);
+	names = loadPhy(dist, 0, 0, phyfile, sep, quotes);
+	loadPhy(num, names, 0, numfile, sep, quotes);
 	if(dist->n != num->n) {
 		fprintf(stderr, "Distance and included nucleotides does not concur!\n");
 		exit(1);
@@ -180,8 +180,8 @@ char ** merge(Matrix *dist, Matrix *num, FileBuff *phyfile, FileBuff *numfile) {
 	}
 	
 	/* iterate input */
-	while((names = loadPhy(D, names, 0, phyfile)) && D->n) {
-		if(!loadPhy(N, names, 0, numfile) || N->n != D->n) {
+	while((names = loadPhy(D, names, 0, phyfile, sep, quotes)) && D->n) {
+		if(!loadPhy(N, names, 0, numfile, sep, quotes) || N->n != D->n) {
 			fprintf(stderr, "Distance and included nucleotides does not concur!\n");
 			exit(1);
 		}
@@ -306,7 +306,7 @@ char ** merge(Matrix *dist, Matrix *num, FileBuff *phyfile, FileBuff *numfile) {
 	return getOrderedNames(names_index);
 }
 
-char ** jl_merge(Matrix *dist, Matrix *num, FileBuff *phyfile) {
+char ** jl_merge(Matrix *dist, Matrix *num, FileBuff *phyfile, char sep, char quotes) {
 	
 	unsigned i, j, m, n, *distIndex, *distIndexM, *distIndexN;
 	double *Dptr, **distMat, **numMat;
@@ -322,7 +322,7 @@ char ** jl_merge(Matrix *dist, Matrix *num, FileBuff *phyfile) {
 	D = ltdMatrix_init(dist->size);
 	names_index = HashMapStr_init(128);
 	dist_index = uList_init(32);
-	names = loadPhy(dist, 0, 0, phyfile);
+	names = loadPhy(dist, 0, 0, phyfile, sep, quotes);
 	if(num->size < dist->size) {
 		ltdMatrix_realloc(num, dist->size);
 	}
@@ -357,7 +357,7 @@ char ** jl_merge(Matrix *dist, Matrix *num, FileBuff *phyfile) {
 	}
 	
 	/* iterate input */
-	while((names = loadPhy(D, names, 0, phyfile)) && D->n) {
+	while((names = loadPhy(D, names, 0, phyfile, sep, quotes)) && D->n) {
 		/* get index of row w.r.t. merged distance matrix */
 		syncMatrices(names_index, dist_index, names, D->n, dist, num);
 		
@@ -473,7 +473,7 @@ char ** jl_merge(Matrix *dist, Matrix *num, FileBuff *phyfile) {
 	return getOrderedNames(names_index);
 }
 
-int merger(char *phyfilename, char *numfilename, char *outphyfilename, char *outnumfilename, unsigned format) {
+int merger(char *phyfilename, char *numfilename, char *outphyfilename, char *outnumfilename, unsigned format, char sep, char quotes) {
 	
 	char **names;
 	FILE *outphy, *outnum;
@@ -490,11 +490,11 @@ int merger(char *phyfilename, char *numfilename, char *outphyfilename, char *out
 	if(numfilename) {
 		numfile = setFileBuff(1048576);
 		openAndDetermine(numfile, numfilename);
-		names = merge(dist, num, phyfile, numfile);
+		names = merge(dist, num, phyfile, numfile, sep, quotes);
 		closeFileBuff(numfile);
 		destroyFileBuff(numfile);
 	} else {
-		names = jl_merge(dist, num, phyfile);
+		names = jl_merge(dist, num, phyfile, sep, quotes);
 	}
 	closeFileBuff(phyfile);
 	destroyFileBuff(phyfile);
@@ -534,6 +534,8 @@ static int helpMessage(FILE *out) {
 	fprintf(out, "#    -%c, --%-16s\t%-32s\t%s\n", 'o', "output", "Output file", "stdout");
 	fprintf(out, "#    -%c, --%-16s\t%-32s\t%s\n", 'w', "nucleotides_weights", "Weigh distance with this Phylip file", "");
 	fprintf(out, "#    -%c, --%-16s\t%-32s\t%s\n", 'n', "nucleotide_numbers", "Output number of nucleotides included", "False/None");
+	fprintf(out, "#    -%c, --%-16s\t%-32s\t%s\n", 'S', "separator", "Separator", "\\t");
+	fprintf(out, "#    -%c, --%-16s\t%-32s\t%s\n", 'x', "print_precision", "Floating point print precision", "9");
 	fprintf(out, "#    -%c, --%-16s\t%-32s\t%s\n", 'f', "flag", "Output flags", "1");
 	fprintf(out, "#    -%c, --%-16s\t%-32s\t%s\n", 'F', "flag_help", "Help on option \"-f\"", "");
 	fprintf(out, "#    -%c, --%-16s\t%-32s\t%s\n", 'p', "float_precision", "Float precision on distance matrix", "double");
@@ -563,18 +565,21 @@ static int helpMessage(FILE *out) {
 int main_merge(int argc, char **argv) {
 	
 	const char *stdstream = "-";
-	int args, flag, size, len, offset;
+	int args, flag, size, len, offset, precision;
 	char **Arg, *arg, *phyfilename, *numfilename, *outphyfilename;
-	char *outnumfilename, *tmp, opt;
+	char *outnumfilename, *tmp, opt, sep, quotes;
 	
 	/* set defaults */
 	size = sizeof(double);
+	precision = 9;
 	flag = 1;
 	phyfilename = (char *)(stdstream);
 	numfilename = 0;
 	outphyfilename = (char *)(stdstream);
 	outnumfilename = (char *)(stdstream);
 	tmp = 0;
+	sep = '\t';
+	quotes = '\0';
 	
 	/* parse cmd-line */
 	args = argc - 1;
@@ -601,6 +606,10 @@ int main_merge(int argc, char **argv) {
 					phyfilename = getArgDie(&Arg, &args, len + offset, "input");
 				} else if(strncmp(arg, "output", len) == 0) {
 					outphyfilename = getArgDie(&Arg, &args, len + offset, "output");
+				} else if(strncmp(arg, "separator", len) == 0) {
+					sep = getcArgDie(&Arg, &args, len + offset, "separator");
+				} else if(strncmp(arg, "print_precision", len) == 0) {
+					precision = getNumArg(&Arg, &args, len + offset, "print_precision");
 				} else if(strncmp(arg, "nucleotides_weights", len) == 0) {
 					numfilename = getArgDie(&Arg, &args, len + offset, "nucleotides_weights");
 				} else if(strncmp(arg, "nucleotide_numbers", len) == 0) {
@@ -637,6 +646,12 @@ int main_merge(int argc, char **argv) {
 						opt = 0;
 					} else if(opt == 'o') {
 						outphyfilename = getArgDie(&Arg, &args, len, "o");
+						opt = 0;
+					} else if(opt == 'S') {
+						sep = getcArgDie(&Arg, &args, len, "S");
+						opt = 0;
+					} else if(opt == 'x') {
+						precision = getNumArg(&Arg, &args, len, "x");
 						opt = 0;
 					} else if(opt == 'w') {
 						numfilename = getArgDie(&Arg, &args, len, "w");
@@ -690,6 +705,9 @@ int main_merge(int argc, char **argv) {
 		}
 	}
 	
+	/* set print precision */
+	setPrecisionPhy(precision);
+	
 	/* tmp dir */
 	if(tmp) {
 		tmpF(tmp);
@@ -713,5 +731,5 @@ int main_merge(int argc, char **argv) {
 	ltdMatrixMinit(-size);
 	
 	/* merge matrices */
-	return merger(phyfilename, numfilename, outphyfilename, outnumfilename, flag);
+	return merger(phyfilename, numfilename, outphyfilename, outnumfilename, flag, sep, quotes);
 }

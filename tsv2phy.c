@@ -30,8 +30,9 @@
 #include "tsv.h"
 #include "tsv2phy.h"
 #define dfprintf(fPtr, str, d) if(fprintf(fPtr, str, d) < 0) {if(errno) {ERROR();} else {fprintf(stderr, "Could not extend file.\n"); exit(1);}}
+#define ddfprintf(fPtr, str, precision, d) if(fprintf(fPtr, str, precision, d) < 0) {if(errno) {ERROR();} else {fprintf(stderr, "Could not extend file.\n"); exit(1);}}
 
-int tsv2phy(char *inputfilename, char *outputfilename, unsigned format, unsigned char sep) {
+int tsv2phy(char *inputfilename, char *outputfilename, unsigned format, unsigned char sep, int precision) {
 	
 	int m, n, i, j;
 	double **Dptr, *Di, **Dj;
@@ -82,25 +83,25 @@ int tsv2phy(char *inputfilename, char *outputfilename, unsigned format, unsigned
 			Di = Dptr[i];
 			Dj = Dptr - 1;
 			while(--j) {
-				dfprintf(outfile, "\t%f", distcmp_d(Di, *++Dj, n));
+				ddfprintf(outfile, "\t%.*g", precision, distcmp_d(Di, *++Dj, n));
 			}
 		} else if(Dfptr) {
 			Dfi = Dfptr[i];
 			Dfj = Dfptr - 1;
 			while(--j) {
-				dfprintf(outfile, "\t%f", distcmp_f(Dfi, *++Dfj, n));
+				ddfprintf(outfile, "\t%.*g", precision, distcmp_f(Dfi, *++Dfj, n));
 			}
 		} else if(Dsptr) {
 			Dsi = Dsptr[i];
 			Dsj = Dsptr - 1;
 			while(--j) {
-				dfprintf(outfile, "\t%f", distcmp_s(Dsi, *++Dsj, n));
+				ddfprintf(outfile, "\t%.*g", precision, distcmp_s(Dsi, *++Dsj, n));
 			}
 		} else {
 			Dbi = Dbptr[i];
 			Dbj = Dbptr - 1;
 			while(--j) {
-				dfprintf(outfile, "\t%f", distcmp_b(Dbi, *++Dbj, n));
+				ddfprintf(outfile, "\t%.*g", precision, distcmp_b(Dbi, *++Dbj, n));
 			}
 		}
 	}
@@ -120,6 +121,7 @@ static int helpMessage(FILE *out) {
 	fprintf(out, "#    -%c, --%-16s\t%-32s\t%s\n", 'i', "input", "Input file", "stdin");
 	fprintf(out, "#    -%c, --%-16s\t%-32s\t%s\n", 'o', "output", "Output file", "stdout");
 	fprintf(out, "#    -%c, --%-16s\t%-32s\t%s\n", 'S', "separator", "Separator", "\\t");
+	fprintf(out, "#    -%c, --%-16s\t%-32s\t%s\n", 'x', "print_precision", "Floating point print precision", "9");
 	fprintf(out, "#    -%c, --%-16s\t%-32s\t%s\n", 'd', "distance", "Distance method", "cos");
 	fprintf(out, "#    -%c, --%-16s\t%-32s\t%s\n", 'D', "distance_help", "Help on option \"-d\"", "");
 	fprintf(out, "#    -%c, --%-16s\t%-32s\t%s\n", 'f', "flag", "Output flags", "1");
@@ -152,7 +154,7 @@ static int helpMessage(FILE *out) {
 int main_tsv2phy(int argc, char **argv) {
 	
 	const char *stdstream = "-";
-	int size, len, offset, args, flag;
+	int size, len, offset, args, flag, precision;
 	char **Arg, *arg, *inputfilename, *outputfilename, *tmp, *method;
 	char *errorMsg, opt;
 	unsigned char sep;
@@ -161,6 +163,7 @@ int main_tsv2phy(int argc, char **argv) {
 	/* init */
 	size = sizeof(double);
 	flag = 1;
+	precision = 9;
 	inputfilename = (char *)(stdstream);
 	outputfilename = (char *)(stdstream);
 	sep = '\t';
@@ -194,6 +197,8 @@ int main_tsv2phy(int argc, char **argv) {
 					outputfilename = getArgDie(&Arg, &args, len + offset, "output");
 				} else if(strncmp(arg, "separator", len) == 0) {
 					sep = getcArgDie(&Arg, &args, len + offset, "separator");
+				} else if(strncmp(arg, "print_precision", len) == 0) {
+					precision = getNumArg(&Arg, &args, len + offset, "print_precision");
 				} else if(strncmp(arg, "distance", len) == 0) {
 					method = getArgDie(&Arg, &args, len + offset, "distance");
 				} else if(strncmp(arg, "distance_help", len) == 0) {
@@ -233,6 +238,9 @@ int main_tsv2phy(int argc, char **argv) {
 						opt = 0;
 					} else if(opt == 'S') {
 						sep = getcArgDie(&Arg, &args, len, "S");
+						opt = 0;
+					} else if(opt == 'x') {
+						precision = getNumArg(&Arg, &args, len, "x");
 						opt = 0;
 					} else if(opt == 'd') {
 						method = getArgDie(&Arg, &args, len, "d");
@@ -357,5 +365,5 @@ int main_tsv2phy(int argc, char **argv) {
 	DatInit(-size, 0);
 	DatMinit(-size, 0);
 	
-	return tsv2phy(inputfilename, outputfilename, flag, sep);
+	return tsv2phy(inputfilename, outputfilename, flag, sep, precision);
 }

@@ -23,11 +23,57 @@
 #include "mvtabusearch.h"
 #define ABS(num)((num) < 0 ? -(num) : (num))
 
-/* here */
-/* almost from scratch */
+double baseValue(Machine *Mm, Machine *Mn) {
+	
+	int m;
+	double base, *Mma, *Mna;
+	
+	/* init */
+	m = Mm->m;
+	Mma = Mm->Avails;
+	Mna = Mn->Avails;
+	
+	/* get error by trade */
+	++m;
+	base = 0;
+	while(--m) {
+		base += ABS(*Mma) + ABS(*Mna);
+		++Mma;
+		++Mna;
+	}
+	
+	return base;
+}
+
+double tradeValue(Machine *Mm, Machine *Mn, Job *Jm, Job *Jn) {
+	
+	int m;
+	double post, diff, tm, tn, *Mma, *Mna, *Jmw, *Jnw;
+	
+	/* init */
+	m = Mm->m;
+	Mma = Mm->Avails - 1;
+	Mna = Mn->Avails - 1;
+	Jmw = Jm->Weights - 1;
+	Jnw = Jn->Weights - 1;
+	
+	/* get error by trade */
+	++m;
+	post = 0;
+	while(--m) {
+		/* new error */
+		diff = *++Jmw - *++Jnw;
+		tm = *++Mma + diff;
+		tn = *++Mna - diff;
+		post += ABS(tm) + ABS(tn);
+	}
+	
+	return post;
+}
+
 double negotiateMVM(Machine *Mm, Machine *Mn, Job **Jmbest, Job **Jnbest) {
 	
-	double Mmj, Mnj, w1, w2, min, test, best, base;
+	double min, test, best, base;
 	Job *Jm, *Jn, *next, *Jmin, *JmPrev, *JnPrev;
 	
 	/* exchange example:
@@ -39,68 +85,40 @@ double negotiateMVM(Machine *Mm, Machine *Mn, Job **Jmbest, Job **Jnbest) {
 	*/
 	
 	/* no chance of improvement */
-	if(Mm->avail == Mn->avail || (Mm->n <= 1 && Mn->n <= 1)) {
+	if(Mm->n <= 1 && Mn->n <= 1) {
 		return 0;
 	}
 	
 	/* init minimum trade value */
-	w1 = Mm->avail < 0 ? -Mm->avail : Mm->avail;
-	w2 = Mn->avail < 0 ? -Mn->avail : Mn->avail;
-	base = w1 + w2;
+	base = baseValue(Mm, Mn);
 	best = base;
-	min = best;
 	*Jmbest = 0;
 	*Jnbest = 0;
 	
-	/* identify best trade option by minimizing:
-	(Mm->avail + Mm->job_i - Mn->job_j)^2 + (Mn->avail - Mm->job_i + Mn->job_j)^2
-	(Mmj - Mn->job_j)^2 + (Mnj + Mn->job_j)^2
-	*/
+	/* identify best trade option by minimizing multivariate target */
 	Jm = Mm->jobs;
 	JmPrev = 0;
 	Jn = Mn->jobs;
 	JnPrev = 0;
 	while(Jm) {
-		/* set constants */
-		Mmj = Mm->avail + Jm->weight;
-		Mnj = Mn->avail - Jm->weight;
-		
 		/* set first option as best */
-		w1 = (Mmj - Jn->weight);
-		w1 = w1 < 0 ? -w1 : w1;
-		w2 = (Mnj + Jn->weight);
-		w2 = w2 < 0 ? -w2 : w2;
-		min = Jm->weight != Jn->weight ? w1 + w2 : base; /* avoid double approximations */
-		Jmin = JnPrev; /* set pointer to prev job to allow post-merging */
-		next = Jn->next;
+		min = tradeValue(Mm, Mn, Jm, Jn);
+		Jmin = JnPrev;
 		
-		/* since both list of jobs are sorted the best trade option can be 
-		identified by a merge search in O(m + n / m) */
+		/* check the rest */
+		JnPrev = Jn;
+		next = Jn->next;
 		while(next) {
-			if(Jm->weight != next->weight) { /* avoid double approximations */
-				/* test next trade option */
-				w1 = (Mmj - next->weight);
-				w1 = w1 < 0 ? -w1 : w1;
-				w2 = (Mnj + next->weight);
-				w2 = w2 < 0 ? -w2 : w2;
-				test = w1 + w2;
-				
-				/* advance Jn if value-error is not increasing */
-				if(test <= min) {
-					min = test;
-					Jmin = Jn; /* set pointer to prev job to allow post-merging */
-					JnPrev = Jn;
-					Jn = next;
-					next = next->next;
-				} else {
-					/* continuing will decrease trade value */
-					next = 0;
-				}
-			} else {
-				JnPrev = Jn;
-				Jn = next;
-				next = next->next;
+			test = tradeValue(Mm, Mn, Jm, next);
+			if(test < min) {
+				min = test;
+				Jmin = JnPrev;
 			}
+			/* here */
+			/* consider early stopping */
+			
+			JnPrev = next;
+			next = next->next;
 		}
 		
 		/* test best */
@@ -114,26 +132,8 @@ double negotiateMVM(Machine *Mm, Machine *Mn, Job **Jmbest, Job **Jnbest) {
 		Jm = Jm->next;
 	}
 	
-	/* avoid double approximations */
-	if(*Jmbest) {
-		Jm = (*Jmbest)->next;
-	} else {
-		Jm = Mm->jobs;
-	}
-	if(*Jnbest) {
-		Jn = (*Jnbest)->next;
-	} else {
-		Jn = Mn->jobs;
-	}
-	
-	/* avoid double approximations */
-	Mmj = Mm->avail;
-	Mmj += (Jm->weight - Jn->weight);
-	Mmj = Mmj < 0 ? -Mmj : Mmj;
-	Mnj = Mn->avail;
-	Mnj += (Jn->weight - Jm->weight);
-	Mnj = Mnj < 0 ? -Mnj : Mnj;
-	if(base != Mmj + Mnj && Jm->weight != Jn->weight) {
+	/* limit double approximations */
+	if(best != base) {
 		best -= base;
 	} else {
 		best = 0;
@@ -159,8 +159,8 @@ double testMVhandover(Machine *Mm, Machine *Mn, Job *J) {
 	post = 0;
 	++m;
 	while(--m) {
-		prev = ABS(*mAvails) + ABS(*nAvails);
-		post = ABS(*mAvails + *jWeights) + ABS(*nAvails - *jWeights);
+		prev += ABS(*mAvails) + ABS(*nAvails);
+		post += ABS(*mAvails + *jWeights) + ABS(*nAvails - *jWeights);
 		++mAvails;
 		++nAvails;
 		++jWeights;

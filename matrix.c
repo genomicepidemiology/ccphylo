@@ -160,7 +160,8 @@ Matrix * ltdMatrixMinit(int size) {
 	if(dest->mat) {
 		*(dest->mat) = mmap(0, Size, PROT_READ | PROT_WRITE, MAP_SHARED, fileno(tmp), 0);
 		if(*(dest->mat) == MAP_FAILED) {
-				ERROR();
+			fprintf(stderr, "MMAP failed:\n");
+			ERROR();
 		}
 		//posix_madvise(*(dest->mat), Size, POSIX_MADV_SEQUENTIAL);
 		
@@ -176,7 +177,8 @@ Matrix * ltdMatrixMinit(int size) {
 	} else if(dest->fmat) {
 		*(dest->fmat) = mmap(0, Size, PROT_READ | PROT_WRITE, MAP_SHARED, fileno(tmp), 0);
 		if(*(dest->fmat) == MAP_FAILED) {
-				ERROR();
+			fprintf(stderr, "MMAP failed:\n");
+			ERROR();
 		}
 		//posix_madvise(*(dest->fmat), Size, POSIX_MADV_SEQUENTIAL);
 		
@@ -192,7 +194,8 @@ Matrix * ltdMatrixMinit(int size) {
 	} else if(dest->smat) {
 		*(dest->smat) = mmap(0, Size, PROT_READ | PROT_WRITE, MAP_SHARED, fileno(tmp), 0);
 		if(*(dest->smat) == MAP_FAILED) {
-				ERROR();
+			fprintf(stderr, "MMAP failed:\n");
+			ERROR();
 		}
 		//posix_madvise(*(dest->smat), Size, POSIX_MADV_SEQUENTIAL);
 		
@@ -208,7 +211,8 @@ Matrix * ltdMatrixMinit(int size) {
 	} else {
 		*(dest->bmat) = mmap(0, Size, PROT_READ | PROT_WRITE, MAP_SHARED, fileno(tmp), 0);
 		if(*(dest->bmat) == MAP_FAILED) {
-				ERROR();
+			fprintf(stderr, "MMAP failed:\n");
+			ERROR();
 		}
 		//posix_madvise(*(dest->bmat), Size, POSIX_MADV_SEQUENTIAL);
 		
@@ -274,6 +278,7 @@ void ltdMatrix_mrealloc(Matrix *src, int size) {
 	if(type == sizeof(double)) {
 		mat = mmap(0, Size, PROT_READ | PROT_WRITE, MAP_SHARED, fileno(tmp), 0);
 		if(mat == MAP_FAILED) {
+			fprintf(stderr, "MMAP failed:\n");
 			ERROR();
 		}
 		posix_madvise(mat, Size, POSIX_MADV_SEQUENTIAL);
@@ -295,6 +300,7 @@ void ltdMatrix_mrealloc(Matrix *src, int size) {
 	} else if(type == sizeof(float)) {
 		fmat = mmap(0, Size, PROT_READ | PROT_WRITE, MAP_SHARED, fileno(tmp), 0);
 		if(fmat == MAP_FAILED) {
+			fprintf(stderr, "MMAP failed:\n");
 			ERROR();
 		}
 		posix_madvise(fmat, Size, POSIX_MADV_SEQUENTIAL);
@@ -316,6 +322,7 @@ void ltdMatrix_mrealloc(Matrix *src, int size) {
 	} else if(type == sizeof(short unsigned)) {
 		smat = mmap(0, Size, PROT_READ | PROT_WRITE, MAP_SHARED, fileno(tmp), 0);
 		if(smat == MAP_FAILED) {
+			fprintf(stderr, "MMAP failed:\n");
 			ERROR();
 		}
 		posix_madvise(smat, Size, POSIX_MADV_SEQUENTIAL);
@@ -337,6 +344,7 @@ void ltdMatrix_mrealloc(Matrix *src, int size) {
 	} else {
 		bmat = mmap(0, Size, PROT_READ | PROT_WRITE, MAP_SHARED, fileno(tmp), 0);
 		if(bmat == MAP_FAILED) {
+			fprintf(stderr, "MMAP failed:\n");
 			ERROR();
 		}
 		posix_madvise(bmat, Size, POSIX_MADV_SEQUENTIAL);
@@ -678,6 +686,7 @@ void ltdMatrix_shrink(Matrix *src, int size) {
 	}
 	mat = mmap(0, Size, PROT_READ | PROT_WRITE, MAP_SHARED, fileno(src->file), 0);
 	if(mat == MAP_FAILED) {
+		fprintf(stderr, "MMAP failed:\n");
 		ERROR();
 	}
 	//posix_madvise(mat, Size, POSIX_MADV_SEQUENTIAL);

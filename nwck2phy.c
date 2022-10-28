@@ -384,6 +384,7 @@ static int helpMessage(FILE *out) {
 	fprintf(out, "#   %-24s\t%-32s\t%s\n", "Options are:", "Desc:", "Default:");
 	fprintf(out, "#    -%c, --%-16s\t%-32s\t%s\n", 'i', "input", "Input file", "stdin");
 	fprintf(out, "#    -%c, --%-16s\t%-32s\t%s\n", 'o', "output", "Output file", "stdout");
+	fprintf(out, "#    -%c, --%-16s\t%-32s\t%s\n", 'x', "print_precision", "Floating point print precision", "9");
 	fprintf(out, "#    -%c, --%-16s\t%-32s\t%s\n", 'f', "flag", "Output flags", "1");
 	fprintf(out, "#    -%c, --%-16s\t%-32s\t%s\n", 'F', "flag_help", "Help on option \"-f\"", "");
 	fprintf(out, "#    -%c, --%-16s\t%-32s\t%s\n", 'p', "float_precision", "Float precision on distance matrix", "False / double");
@@ -411,12 +412,13 @@ static int helpMessage(FILE *out) {
 int main_nwck2phy(int argc, char **argv) {
 	
 	const char *stdstream = "-";
-	int size, len, offset, args, flag;
+	int size, len, offset, args, flag, precision;
 	char **Arg, *arg, *inputfilename, *outputfilename, *tmp, opt;
 	
 	/* init */
 	size = sizeof(double);
 	flag = 1;
+	precision = 9;
 	inputfilename = (char *)(stdstream);
 	outputfilename = (char *)(stdstream);
 	stripEntry = &noStripDir;
@@ -447,6 +449,8 @@ int main_nwck2phy(int argc, char **argv) {
 					inputfilename = getArgDie(&Arg, &args, len + offset, "input");
 				} else if(strncmp(arg, "output", len) == 0) {
 					outputfilename = getArgDie(&Arg, &args, len + offset, "output");
+				} else if(strncmp(arg, "print_precision", len) == 0) {
+					precision = getNumArg(&Arg, &args, len + offset, "print_precision");
 				} else if(strncmp(arg, "flag", len) == 0) {
 					flag = getNumArg(&Arg, &args, len + offset, "flag");
 				} else if(strncmp(arg, "flag_help", len) == 0) {
@@ -479,6 +483,9 @@ int main_nwck2phy(int argc, char **argv) {
 						opt = 0;
 					} else if(opt == 'o') {
 						outputfilename = getArgDie(&Arg, &args, len, "o");
+						opt = 0;
+					} else if(opt == 'x') {
+						precision = getNumArg(&Arg, &args, len, "x");
 						opt = 0;
 					} else if(opt == 'f') {
 						flag = getNumArg(&Arg, &args, len, "f");
@@ -524,6 +531,9 @@ int main_nwck2phy(int argc, char **argv) {
 			nonOptError();
 		}
 	}
+	
+	/* set print precision */
+	setPrecisionPhy(precision);
 	
 	/* flag help */
 	if(flag == -1) {

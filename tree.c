@@ -34,7 +34,7 @@
 #include "tree.h"
 #include "vector.h"
 
-void formTree(char *inputfilename, char *outputfilename, int flag, char m, int thread_num) {
+void formTree(char *inputfilename, char *outputfilename, int flag, char sep, char quotes, char m, int thread_num) {
 	
 	int i, *N;
 	FILE *outfile;
@@ -79,7 +79,7 @@ void formTree(char *inputfilename, char *outputfilename, int flag, char m, int t
 	
 	/* generate trees */
 	t0 = clock();
-	while((names = loadPhy(D, names, header, infile)) && D->n) {
+	while((names = loadPhy(D, names, header, infile, sep, quotes)) && D->n) {
 		t1 = clock();
 		fprintf(stderr, "# Total time used loading matrix: %.2f s.\n", difftime(t1, t0) / 1000000);
 		t0 = t1;
@@ -92,21 +92,18 @@ void formTree(char *inputfilename, char *outputfilename, int flag, char m, int t
 			} else { /* m == 'h' */
 				N = hclust(D, sD, Q, N, names);
 			}
-			
-			/* output tree */
-			if(header->len) {
-				fprintf(outfile, ">%s%s;\n", header->seq, (*names)->seq);
-			} else {
-				fprintf(outfile, "%s;\n", (*names)->seq);
-			}
 		} else if(D->n == 2) {
-			/* output tree */
-			if(header->len) {
-				fprintf(outfile, ">%s(%s,%s:%.2f);\n", header->seq, (*names)->seq, names[1]->seq, (D->mat ? **(D->mat) : D->fmat ? **(D->fmat) : D->smat ? uctod(**(D->smat)) : uctod(**(D->bmat))));
-			} else {
-				fprintf(outfile, "(%s,%s:%.2f);\n", (*names)->seq, names[1]->seq, (D->mat ? **(D->mat) : D->fmat ? **(D->fmat) : D->smat ? uctod(**(D->smat)) : uctod(**(D->bmat))));
-			}
+			/* form tree */
+			formLastNode(*names, names[1], (D->mat ? **(D->mat) : D->fmat ? **(D->fmat) : D->smat ? uctod(**(D->smat)) : uctod(**(D->bmat))));
 		}
+		
+		/* output tree */
+		if(header->len) {
+			fprintf(outfile, ">%s%s;\n", header->seq, (*names)->seq);
+		} else {
+			fprintf(outfile, "%s;\n", (*names)->seq);
+		}
+		
 		t1 = clock();
 		fprintf(stderr, "# Total time used Constructing tree: %.2f s.\n", difftime(t1, t0) / 1000000);
 		t0 = t1;
@@ -128,6 +125,9 @@ static int helpMessage(FILE *out) {
 	fprintf(out, "#   %-24s\t%-32s\t%s\n", "Options are:", "Desc:", "Default:");
 	fprintf(out, "#    -%c, --%-16s\t%-32s\t%s\n", 'i', "input", "Input file", "stdin");
 	fprintf(out, "#    -%c, --%-16s\t%-32s\t%s\n", 'o', "output", "Output file", "stdout");
+	fprintf(out, "#    -%c, --%-16s\t%-32s\t%s\n", 'S', "separator", "Separator", "\\t");
+	fprintf(out, "#    -%c, --%-16s\t%-32s\t%s\n", 'q', "quotes", "Quote taxa", "\\0");
+	fprintf(out, "#    -%c, --%-16s\t%-32s\t%s\n", 'x', "print_precision", "Floating point print precision", "9");
 	fprintf(out, "#    -%c, --%-16s\t%-32s\t%s\n", 'm', "method", "Tree construction method.", "dnj");
 	fprintf(out, "#    -%c, --%-16s\t%-32s\t%s\n", 'M', "method_help", "Help on option \"-m\"", "");
 	fprintf(out, "#    -%c, --%-16s\t%-32s\t%s\n", 'f', "flag", "Output flags", "0");
@@ -146,18 +146,22 @@ static int helpMessage(FILE *out) {
 int main_tree(int argc, char **argv) {
 	
 	const char *stdstream = "-";
-	int size, len, offset, args, flag, thread_num;
-	char **Arg, *arg, *inputfilename, *outputfilename, *method, *tmp, m, opt;
+	int size, len, offset, args, flag, thread_num, precision;
+	char **Arg, *arg, *inputfilename, *outputfilename, *method, *tmp;
+	char m, opt, sep, quotes;
 	
 	/* set defaults */
 	size = sizeof(double);
 	flag = 0;
 	thread_num = 1;
+	precision = 9;
 	inputfilename = (char *)(stdstream);
 	outputfilename = (char *)(stdstream);
 	method = "dnj";
 	m = 'd';
 	tmp = 0;
+	sep = '\t';
+	quotes = '\0';
 	
 	/* parse cmd-line */
 	args = argc - 1;
@@ -184,6 +188,12 @@ int main_tree(int argc, char **argv) {
 					inputfilename = getArgDie(&Arg, &args, len + offset, "input");
 				} else if(strncmp(arg, "output", len) == 0) {
 					outputfilename = getArgDie(&Arg, &args, len + offset, "output");
+				} else if(strncmp(arg, "separator", len) == 0) {
+					sep = getcArgDie(&Arg, &args, len + offset, "separator");
+				} else if(strncmp(arg, "quotes", len) == 0) {
+					quotes = getcArgDie(&Arg, &args, len + offset, "quotes");
+				} else if(strncmp(arg, "print_precision", len) == 0) {
+					precision = getNumArg(&Arg, &args, len + offset, "print_precision");
 				} else if(strncmp(arg, "method", len) == 0) {
 					method = getArgDie(&Arg, &args, len + offset, "method");
 				} else if(strncmp(arg, "method_help", len) == 0) {
@@ -224,6 +234,15 @@ int main_tree(int argc, char **argv) {
 						opt = 0;
 					} else if(opt == 'o') {
 						outputfilename = getArgDie(&Arg, &args, len, "o");
+						opt = 0;
+					} else if(opt == 'S') {
+						sep = getcArgDie(&Arg, &args, len, "S");
+						opt = 0;
+					} else if(opt == 'q') {
+						quotes = getcArgDie(&Arg, &args, len, "q");
+						opt = 0;
+					} else if(opt == 'x') {
+						precision = getNumArg(&Arg, &args, len, "x");
 						opt = 0;
 					} else if(opt == 'm') {
 						method = getArgDie(&Arg, &args, len, "m");
@@ -279,6 +298,9 @@ int main_tree(int argc, char **argv) {
 			nonOptError();
 		}
 	}
+	
+	/* set print precision */
+	setPrecisionNwck(precision);
 	
 	/* flag help */
 	if(flag == -1) {
@@ -442,7 +464,7 @@ int main_tree(int argc, char **argv) {
 	}
 	
 	/* make tree */
-	formTree(inputfilename, outputfilename, flag, m, thread_num);
+	formTree(inputfilename, outputfilename, flag, sep, quotes, m, thread_num);
 	
 	return 0;
 }

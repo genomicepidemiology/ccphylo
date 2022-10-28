@@ -178,7 +178,7 @@ void print_dbscan(Qseqs **names, int *N, int *C, int Dn, int nClust, double maxD
 	}
 }
 
-void make_dbscan(char *inputfilename, char *outputfilename, double maxDist, int minN) {
+void make_dbscan(char *inputfilename, char *outputfilename, double maxDist, int minN, char sep, char quotes) {
 	
 	int i, size, nClust, *N, *C;
 	FILE *outfile;
@@ -205,7 +205,7 @@ void make_dbscan(char *inputfilename, char *outputfilename, double maxDist, int 
 	openAndDetermine(infile, inputfilename);
 	
 	/* generate dbscans */
-	while((names = loadPhy(D, names, header, infile)) && D->n) {
+	while((names = loadPhy(D, names, header, infile, sep, quotes)) && D->n) {
 		/* realloc */
 		if(size < D->n) {
 			size = D->n;
@@ -238,6 +238,8 @@ static int helpMessage(FILE *out) {
 	fprintf(out, "#   %-24s\t%-32s\t%s\n", "Options are:", "Desc:", "Default:");
 	fprintf(out, "#    -%c, --%-16s\t%-32s\t%s\n", 'i', "input", "Input file", "stdin");
 	fprintf(out, "#    -%c, --%-16s\t%-32s\t%s\n", 'o', "output", "Output file", "stdout");
+	fprintf(out, "#    -%c, --%-16s\t%-32s\t%s\n", 'S', "separator", "Separator", "\\t");
+	fprintf(out, "#    -%c, --%-16s\t%-32s\t%s\n", 'q', "quotes", "Quote taxa", "\\0");
 	fprintf(out, "#    -%c, --%-16s\t%-32s\t%s\n", 'N', "min_neighbors", "Minimum neighbors", "1");
 	fprintf(out, "#    -%c, --%-16s\t%-32s\t%s\n", 'e', "max_distance", "Maximum distance", "10.0");
 	fprintf(out, "#    -%c, --%-16s\t%-32s\t%s\n", 'p', "float_precision", "Float precision on distance matrix", "double");
@@ -267,7 +269,7 @@ int main_dbscan(int argc, char **argv) {
 	const char *stdstream = "-";
 	int args, minNum, size, len, offset;
 	double maxDist;
-	char **Arg, *arg, *inputfilename, *outputfilename, *tmp, opt;
+	char **Arg, *arg, *inputfilename, *outputfilename, *tmp, opt, sep, quotes;
 	
 	/* set defaults */
 	size = sizeof(double);
@@ -276,6 +278,8 @@ int main_dbscan(int argc, char **argv) {
 	inputfilename = (char *)(stdstream);
 	outputfilename = (char *)(stdstream);
 	tmp = 0;
+	sep = '\t';
+	quotes = '\0';
 	
 	/* parse cmd-line */
 	args = argc - 1;
@@ -302,6 +306,10 @@ int main_dbscan(int argc, char **argv) {
 					inputfilename = getArgDie(&Arg, &args, len + offset, "input");
 				} else if(strncmp(arg, "output", len) == 0) {
 					outputfilename = getArgDie(&Arg, &args, len + offset, "output");
+				} else if(strncmp(arg, "separator", len) == 0) {
+					sep = getcArgDie(&Arg, &args, len + offset, "separator");
+				} else if(strncmp(arg, "quotes", len) == 0) {
+					quotes = getcArgDie(&Arg, &args, len + offset, "quotes");
 				} else if(strncmp(arg, "min_neighbors", len) == 0) {
 					minNum = getNumArg(&Arg, &args, len + offset, "min_neighbors");
 				} else if(strncmp(arg, "max_distance", len) == 0) {
@@ -334,6 +342,12 @@ int main_dbscan(int argc, char **argv) {
 						opt = 0;
 					} else if(opt == 'o') {
 						outputfilename = getArgDie(&Arg, &args, len, "o");
+						opt = 0;
+					} else if(opt == 'S') {
+						sep = getcArgDie(&Arg, &args, len, "S");
+						opt = 0;
+					} else if(opt == 'q') {
+						quotes = getcArgDie(&Arg, &args, len, "q");
 						opt = 0;
 					} else if(opt == 'N') {
 						minNum = getNumArg(&Arg, &args, len, "N");
@@ -393,7 +407,7 @@ int main_dbscan(int argc, char **argv) {
 	ltdMatrixMinit(-size);
 	
 	/* make tree */
-	make_dbscan(inputfilename, outputfilename, maxDist, minNum);
+	make_dbscan(inputfilename, outputfilename, maxDist, minNum, sep, quotes);
 	
 	return 0;
 }

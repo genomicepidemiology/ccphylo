@@ -29,7 +29,7 @@
 #include "qseqs.h"
 #include "tmp.h"
 
-void formFullPhy(char *inputfilename, char *outputfilename, int flag) {
+void formFullPhy(char *inputfilename, char *outputfilename, int flag, char sep, char quotes) {
 	
 	int i;
 	unsigned char **sNames;
@@ -58,7 +58,7 @@ void formFullPhy(char *inputfilename, char *outputfilename, int flag) {
 	
 	/* generate trees */
 	t0 = clock();
-	while((names = loadPhy(D, names, header, infile)) && D->n) {
+	while((names = loadPhy(D, names, header, infile, sep, quotes)) && D->n) {
 		t1 = clock();
 		fprintf(stderr, "# Total time used loading matrix: %.2f s.\n", difftime(t1, t0) / 1000000);
 		t0 = t1;
@@ -91,6 +91,8 @@ static int helpMessage(FILE *out) {
 	fprintf(out, "#   %-24s\t%-32s\t%s\n", "Options are:", "Desc:", "Default:");
 	fprintf(out, "#    -%c, --%-16s\t%-32s\t%s\n", 'i', "input", "Input file", "stdin");
 	fprintf(out, "#    -%c, --%-16s\t%-32s\t%s\n", 'o', "output", "Output file", "stdout");
+	fprintf(out, "#    -%c, --%-16s\t%-32s\t%s\n", 'S', "separator", "Separator", "\\t");
+	fprintf(out, "#    -%c, --%-16s\t%-32s\t%s\n", 'x', "print_precision", "Floating point print precision", "9");
 	fprintf(out, "#    -%c, --%-16s\t%-32s\t%s\n", 'f', "flag", "Output flags", "1");
 	fprintf(out, "#    -%c, --%-16s\t%-32s\t%s\n", 'F', "flag_help", "Help on option \"-f\"", "");
 	fprintf(out, "#    -%c, --%-16s\t%-32s\t%s\n", 'p', "float_precision", "Float precision on distance matrix", "False / double");
@@ -118,15 +120,18 @@ static int helpMessage(FILE *out) {
 int main_fullphy(int argc, char **argv) {
 	
 	const char *stdstream = "-";
-	int size, len, offset, args, flag;
-	char **Arg, *arg, *inputfilename, *outputfilename, *tmp, opt;
+	int size, len, offset, args, flag, precision;
+	char **Arg, *arg, *inputfilename, *outputfilename, *tmp, opt, sep, quotes;
 	
 	/* set defaults */
 	size = sizeof(double);
 	flag = 1;
+	precision = 9;
 	inputfilename = (char *)(stdstream);
 	outputfilename = (char *)(stdstream);
 	tmp = 0;
+	sep = '\t';
+	quotes = '\0';
 	
 	/* parse cmd-line */
 	args = argc - 1;
@@ -153,6 +158,10 @@ int main_fullphy(int argc, char **argv) {
 					inputfilename = getArgDie(&Arg, &args, len + offset, "input");
 				} else if(strncmp(arg, "output", len) == 0) {
 					outputfilename = getArgDie(&Arg, &args, len + offset, "output");
+				} else if(strncmp(arg, "separator", len) == 0) {
+					sep = getcArgDie(&Arg, &args, len + offset, "separator");
+				} else if(strncmp(arg, "print_precision", len) == 0) {
+					precision = getNumArg(&Arg, &args, len + offset, "print_precision");
 				} else if(strncmp(arg, "flag", len) == 0) {
 					flag = getNumArg(&Arg, &args, len + offset, "flag");
 				} else if(strncmp(arg, "flag_help", len) == 0) {
@@ -185,6 +194,12 @@ int main_fullphy(int argc, char **argv) {
 						opt = 0;
 					} else if(opt == 'o') {
 						outputfilename = getArgDie(&Arg, &args, len, "o");
+						opt = 0;
+					} else if(opt == 'S') {
+						sep = getcArgDie(&Arg, &args, len, "S");
+						opt = 0;
+					} else if(opt == 'x') {
+						precision = getNumArg(&Arg, &args, len, "x");
 						opt = 0;
 					} else if(opt == 'f') {
 						flag = getNumArg(&Arg, &args, len, "f");
@@ -223,6 +238,9 @@ int main_fullphy(int argc, char **argv) {
 		--args;
 	}
 	
+	/* set print precision */
+	setPrecisionPhy(precision);
+	
 	/* non-options */
 	if(args) {
 		inputfilename = *Arg;
@@ -250,7 +268,7 @@ int main_fullphy(int argc, char **argv) {
 	ltdMatrixMinit(-size);
 	
 	/* make full phy */
-	formFullPhy(inputfilename, outputfilename, flag);
+	formFullPhy(inputfilename, outputfilename, flag, sep, quotes);
 	
 	return 0;
 }

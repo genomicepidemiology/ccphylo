@@ -17,5 +17,5 @@
  * limitations under the License.
 */
 
-int tsv2phy(char *inputfilename, char *outputfilename, unsigned format, unsigned char sep);
+int tsv2phy(char *inputfilename, char *outputfilename, unsigned format, unsigned char sep, int precision);
 int main_tsv2phy(int argc, char **argv);

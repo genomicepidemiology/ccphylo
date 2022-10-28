@@ -101,6 +101,7 @@ static int helpMessage(FILE *out) {
 	fprintf(out, "#    -%c, --%-16s\t%-32s\t%s\n", 'i', "input", "Input file", "stdin");
 	fprintf(out, "#    -%c, --%-16s\t%-32s\t%s\n", 'o', "output", "Output file", "stdout");
 	fprintf(out, "#    -%c, --%-16s\t%-32s\t%s\n", 'S', "separator", "Separator", "\\t");
+	fprintf(out, "#    -%c, --%-16s\t%-32s\t%s\n", 'x', "print_precision", "Floating point print precision", "9");
 	fprintf(out, "#    -%c, --%-16s\t%-32s\t%s\n", 'd', "distance", "Distance method", "cos");
 	fprintf(out, "#    -%c, --%-16s\t%-32s\t%s\n", 'D', "distance_help", "Help on option \"-d\"", "");
 	fprintf(out, "#    -%c, --%-16s\t%-32s\t%s\n", 'p', "float_precision", "Float precision on distance matrix", "False / double");
@@ -115,7 +116,7 @@ static int helpMessage(FILE *out) {
 int main_tsv2nwck(int argc, char *argv[]) {
 	
 	const char *stdstream = "-";
-	int args, len, offset, size;
+	int args, len, offset, size, precision;
 	char **Arg, *arg, *inputfilename, *outputfilename, *tmp, *method;
 	char *errorMsg, opt;
 	unsigned char sep;
@@ -123,6 +124,7 @@ int main_tsv2nwck(int argc, char *argv[]) {
 	
 	/* init */
 	size = sizeof(double);
+	precision = 9;
 	inputfilename = (char *)(stdstream);
 	outputfilename = (char *)(stdstream);
 	sep = '\t';
@@ -156,6 +158,8 @@ int main_tsv2nwck(int argc, char *argv[]) {
 					outputfilename = getArgDie(&Arg, &args, len + offset, "output");
 				} else if(strncmp(arg, "separator", len) == 0) {
 					sep = getcArgDie(&Arg, &args, len + offset, "separator");
+				} else if(strncmp(arg, "print_precision", len) == 0) {
+					precision = getNumArg(&Arg, &args, len + offset, "print_precision");
 				} else if(strncmp(arg, "distance", len) == 0) {
 					method = getArgDie(&Arg, &args, len + offset, "distance");
 				} else if(strncmp(arg, "distance_help", len) == 0) {
@@ -191,6 +195,9 @@ int main_tsv2nwck(int argc, char *argv[]) {
 						opt = 0;
 					} else if(opt == 'S') {
 						sep = getcArgDie(&Arg, &args, len, "S");
+						opt = 0;
+					} else if(opt == 'x') {
+						precision = getNumArg(&Arg, &args, len, "x");
 						opt = 0;
 					} else if(opt == 'd') {
 						method = getArgDie(&Arg, &args, len, "d");
@@ -291,6 +298,9 @@ int main_tsv2nwck(int argc, char *argv[]) {
 	} else {
 		invaArg("\"--distance\"");
 	}
+	
+	/* set print precision */
+	setPrecisionNwck(precision);
 	
 	/* tmp dir */
 	if(tmp) {

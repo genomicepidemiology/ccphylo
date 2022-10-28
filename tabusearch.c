@@ -24,6 +24,8 @@
 #include "tabusearch.h"
 
 int (*tradeM)(Machine *) = &tradeBB;
+double (*negotiatePtr)(Machine *, Machine *, Job **, Job **) = &negotiateM;
+int (*handoverPtr)(Machine *, Machine *) = &handover;
 
 Job ** sequenceJobs(Machine *M, Job *J, int m, int n) {
 	
@@ -298,8 +300,7 @@ int tradeDBEB(Machine *M) {
 	Machine *Mm, *Mn, *Mbest;
 	
 	/* check MSE */
-	/* check MSE */
-	test = machineMSE(M);
+	test = M->m ? machineIMSE(M) : machineMSE(M);
 	fprintf(stderr, "## Pre-tabu MSE:\t%f\n", test);
 	if(test == 0) {
 		return 0;
@@ -322,9 +323,7 @@ int tradeDBEB(Machine *M) {
 			Mn = Mm->next;
 			while(Mn) {
 				/* Negotiate trade options between Mm and Mn */
-				/* here */
-				/* function ptr needed */
-				test = negotiateM(Mm, Mn, &Jm, &Jn);
+				test = negotiatePtr(Mm, Mn, &Jm, &Jn);
 				
 				/* check negotiation between machines */
 				if(test < min) {
@@ -405,7 +404,7 @@ int tradeBB(Machine *M) {
 	Machine *Mm, *Mn, *Mbest;
 	
 	/* check MSE */
-	test = machineMSE(M);
+	test = M->m ? machineIMSE(M) : machineMSE(M);
 	fprintf(stderr, "## Pre-tabu MSE:\t%f\n", test);
 	if(test == 0) {
 		return 0;
@@ -428,14 +427,10 @@ int tradeBB(Machine *M) {
 			Mn = Mm->next;
 			while(Mn) {
 				/* check handover */
-				/* here */
-				/* function ptr needed */
-				trades += handover(Mm, Mn);
+				trades += handoverPtr(Mm, Mn);
 				
 				/* Negotiate trade options between Mm and Mn */
-				/* here */
-				/* function ptr needed */
-				test = negotiateM(Mm, Mn, &Jm, &Jn);
+				test = negotiatePtr(Mm, Mn, &Jm, &Jn);
 				
 				/* check negotiation between machines */
 				if(test < min) {

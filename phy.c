@@ -49,14 +49,28 @@ char * noStripDir(char *str) {
 	return str;
 }
 
+void setPrecisionPhy(int precision) {
+	
+	printphy(0, 0, 0, 0, 0, precision);
+	printfullphy(0, 0, 0, precision);
+	printphyUpdate(0, 0, 0, 0, precision);
+}
+
 void printphy(FILE *outfile, Matrix *src, char **names, unsigned char *include, char *comment, unsigned format) {
 	
+	static int precision = 9;
 	int i, j, jStart;
 	double d, *ptr;
 	float *fptr;
 	short unsigned *sptr;
 	unsigned char *bptr;
 	char *name;
+	
+	/* set precision */
+	if(!src) {
+		precision = format;
+		return;
+	}
 	
 	/* printf comment */
 	if(format & 4) {
@@ -100,7 +114,7 @@ void printphy(FILE *outfile, Matrix *src, char **names, unsigned char *include, 
 				if(d == (int) d) {
 					fprintf(outfile, "\t%d", (int) d);
 				} else {
-					fprintf(outfile, "\t%.4f", d);
+					fprintf(outfile, "\t%.*f", precision, d);
 				}
 			}
 			fprintf(outfile, "\n");
@@ -110,12 +124,19 @@ void printphy(FILE *outfile, Matrix *src, char **names, unsigned char *include, 
 
 void printfullphy(FILE *outfile, Matrix *src, char **names, unsigned format) {
 	
+	static int precision = 9;
 	int i, j, jStart;
 	double d, *ptr, **mat;
 	float *fptr, **fmat;
 	short unsigned *sptr, **smat;
 	unsigned char *bptr, **bmat;
 	char *name;
+	
+	/* set precision */
+	if(!src) {
+		precision = format;
+		return;
+	}
 	
 	fprintf(outfile, "%10d\n", src->n);
 	ptr = 0;
@@ -158,7 +179,7 @@ void printfullphy(FILE *outfile, Matrix *src, char **names, unsigned format) {
 			if(d == (int) d) {
 				fprintf(outfile, "\t%d", (int) d);
 			} else {
-				fprintf(outfile, "\t%.4f", d);
+				fprintf(outfile, "\t%.*f", precision, d);
 			}
 		}
 		
@@ -169,7 +190,7 @@ void printfullphy(FILE *outfile, Matrix *src, char **names, unsigned format) {
 			if(d == (int) d) {
 				fprintf(outfile, "\t%d", (int) d);
 			} else {
-				fprintf(outfile, "\t%.4f", d);
+				fprintf(outfile, "\t%.*f", precision, d);
 			}
 		}
 		
@@ -179,8 +200,15 @@ void printfullphy(FILE *outfile, Matrix *src, char **names, unsigned format) {
 
 void printphyUpdate(FILE *outfile, int n, char *name, double *D, unsigned format) {
 	
+	static int precision = 9;
 	int c;
 	double d;
+	
+	/* set precision */
+	if(!D) {
+		precision = format;
+		return;
+	}
 	
 	/* skip comment */
 	if((c = getc(outfile)) == '#') {
@@ -213,14 +241,14 @@ void printphyUpdate(FILE *outfile, int n, char *name, double *D, unsigned format
 		if(d == (int) d) {
 			fprintf(outfile, "\t%d", (int) d);
 		} else {
-			fprintf(outfile, "\t%.4f", d);
+			fprintf(outfile, "\t%.*f", precision, d);
 		}
 	}
 	fprintf(outfile, "\n");
 	fflush(outfile);
 }
 
-Qseqs ** loadPhy(Matrix *src, Qseqs **names, Qseqs *header, FileBuff *infile) {
+Qseqs ** loadPhy(Matrix *src, Qseqs **names, Qseqs *header, FileBuff *infile, char sep, char quotes) {
 	
 	int i, j, n, avail, size, (*buffFileBuff)(FileBuff *);
 	char *msg, strbuff[256];
@@ -373,8 +401,11 @@ Qseqs ** loadPhy(Matrix *src, Qseqs **names, Qseqs *header, FileBuff *infile) {
 		/* get name */
 		name = names[i];
 		seq = name->seq;
-		*seq++ = '\"';
-		size = name->size - 1; /* make room for trailing " */
+		size = name->size;
+		if(quotes) {
+			*seq++ = quotes;
+			--size;
+		}
 		do {
 			c = (*seq++ = *buff++);
 			if(--avail == 0) {
@@ -395,36 +426,44 @@ Qseqs ** loadPhy(Matrix *src, Qseqs **names, Qseqs *header, FileBuff *infile) {
 				}
 				seq = name->seq + size;
 			}
-		} while(c != '\t' && c != '\n');
+		} while(c != sep && c != '\n');
 		
 		/* chomp seq */
 		while(isspace(*--seq)) {
 			*seq = 0;
 			++size;
 		}
-		*++seq = '\"';
+		
+		name->len = name->size - size;
+		if(quotes) {
+			*++seq = quotes;
+			name->len++;
+		}
 		*++seq = 0;
-		name->len = name->size - size + 1;
 		
 		/* get distances */
 		j = i;
 		while(j--) {
-			stop = j != 0 ? '\t' : '\n';
-			seq = (unsigned char *) strbuff;
-			*seq = 0;
-			while((c = *buff++) != stop && c != '\t') {
-				*seq++ = c;
-				if(--avail == 0) {
-					if((avail = buffFileBuff(infile)) == 0) {
-						fprintf(stderr, "Malformatted phylip file, unexpected end of file, distance pos:\t(%d,%d)\n", i, i - j - 1);
-						errno |= 1;
-						src->n = 0;
-						return names;
+			stop = j != 0 ? sep : '\n';
+			
+			strbuff[0] = 0;
+			while(!strbuff[0]) {
+				seq = (unsigned char *) strbuff;
+				*seq = 0;
+				while((c = *buff++) != stop && c != sep) {
+					*seq++ = c;
+					if(--avail == 0) {
+						if((avail = buffFileBuff(infile)) == 0) {
+							fprintf(stderr, "Malformatted phylip file, unexpected end of file, distance pos:\t(%d,%d)\n", i, i - j - 1);
+							errno |= 1;
+							src->n = 0;
+							return names;
+						}
+						buff = infile->buffer;
 					}
-					buff = infile->buffer;
 				}
+				*seq = 0;
 			}
-			*seq = 0;
 			
 			if(mat) {
 				*mat++ = strtod(strbuff, &msg);
@@ -522,7 +561,7 @@ int getSizePhy(FileBuff *infile) {
 	return n;
 }
 
-Qseqs ** getFilenamesPhy(char *path, int n, FileBuff *infile) {
+Qseqs ** getFilenamesPhy(char *path, int n, FileBuff *infile, char sep) {
 	
 	int i, avail, size, len, (*buffFileBuff)(FileBuff *);
 	unsigned char c, *buff, *seq;
@@ -555,7 +594,7 @@ Qseqs ** getFilenamesPhy(char *path, int n, FileBuff *infile) {
 		name = names[i];
 		seq = name->seq + len;
 		size = name->size - len;
-		while((c = (*seq++ = *buff++)) != '\t' && c != '\n') {
+		while((c = (*seq++ = *buff++)) != sep && c != '\n') {
 			if(--avail == 0) {
 				if((avail = buffFileBuff(infile)) == 0) {
 					fprintf(stderr, "Malformatted phylip file, name on row: %d\n", ++i);

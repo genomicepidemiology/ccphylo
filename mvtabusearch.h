@@ -20,7 +20,8 @@
 #include "jobs.h"
 #include "machines.h"
 
-void exchangeMVJobs(Machine *Mm, Machine *Mn, Job *Jm, Job *Jn);
+double baseValue(Machine *Mm, Machine *Mn);
+double tradeValue(Machine *Mm, Machine *Mn, Job *Jm, Job *Jn);
 double negotiateMVM(Machine *Mm, Machine *Mn, Job **Jmbest, Job **Jnbest);
 double testMVhandover(Machine *Mm, Machine *Mn, Job *J);
 void rmMVjob(Machine *M, Job *J);

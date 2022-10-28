@@ -25,14 +25,24 @@
 
 void (*formLastNodePtr)(Qseqs *, Qseqs *, double) = &formLastNode;
 
+void setPrecisionNwck(int precision) {
+	
+	formNode(0, 0, precision, precision);
+	formLastNode(0, 0, precision);
+	formLastBiNode(0, 0, precision);
+}
+
 void formNode(Qseqs *node1, Qseqs *node2, double L1, double L2) {
 	
+	static int precision = 9;
 	unsigned char *seq, *seq2;
 	unsigned newsize;
 	double L;
 	
-	/* move largest qseq down */
-	if(node1->size < node2->size) {
+	if(!node1 && !node2) { /* set precision */
+		precision = L1;
+		return;
+	} else if(node1->size < node2->size) { /* move largest qseq down */
 		exchange(node1->seq, node2->seq, seq);
 		exchange(node1->size, node2->size, newsize);
 		exchange(node1->len, node2->len, newsize);
@@ -62,17 +72,20 @@ void formNode(Qseqs *node1, Qseqs *node2, double L1, double L2) {
 	if(L1 < 0 && L2 < 0) {
 		node1->len += sprintf((char *) node1->seq + node1->len, ",%s)", (char *) node2->seq);
 	} else {
-		node1->len += sprintf((char *) node1->seq + node1->len, ":%.2f,%s:%.2f)", L1, (char *) node2->seq, L2);
+		node1->len += sprintf((char *) node1->seq + node1->len, ":%.*f,%s:%.*f)", precision, L1, (char *) node2->seq, precision, L2);
 	}
 }
 
 void formLastNode(Qseqs *node1, Qseqs *node2, double L) {
 	
+	static int precision = 9;
 	unsigned char *seq;
 	unsigned newsize;
 	
-	/* move largest qseq down */
-	if(node1->size < node2->size) {
+	if(!node1 && !node2) { /* set precision */
+		precision = L;
+		return;
+	} else if(node1->size < node2->size) { /* move largest qseq down */
 		exchange(node1->seq, node2->seq, seq);
 		exchange(node1->size, node2->size, newsize);
 		exchange(node1->len, node2->len, newsize);
@@ -94,17 +107,20 @@ void formLastNode(Qseqs *node1, Qseqs *node2, double L) {
 	if(L < 0) {
 		node1->len += sprintf((char *) node1->seq + node1->len, ",%s)", (char *) node2->seq);
 	} else {
-		node1->len += sprintf((char *) node1->seq + node1->len, ",%s:%.2f)", (char *) node2->seq, L);
+		node1->len += sprintf((char *) node1->seq + node1->len, ",%s:%.*f)", (char *) node2->seq, precision, L);
 	}
 }
 
 void formLastBiNode(Qseqs *node1, Qseqs *node2, double L) {
 	
+	static int precision = 9;
 	unsigned char *seq, *seq2;
 	unsigned newsize;
 	
-	/* move largest qseq down */
-	if(node1->size < node2->size) {
+	if(!node1 && !node2) { /* set precision */
+		precision = L;
+		return;
+	} else if(node1->size < node2->size) { /* move largest qseq down */
 		exchange(node1->seq, node2->seq, seq);
 		exchange(node1->size, node2->size, newsize);
 		exchange(node1->len, node2->len, newsize);
@@ -134,7 +150,7 @@ void formLastBiNode(Qseqs *node1, Qseqs *node2, double L) {
 		node1->len += sprintf((char *) node1->seq + node1->len, ",%s)", (char *) node2->seq);
 	} else {
 		L /= 2;
-		node1->len += sprintf((char *) node1->seq + node1->len, ":%.2f,%s:%.2f)", L, (char *) node2->seq, L);
+		node1->len += sprintf((char *) node1->seq + node1->len, ":%.*f,%s:%.*f)", precision, L, (char *) node2->seq, precision, L);
 	}
 }
 

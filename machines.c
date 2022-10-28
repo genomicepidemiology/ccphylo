@@ -153,14 +153,37 @@ double machineMSE(Machine *M) {
 	return mse / m;
 }
 
+double machineIMSE(Machine *M) {
+	
+	int i, m;
+	double imse, *avails;
+	
+	/* calculate imbalance mean square error of makespan */
+	m = 0;
+	imse = 0;
+	while(M) {
+		i = M->m + 1;
+		avails = M->Avails;
+		while(--i) {
+			imse += *avails * *avails;
+			++avails;
+		}
+		++m;
+		M = M->next;
+	}
+	
+	return imse / m;
+}
+
 void print_stats(Machine *M) {
 	
-	int m;
-	double mse, Cmax, Cmin, L1, OPT, Jmax;
+	int i, m;
+	double mse, imse, Cmax, Cmin, L1, OPT, Jmax, *weights;
 	Job *J;
 	
 	m = 0;
 	mse = 0;
+	imse = 0;
 	Cmax = M->avail;
 	Cmin = M->avail;
 	L1 = 0;
@@ -177,6 +200,14 @@ void print_stats(Machine *M) {
 		mse += M->avail * M->avail;
 		++m;
 		
+		/* imbalance error */
+		i = M->m + 1;
+		weights = J->Weights;
+		while(--i) {
+			imse += *weights * *weights;
+			++weights;
+		}
+		
 		/* Update OPT */
 		J = M->jobs;
 		while(J) {
@@ -189,12 +220,16 @@ void print_stats(Machine *M) {
 		M = M->next;
 	}
 	mse /= m;
+	imse /= m;
 	OPT /= m;
 	Cmax += OPT;
 	Cmin += OPT;
 	OPT = OPT < Jmax ? Jmax : OPT;
 	
 	fprintf(stderr, "## MSE:\t%f\n", mse);
+	if(M->m) {
+		fprintf(stderr, "## Imbalance MSE:\t%f\n", imse);
+	}
 	fprintf(stderr, "## L1:\t%f\n", L1);
 	fprintf(stderr, "## OPT:\t%f\n", OPT);
 	fprintf(stderr, "## Cmax:\t%f\n", Cmax);

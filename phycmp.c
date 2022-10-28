@@ -53,7 +53,7 @@ int entriescmp(Qseqs **names1, Qseqs **names2, int n) {
 	return 0;
 }
 
-void phyfilecmp(char **inputfilenames, int filenum, char *outputfilename, int flag) {
+void phyfilecmp(char **inputfilenames, int filenum, char *outputfilename, int flag, char sep, char quotes) {
 	
 	int i;
 	long n;
@@ -83,12 +83,12 @@ void phyfilecmp(char **inputfilenames, int filenum, char *outputfilename, int fl
 	
 	/* load matrices */
 	openAndDetermine(infile, *inputfilenames);
-	names1 = loadPhy(D1, names1, header1, infile);
+	names1 = loadPhy(D1, names1, header1, infile, sep, quotes);
 	if(filenum != 1) {
 		closeFileBuff(infile);
 		openAndDetermine(infile, inputfilenames[1]);
 	}
-	names2 = loadPhy(D2, names2, header2, infile);
+	names2 = loadPhy(D2, names2, header2, infile, sep, quotes);
 	closeFileBuff(infile);
 	destroyFileBuff(infile);
 	
@@ -161,6 +161,7 @@ static int helpMessage(FILE *out) {
 	fprintf(out, "#   %-24s\t%-32s\t%s\n", "Options are:", "Desc:", "Default:");
 	fprintf(out, "#    -%c, --%-16s\t%-32s\t%s\n", 'i', "input", "Input file(s)", "stdin");
 	fprintf(out, "#    -%c, --%-16s\t%-32s\t%s\n", 'o', "output", "Output file", "stdout");
+	fprintf(out, "#    -%c, --%-16s\t%-32s\t%s\n", 'S', "separator", "Separator", "\\t");
 	fprintf(out, "#    -%c, --%-16s\t%-32s\t%s\n", 'f', "flag", "Output flags", "1");
 	fprintf(out, "#    -%c, --%-16s\t%-32s\t%s\n", 'F', "flag_help", "Help on option \"-f\"", "");
 	fprintf(out, "#    -%c, --%-16s\t%-32s\t%s\n", 'p', "float_precision", "Float precision on distance matrix", "False / double");
@@ -176,7 +177,7 @@ int main_phycmp(int argc, char **argv) {
 	
 	const char *stdstream = "-";
 	int size, len, offset, args, flag, filenum;
-	char **Arg, *arg, **filenames, *outputfilename, *tmp, opt;
+	char **Arg, *arg, **filenames, *outputfilename, *tmp, opt, sep, quotes;
 	
 	/* set defaults */
 	size = sizeof(double);
@@ -185,6 +186,8 @@ int main_phycmp(int argc, char **argv) {
 	filenames = 0;
 	outputfilename = (char *)(stdstream);
 	tmp = 0;
+	sep = '\t';
+	quotes = '\0';
 	
 	/* parse cmd-line */
 	args = argc - 1;
@@ -212,6 +215,8 @@ int main_phycmp(int argc, char **argv) {
 					filenum = getArgListLen(&Arg, &args);
 				} else if(strncmp(arg, "output", len) == 0) {
 					outputfilename = getArgDie(&Arg, &args, len + offset, "output");
+				} else if(strncmp(arg, "separator", len) == 0) {
+					sep = getcArgDie(&Arg, &args, len + offset, "separator");
 				} else if(strncmp(arg, "flag", len) == 0) {
 					flag = getNumArg(&Arg, &args, len + offset, "flag");
 				} else if(strncmp(arg, "flag_help", len) == 0) {
@@ -245,6 +250,9 @@ int main_phycmp(int argc, char **argv) {
 						opt = 0;
 					} else if(opt == 'o') {
 						outputfilename = getArgDie(&Arg, &args, len, "o");
+						opt = 0;
+					} else if(opt == 'S') {
+						sep = getcArgDie(&Arg, &args, len, "S");
 						opt = 0;
 					} else if(opt == 'f') {
 						flag = getNumArg(&Arg, &args, len, "f");
@@ -314,7 +322,7 @@ int main_phycmp(int argc, char **argv) {
 	ltdMatrixMinit(-size);
 	
 	/* make full phy */
-	phyfilecmp(filenames, filenum, outputfilename, flag);
+	phyfilecmp(filenames, filenum, outputfilename, flag, sep, quotes);
 	
 	return 0;
 }

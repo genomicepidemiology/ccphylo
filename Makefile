@@ -1,6 +1,6 @@
 CFLAGS ?= -Wall -O3
 CFLAGS += -std=c99
-LIBS = bytescale.o cdist.o cmdline.o dat.o datclust.o dbscan.o dbparse.o distcmp.o dist.o dnj.o fbseek.o filebuff.o fsacmp.o fsacmpthrd.o fullphy.o hashmapstr.o hashmapstrindex.o hclust.o jobs.o ltdmatrix.o ltdmatrixthrd.o machines.o makespan.o matcmp.o matparse.o matrix.o merge.o meth.o methparse.o mvtabusearch.o nj.o nwck.o nwck2phy.o pherror.o phy.o phycmp.o qseqs.o rarify.o resparse.o seqparse.o seq2fasta.o stdnuc.o stdstat.o str.o tabusearch.o tmp.o tree.o trim.o tsv.o tsv2nwck.o tsv2phy.o ulist.o union.o unionparse.o vector.o
+LIBS = bytescale.o cdist.o cmdline.o dat.o datclust.o dbscan.o dbparse.o distcmp.o dist.o dnj.o fbseek.o filebuff.o fsacmp.o fsacmpthrd.o fullphy.o hashmapstr.o hashmapstrindex.o hclust.o jobs.o ltdmatrix.o ltdmatrixthrd.o machines.o makespan.o matcmp.o matparse.o matrix.o merge.o meth.o methparse.o mvmakespan.o mvtabusearch.o nj.o nwck.o nwck2phy.o pherror.o phy.o phycmp.o qseqs.o rarify.o resparse.o seqparse.o seq2fasta.o stdnuc.o stdstat.o str.o tabusearch.o tmp.o tree.o trim.o tsv.o tsv2nwck.o tsv2phy.o ulist.o union.o unionparse.o vector.o
 PROGS = ccphylo
 
 .c .o:
@@ -46,6 +46,7 @@ matrix.o: matrix.h pherror.h tmp.h
 merge.o: merge.h cmdline.h filebuff.h hashmapstr.h hashmapstrindex.h matrix.h phy.h qseqs.h ulist.h
 meth.o: meth.h pherror.h
 methparse.o: methparse.h filebuff.h meth.h pherror.h qseqs.h
+mvmakespan.o: mvmakespan.h jobs.h machines.h
 mvtabusearch.o: mvtabusearch.h jobs.h machines.h pherror.h
 nj.o: nj.h matrix.h pherror.h threader.h vector.h
 nwck.o: nwck.h filebuff.h qseqs.h pherror.h

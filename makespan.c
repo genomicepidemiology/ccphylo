@@ -23,16 +23,51 @@
 #include "jobs.h"
 #include "machines.h"
 #include "makespan.h"
+#include "mvmakespan.h"
 #include "pherror.h"
 #include "tabusearch.h"
 #include "tsv.h"
 
 Machine * (*makespan_method)(Machine *, Job *, int, int) = &DBF;
+void (*addDBEptr)(Machine **, Machine **, Job *, int, int) = &addDBE;
+Machine * (*addDBFptr)(Machine *, Job *) = &addDBF;
+Machine *(*FirstFitptr)(Machine *, Job *, int) = &FirstFit;
+Machine *(*FirstFetptr)(Machine *, Job *) = &FirstFet;
+
+void addDBE(Machine **Mdest, Machine **Edest, Job *J, int m, int n) {
+	
+	Machine *M, *E, *nextM;
+	
+	/* init */
+	M = *Mdest;
+	E = *Edest;
+	
+	/* put job on least loaded machine */
+	M->n++;
+	J->next = M->jobs;
+	M->jobs = J;
+	M->avail -= J->weight;
+	
+	/* move machine down the qeue */
+	nextM = M->next;
+	M->next = 0;
+	if(M->n < n / m) {
+		M = machinemerge(nextM, M);
+	} else {
+		/* remove machine from available list */
+		E = machinemerge(E, M);
+		M = nextM;
+	}
+	
+	/* set pointers */
+	*Mdest = M;
+	*Edest = E;
+}
 
 Machine * DBE(Machine *M, Job *J, int m, int n) {
 	
 	Job *nextJ;
-	Machine *nextM, *E;
+	Machine *E;
 	
 	/* sort both machines and jobs in descending order */
 	M = machinesort(M, m);
@@ -41,28 +76,15 @@ Machine * DBE(Machine *M, Job *J, int m, int n) {
 	/* init full machines */
 	E = 0;
 	while(J) {
+		nextJ = J->next;
+		
 		/* put job on least loaded machine */
 		if(!M) {
 			/* n / m is not a Natural number */
 			M = E;
 			E = 0;
 		}
-		M->n++;
-		nextJ = J->next;
-		J->next = M->jobs;
-		M->jobs = J;
-		M->avail -= J->weight;
-		
-		/* move machine down the qeue */
-		nextM = M->next;
-		M->next = 0;
-		if(M->n < n / m) {
-			M = machinemerge(nextM, M);
-		} else {
-			/* remove machine from available list */
-			E = machinemerge(E, M);
-			M = nextM;
-		}
+		addDBEptr(&M, &E, J, m, n);
 		
 		/* move on to next job */
 		J = nextJ;
@@ -74,27 +96,35 @@ Machine * DBE(Machine *M, Job *J, int m, int n) {
 	return M;
 }
 
+Machine * addDBF(Machine *M, Job *J) {
+	
+	Machine *nextM;
+	
+	/* put job on least loaded machine */
+	M->n++;
+	J->next = M->jobs;
+	M->jobs = J;
+	M->avail -= J->weight;
+	
+	/* move machine down the qeue */
+	nextM = M->next;
+	M->next = 0;
+	return machinemerge(nextM, M);
+}
+
 Machine * DBF(Machine *M, Job *J, int m, int n) {
 	
 	Job *nextJ;
-	Machine *nextM;
 	
 	/* sort both machines and jobs in descending order */
 	M = machinesort(M, m);
 	J = jobsort(J, n);
 	
 	while(J) {
-		/* put job on least loaded machine */
-		M->n++;
 		nextJ = J->next;
-		J->next = M->jobs;
-		M->jobs = J;
-		M->avail -= J->weight;
 		
-		/* move machine down the qeue */
-		nextM = M->next;
-		M->next = 0;
-		M = machinemerge(nextM, M);
+		/* put job on least loaded machine */
+		M = addDBFptr(M, J);
 		
 		/* move on to next job */
 		J = nextJ;
@@ -152,7 +182,7 @@ Machine * DFF(Machine *M, Job *J, int m, int n) {
 		nextJ = J->next;
 		
 		/* put job on first fit (or least loaded) machine */
-		M = FirstFit(M, J, m);
+		M = FirstFitptr(M, J, m);
 		
 		/* move on to next job */
 		J = nextJ;
@@ -221,7 +251,7 @@ Machine * DFE(Machine *M, Job *J, int m, int n) {
 		}
 		
 		/* put job on first fit (or least loaded) machine */
-		F = FirstFet(M, J);
+		F = FirstFetptr(M, J);
 		
 		/* remove machine from available list */
 		if(F) {
@@ -348,12 +378,11 @@ void makespan(char *inputfilename, char *outputfilename, char *moutputfilename, 
 	
 	/* trade jobs */
 	if(tradeM) {
-		fprintf(stderr, "## Trades:\t%d\n", tradeM(M)); /* here multi-class */
+		fprintf(stderr, "## Trades:\t%d\n", tradeM(M));
 	}
 	
 	/* print results */
-	//fprintf(stderr, "## MSE:\t%f\n", machineMSE(M));
-	print_stats(M); /* here multi-class */
+	print_stats(M);
 	print_makespan(M, outfile, moutfile);
 	if(outfile != moutfile) {
 		fclose(moutfile);

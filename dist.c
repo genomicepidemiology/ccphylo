@@ -328,7 +328,7 @@ static void makeMatrix(unsigned numFile, char **filenames, char *outputfilename,
 	}
 }
 
-static int add2Matrix(char *path, char *addfilename, char *outputfilename, char *noutputfilename, char *diffilename, char *targetTemplate, double minCov, unsigned norm, unsigned minDepth, unsigned minLength, unsigned proxi, unsigned flag, double (*veccmp)(short unsigned*, short unsigned*, int, int), int tnum) {
+static int add2Matrix(char *path, char *addfilename, char *outputfilename, char *noutputfilename, char *diffilename, char *targetTemplate, double minCov, unsigned norm, unsigned minDepth, unsigned minLength, unsigned proxi, unsigned flag, char sep, double (*veccmp)(short unsigned*, short unsigned*, int, int), int tnum) {
 	
 	int n, pos, informat;
 	double *D, *N;
@@ -361,7 +361,7 @@ static int add2Matrix(char *path, char *addfilename, char *outputfilename, char 
 	N = smalloc(n * sizeof(double));
 	
 	/* get names */
-	if(!(names = getFilenamesPhy(path, n, infile))) {
+	if(!(names = getFilenamesPhy(path, n, infile, sep))) {
 		ERROR();
 	} else if(infile->bytes) {
 		fprintf(stderr, "Cannot update a multi distance phylip file.\n");
@@ -417,6 +417,8 @@ static int helpMessage(FILE *out) {
 	fprintf(out, "#    -%c, --%-16s\t%-32s\t%s\n", 'i', "input", "Input file(s)", "stdin");
 	fprintf(out, "#    -%c, --%-16s\t%-32s\t%s\n", 'o', "output", "Output file", "stdout");
 	fprintf(out, "#    -%c, --%-16s\t%-32s\t%s\n", 'n', "nucleotide_numbers", "Output number of nucleotides included", "False/None");
+	fprintf(out, "#    -%c, --%-16s\t%-32s\t%s\n", 'S', "separator", "Separator", "\\t");
+	fprintf(out, "#    -%c, --%-16s\t%-32s\t%s\n", 'x', "print_precision", "Floating point print precision", "9");
 	fprintf(out, "#    -%c, --%-16s\t%-32s\t%s\n", 'y', "methylation_motifs", "Mask methylation motifs from <file>", "False/None");
 	fprintf(out, "#    -%c, --%-16s\t%-32s\t%s\n", 'V', "nucleotide_variations", "Output nucleotide variations", "False/None");
 	fprintf(out, "#    -%c, --%-16s\t%-32s\t%s\n", 'r', "reference", "Target reference", "None");
@@ -471,15 +473,16 @@ static int helpMessage(FILE *out) {
 int main_dist(int argc, char **argv) {
 	
 	const char *stdstream = "-";
-	int size, len, offset, args;
+	int size, len, offset, args, precision;
 	unsigned numFile, flag, norm, minDepth, minLength, proxi, n, t;
 	char **Arg, *arg, *targetTemplate, **filenames, *addfilename, *errorMsg;
 	char *outputfilename, *noutputfilename, *methfilename, *diffilename;
-	char *method, *tmp, opt;
+	char *method, *tmp, opt, sep;
 	double minCov, alpha;
 	double (*veccmp)(short unsigned*, short unsigned*, int, int);
 	
 	/* set defaults */
+	precision = 9;
 	size = sizeof(double);
 	numFile = 0;
 	flag = 1;
@@ -500,6 +503,7 @@ int main_dist(int argc, char **argv) {
 	method = "cos";
 	veccmp = &coscmp;
 	tmp = 0;
+	sep = '\t';
 	
 	/* parse cmd-line */
 	args = argc - 1;
@@ -529,6 +533,10 @@ int main_dist(int argc, char **argv) {
 					outputfilename = getArgDie(&Arg, &args, len + offset, "output");
 				} else if(strncmp(arg, "nucleotide_numbers", len) == 0) {
 					noutputfilename = getArgDie(&Arg, &args, len + offset, "nucleotide_numbers");
+				} else if(strncmp(arg, "separator", len) == 0) {
+					sep = getcArgDie(&Arg, &args, len + offset, "separator");
+				} else if(strncmp(arg, "print_precision", len) == 0) {
+					precision = getNumArg(&Arg, &args, len + offset, "print_precision");
 				} else if(strncmp(arg, "methylation_motifs", len) == 0) {
 					methfilename = getArgDie(&Arg, &args, len + offset, "methylation_motifs");
 				} else if(strncmp(arg, "nucleotide_variations", len) == 0) {
@@ -591,6 +599,12 @@ int main_dist(int argc, char **argv) {
 						opt = 0;
 					} else if(opt == 'n') {
 						noutputfilename = getArgDie(&Arg, &args, len, "n");
+						opt = 0;
+					} else if(opt == 'S') {
+						sep = getcArgDie(&Arg, &args, len, "S");
+						opt = 0;
+					} else if(opt == 'x') {
+						precision = getNumArg(&Arg, &args, len, "x");
 						opt = 0;
 					} else if(opt == 'y') {
 						methfilename = getArgDie(&Arg, &args, len, "y");
@@ -771,6 +785,9 @@ int main_dist(int argc, char **argv) {
 		invaArg("\"-d\"");
 	}
 	
+	/* set print precision */
+	setPrecisionPhy(precision);
+	
 	/* tmp dir */
 	if(tmp) {
 		tmpF(tmp);
@@ -794,7 +811,7 @@ int main_dist(int argc, char **argv) {
 	}
 	
 	if(addfilename && filenames) {
-		return add2Matrix(*filenames, addfilename, outputfilename, noutputfilename, diffilename, targetTemplate, minCov, norm, minDepth, minLength, proxi, flag, veccmp, t);
+		return add2Matrix(*filenames, addfilename, outputfilename, noutputfilename, diffilename, targetTemplate, minCov, norm, minDepth, minLength, proxi, flag, sep, veccmp, t);
 	} else {
 		makeMatrix(numFile, filenames, outputfilename, noutputfilename, diffilename, targetTemplate, minCov, alpha, norm, minDepth, minLength, proxi, flag, veccmp, methfilename, t);
 	}
