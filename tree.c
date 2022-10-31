@@ -94,7 +94,7 @@ void formTree(char *inputfilename, char *outputfilename, int flag, char sep, cha
 			}
 		} else if(D->n == 2) {
 			/* form tree */
-			formLastNode(*names, names[1], (D->mat ? **(D->mat) : D->fmat ? **(D->fmat) : D->smat ? uctod(**(D->smat)) : uctod(**(D->bmat))));
+			formLastBiNode(*names, names[1], (D->mat ? **(D->mat) : D->fmat ? **(D->fmat) : D->smat ? uctod(**(D->smat)) : uctod(**(D->bmat))));
 		}
 		
 		/* output tree */
