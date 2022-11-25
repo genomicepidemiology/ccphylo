@@ -20,6 +20,7 @@
 #include "jobs.h"
 #include "machines.h"
 #include "pherror.h"
+#include "mvjobs.h"
 #include "mvtabusearch.h"
 #define ABS(num)((num) < 0 ? -(num) : (num))
 
@@ -29,13 +30,12 @@ double baseValue(Machine *Mm, Machine *Mn) {
 	double base, *Mma, *Mna;
 	
 	/* init */
-	m = Mm->m;
+	base = 0;
 	Mma = Mm->Avails;
 	Mna = Mn->Avails;
 	
 	/* get error by trade */
-	++m;
-	base = 0;
+	m = Mm->m + 1;
 	while(--m) {
 		base += ABS(*Mma) + ABS(*Mna);
 		++Mma;
@@ -45,21 +45,40 @@ double baseValue(Machine *Mm, Machine *Mn) {
 	return base;
 }
 
+double optValue(Machine *Mm, Machine *Mn) {
+	
+	int m;
+	double opt, diff, *Mma, *Mna;
+	
+	/* init */
+	opt = 0;
+	Mma = Mm->Avails - 1;
+	Mna = Mn->Avails - 1;
+	
+	/* get error by trade */
+	m = Mm->m + 1;
+	while(--m) {
+		diff = *++Mma + *++Mna;
+		opt += ABS(diff);
+	}
+	
+	return opt;
+}
+
 double tradeValue(Machine *Mm, Machine *Mn, Job *Jm, Job *Jn) {
 	
 	int m;
 	double post, diff, tm, tn, *Mma, *Mna, *Jmw, *Jnw;
 	
 	/* init */
-	m = Mm->m;
+	post = 0;
 	Mma = Mm->Avails - 1;
 	Mna = Mn->Avails - 1;
 	Jmw = Jm->Weights - 1;
 	Jnw = Jn->Weights - 1;
 	
 	/* get error by trade */
-	++m;
-	post = 0;
+	m = Mm->m + 1;
 	while(--m) {
 		/* new error */
 		diff = *++Jmw - *++Jnw;
@@ -73,7 +92,7 @@ double tradeValue(Machine *Mm, Machine *Mn, Job *Jm, Job *Jn) {
 
 double negotiateMVM(Machine *Mm, Machine *Mn, Job **Jmbest, Job **Jnbest) {
 	
-	double min, test, best, base;
+	double min, test, best, base, opt;
 	Job *Jm, *Jn, *next, *Jmin, *JmPrev, *JnPrev;
 	
 	/* exchange example:
@@ -91,6 +110,7 @@ double negotiateMVM(Machine *Mm, Machine *Mn, Job **Jmbest, Job **Jnbest) {
 	
 	/* init minimum trade value */
 	base = baseValue(Mm, Mn);
+	opt = optValue(Mm, Mn);
 	best = base;
 	*Jmbest = 0;
 	*Jnbest = 0;
@@ -98,10 +118,10 @@ double negotiateMVM(Machine *Mm, Machine *Mn, Job **Jmbest, Job **Jnbest) {
 	/* identify best trade option by minimizing multivariate target */
 	Jm = Mm->jobs;
 	JmPrev = 0;
-	Jn = Mn->jobs;
-	JnPrev = 0;
 	while(Jm) {
 		/* set first option as best */
+		Jn = Mn->jobs;
+		JnPrev = 0;
 		min = tradeValue(Mm, Mn, Jm, Jn);
 		Jmin = JnPrev;
 		
@@ -114,11 +134,9 @@ double negotiateMVM(Machine *Mm, Machine *Mn, Job **Jmbest, Job **Jnbest) {
 				min = test;
 				Jmin = JnPrev;
 			}
-			/* here */
-			/* consider early stopping */
 			
 			JnPrev = next;
-			next = next->next;
+			next = min == opt ? 0 : next->next;
 		}
 		
 		/* test best */
@@ -129,7 +147,7 @@ double negotiateMVM(Machine *Mm, Machine *Mn, Job **Jmbest, Job **Jnbest) {
 			*Jnbest = Jmin;
 		}
 		JmPrev = Jm;
-		Jm = Jm->next;
+		Jm = best == opt ? 0 : Jm->next;
 	}
 	
 	/* limit double approximations */
@@ -160,45 +178,13 @@ double testMVhandover(Machine *Mm, Machine *Mn, Job *J) {
 	++m;
 	while(--m) {
 		prev += ABS(*mAvails) + ABS(*nAvails);
-		post += ABS(*mAvails + *jWeights) + ABS(*nAvails - *jWeights);
+		post += ABS((*mAvails + *jWeights)) + ABS((*nAvails - *jWeights));
 		++mAvails;
 		++nAvails;
 		++jWeights;
 	}
 	
 	return prev - post;
-}
-
-void rmMVjob(Machine *M, Job *J) {
-	
-	int m;
-	double *Avails, *Weights;
-	
-	/* init */
-	m = M->m + 1;
-	Avails = M->Avails - 1;
-	Weights = J->Weights - 1;
-	
-	/* update Avails */
-	while(--m) {
-		*++Avails += *++Weights;
-	}
-}
-
-void addMVjob(Machine *M, Job *J) {
-	
-	int m;
-	double *Avails, *Weights;
-	
-	/* init */
-	m = M->m + 1;
-	Avails = M->Avails - 1;
-	Weights = J->Weights - 1;
-	
-	/* update Avails */
-	while(--m) {
-		*++Avails -= *++Weights;
-	}
 }
 
 int mvhandover(Machine *Mm, Machine *Mn) {
@@ -225,7 +211,7 @@ int mvhandover(Machine *Mm, Machine *Mn) {
 	handovers = 0;
 	J = Mm->jobs;
 	//while(testHandover(Mm, Mn, J)) {
-	while(J && Mm->avail < Mn->avail - J->weight) {
+	while(J && Mm->avail + J->weight < Mn->avail - J->weight) {
 		/* check mv improvement before handover */
 		if(0 < testMVhandover(Mm, Mn, J)) {
 			/* handover job */
@@ -239,8 +225,10 @@ int mvhandover(Machine *Mm, Machine *Mn) {
 			J->next = 0;
 			Mn->jobs = jobmerge_inc(Mn->jobs, J);
 			++handovers;
+			J = Mm->jobs;
+		} else {
+			J = J->next;
 		}
-		J = Mm->jobs;
 	}
 	
 	return handovers;

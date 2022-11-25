@@ -1,4 +1,4 @@
-/* Philip T.L.C. Clausen Oct 2022 plan@dtu.dk */
+/* Philip T.L.C. Clausen Nov 2022 plan@dtu.dk */
 
 /*
  * Copyright (c) 2022, Philip Clausen, Technical University of Denmark
@@ -20,8 +20,13 @@
 #include "jobs.h"
 #include "machines.h"
 
-double baseValue(Machine *Mm, Machine *Mn);
-double tradeValue(Machine *Mm, Machine *Mn, Job *Jm, Job *Jn);
-double negotiateMVM(Machine *Mm, Machine *Mn, Job **Jmbest, Job **Jnbest);
-double testMVhandover(Machine *Mm, Machine *Mn, Job *J);
-int mvhandover(Machine *Mm, Machine *Mn);
+extern void (*jobMVWeight)(Job *src, int m, int n, double logbase);
+
+double addValue(Machine *M, Job *J);
+void rmMVjob(Machine *M, Job *J);
+void addMVjob(Machine *M, Job *J);
+void addMVjobToMachine(Machine *M, Job *J);
+void nullMVWeight(Job *src, int m, int n, double logbase);
+void logMVWeight(Job *src, int m, int n, double logbase);
+void polMVWeight(Job *src, int m, int n, double exponent);
+void expMVWeight(Job *src, int m, int n, double expobase);

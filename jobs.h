@@ -31,11 +31,13 @@ struct job {
 
 extern void (*jobWeight)(Job *src, int n, double logbase);
 
-Job * job_realloc(Job *src, int oldsize, int newsize);
+Job * job_realloc(Job *src, int mv, int oldsize, int newsize);
+Job * jobWeights_realloc(Job *src, int mv, int mv_new, int n);
 Job * jobmerge(Job *L1, Job *L2);
 Job * jobmerge_inc(Job *L1, Job *L2);
 Job * jobsort(Job *src, int n);
 double totM(Job *J, int n);
+double * totMVM(Job *J, int n, int mv);
 double optM(Job *J, int n, int m);
 double targetM(Job *J, int n, int m);
 void nullWeight(Job *src, int n, double logbase);

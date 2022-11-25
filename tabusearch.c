@@ -19,6 +19,7 @@
 
 #include "jobs.h"
 #include "machines.h"
+#include "mvjobs.h"
 #include "mvtabusearch.h"
 #include "pherror.h"
 #include "tabusearch.h"
@@ -170,7 +171,6 @@ void exchangeJobs(Machine *Mm, Machine *Mn, Job *Jm, Job *Jn) {
 	addMVjob(Mm, Jn);
 	rmMVjob(Mn, Jn);
 	addMVjob(Mn, Jm);
-	
 }
 
 double negotiateM(Machine *Mm, Machine *Mn, Job **Jmbest, Job **Jnbest) {
@@ -234,14 +234,21 @@ double negotiateM(Machine *Mm, Machine *Mn, Job **Jmbest, Job **Jnbest) {
 				test = w1 + w2;
 				
 				/* advance Jn if value-error is not increasing */
-				if(test <= min) {
+				if(test < min) {
 					min = test;
 					Jmin = Jn; /* set pointer to prev job to allow post-merging */
 					JnPrev = Jn;
 					Jn = next;
 					next = next->next;
+				} else if(test == min) {
+					JnPrev = Jn;
+					Jn = next;
+					next = next->next;
 				} else {
 					/* continuing will decrease trade value */
+					next = 0;
+				}
+				if(min == 0) {
 					next = 0;
 				}
 			} else {
@@ -259,7 +266,7 @@ double negotiateM(Machine *Mm, Machine *Mn, Job **Jmbest, Job **Jnbest) {
 			*Jnbest = Jmin;
 		}
 		JmPrev = Jm;
-		Jm = Jm->next;
+		Jm = best == 0 ? 0 : Jm->next;
 	}
 	
 	/* avoid double approximations */
@@ -351,8 +358,17 @@ int tradeDBEB(Machine *M) {
 
 int testHandover(Machine *Mm, Machine *Mn, Job *J) {
 	
-	double test = J ? Mm->avail - Mn->avail + J->weight : -1;
-	return (test < 0 || (test == 0 && Mm->n < Mn->n));
+	double e, tmp;
+	
+	/* calc: prev - post */
+	e = (Mm->avail < 0 ? -Mm->avail : Mm->avail);
+	e += (Mn->avail < 0 ? -Mn->avail : Mn->avail);
+	tmp = Mm->avail + J->weight;
+	e -= tmp < 0 ? -tmp : tmp;
+	tmp = Mn->avail - J->weight;
+	e -= tmp < 0 ? -tmp : tmp;
+	
+	return e;
 }
 
 int handover(Machine *Mm, Machine *Mn) {
@@ -378,8 +394,7 @@ int handover(Machine *Mm, Machine *Mn) {
 	*/
 	handovers = 0;
 	J = Mm->jobs;
-	//while(testHandover(Mm, Mn, J)) {
-	while(J && Mm->avail < Mn->avail - J->weight) {
+	while(J && 0 < testHandover(Mm, Mn, J)) {
 		/* handover job */
 		Mm->n--;
 		Mn->n++;

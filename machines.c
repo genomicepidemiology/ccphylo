@@ -81,22 +81,41 @@ Machine * machinesort(Machine *src, int m) {
 	return 0;
 }
 
-Machine * initM(int m, int n, Job *J) {
+Machine * initM(int m, int n, int mv, Job *J) {
 	
-	double m_target;
+	int i;
+	double m_target, *m_targets, *Avails, *targetPtr;
 	Machine *dest, *ptr;
 	
 	dest = smalloc(m * sizeof(Machine));
 	m_target = totM(J, n) / m;
+	m_targets = totMVM(J, n, mv);
+	i = mv + 1;
+	targetPtr = m_targets;
+	while(--i) {
+		*targetPtr = *targetPtr / m;
+		++targetPtr;
+	}
 	
 	ptr = dest - 1;
 	++m;
 	while(--m) {
 		(++ptr)->num = m;
 		ptr->n = 0;
-		ptr->m = 0; /* here */
+		ptr->m = mv;
 		ptr->buff = 0;
 		ptr->avail = m_target;
+		if(m_targets) {
+			i = mv + 1;
+			targetPtr = m_targets - 1;
+			ptr->Avails = smalloc(mv * sizeof(double));
+			Avails = ptr->Avails - 1;
+			while(--i) {
+				*++Avails = *++targetPtr;
+			}
+		} else {
+			ptr->Avails = 0;
+		}
 		ptr->jobs = 0;
 		ptr->next = ptr + 1;
 	}
@@ -105,12 +124,13 @@ Machine * initM(int m, int n, Job *J) {
 	return dest;
 }
 
-Machine * initSkewM(int m, int n, Job *J, double *loads) {
+Machine * initSkewM(int m, int n, int mv, Job *J, double *loads) {
 	
 	int i;
-	double totL, m_target;
+	double totL, m_target, *m_targets, *Avails, *targetPtr, *wLoads;
 	Machine *dest, *ptr;
 	
+	wLoads = loads - 1;
 	i = m;
 	totL = *loads;
 	while(--i) {
@@ -120,19 +140,33 @@ Machine * initSkewM(int m, int n, Job *J, double *loads) {
 	
 	dest = smalloc(m * sizeof(Machine));
 	m_target = totM(J, n) / totL;
+	m_targets = totMVM(J, n, mv);
 	
 	ptr = dest - 1;
 	i = m + 1;
 	while(--i) {
 		(++ptr)->num = i;
 		ptr->n = 0;
-		ptr->m = 0; /* here */
+		ptr->m = mv;
 		ptr->buff = 0;
 		ptr->avail = m_target * *++loads;
+		if(m_targets) {
+			i = mv + 1;
+			targetPtr = m_targets - 1;
+			ptr->Avails = smalloc(mv * sizeof(double));
+			Avails = ptr->Avails - 1;
+			while(--i) {
+				*++Avails = *++targetPtr * *++wLoads / totL;
+			}
+			wLoads -= m;
+		} else {
+			ptr->Avails = 0;
+		}
 		ptr->jobs = 0;
 		ptr->next = ptr + 1;
 	}
 	ptr->next = 0;
+	free(m_targets);
 	
 	return dest;
 }
@@ -178,7 +212,7 @@ double machineIMSE(Machine *M) {
 void print_stats(Machine *M) {
 	
 	int i, m;
-	double mse, imse, Cmax, Cmin, L1, OPT, Jmax, *weights;
+	double mse, imse, Cmax, Cmin, L1, L1imse, OPT, Jmax, *weights;
 	Job *J;
 	
 	m = 0;
@@ -187,7 +221,9 @@ void print_stats(Machine *M) {
 	Cmax = M->avail;
 	Cmin = M->avail;
 	L1 = 0;
+	L1imse = 0;
 	Jmax = M->jobs->weight;
+	weights = 0;
 	OPT = 0;
 	while(M) {
 		/* Update Machine stats */
@@ -202,9 +238,10 @@ void print_stats(Machine *M) {
 		
 		/* imbalance error */
 		i = M->m + 1;
-		weights = J->Weights;
+		weights = M->Avails;
 		while(--i) {
 			imse += *weights * *weights;
+			L1imse += *weights < 0 ? -*weights : *weights;
 			++weights;
 		}
 		
@@ -217,6 +254,7 @@ void print_stats(Machine *M) {
 			}
 			J = J->next;
 		}
+		
 		M = M->next;
 	}
 	mse /= m;
@@ -227,10 +265,13 @@ void print_stats(Machine *M) {
 	OPT = OPT < Jmax ? Jmax : OPT;
 	
 	fprintf(stderr, "## MSE:\t%f\n", mse);
-	if(M->m) {
+	if(weights) {
 		fprintf(stderr, "## Imbalance MSE:\t%f\n", imse);
 	}
 	fprintf(stderr, "## L1:\t%f\n", L1);
+	if(weights) {
+		fprintf(stderr, "## Imbalance L1:\t%f\n", L1imse);
+	}
 	fprintf(stderr, "## OPT:\t%f\n", OPT);
 	fprintf(stderr, "## Cmax:\t%f\n", Cmax);
 	fprintf(stderr, "## Cmin:\t%f\n", Cmin);

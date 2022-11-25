@@ -35,5 +35,5 @@ Machine * DFF(Machine *M, Job *J, int m, int n);
 Machine * FirstFet(Machine *M, Job *J);
 Machine * DFE(Machine *M, Job *J, int m, int n);
 void print_makespan(Machine *M, FILE *out, FILE *mout);
-void makespan(char *inputfilename, char *outputfilename, char *moutputfilename, int m, double *loads, double base, unsigned char sep, int col);
+void makespan(char *inputfilename, char *outputfilename, char *moutputfilename, int m, double *loads, int mv, int *MV, double base, unsigned char sep, int col);
 int main_makespan(int argc, char **argv);

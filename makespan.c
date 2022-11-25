@@ -26,6 +26,8 @@
 #include "mvmakespan.h"
 #include "pherror.h"
 #include "tabusearch.h"
+#include "mvjobs.h"
+#include "mvtabusearch.h"
 #include "tsv.h"
 
 Machine * (*makespan_method)(Machine *, Job *, int, int) = &DBF;
@@ -191,6 +193,7 @@ Machine * DFF(Machine *M, Job *J, int m, int n) {
 	/* un-circularize machines and return */
 	nextM = M->next;
 	M->next = 0;
+	
 	return nextM;
 }
 
@@ -258,15 +261,15 @@ Machine * DFE(Machine *M, Job *J, int m, int n) {
 			if(n / m <= F->next->n) {
 				nextM = F->next;
 				F->next = F->next->next;
-				nextM->next = E;
-				E = nextM;
+				nextM->next = 0;
+				E = machinemerge(E, nextM);
 			}
 		} else {
 			if(n / m <= M->n) {
 				nextM = M;
 				M = M->next;
-				nextM->next = E;
-				E = nextM;
+				nextM->next = 0;
+				E = machinemerge(E, nextM);
 			}
 		}
 		
@@ -334,7 +337,7 @@ void print_makespan(Machine *M, FILE *out, FILE *mout) {
 	}
 }
 
-void makespan(char *inputfilename, char *outputfilename, char *moutputfilename, int m, double *loads, double base, unsigned char sep, int col) {
+void makespan(char *inputfilename, char *outputfilename, char *moutputfilename, int m, double *loads, int mv, int *MV, double base, unsigned char sep, int col) {
 	
 	int n;
 	FILE *outfile, *moutfile;
@@ -359,22 +362,32 @@ void makespan(char *inputfilename, char *outputfilename, char *moutputfilename, 
 	}
 	
 	/* load jobs */
-	J = loadJobs(infile, sep, col, &n); /* here multi-class */
+	if(!mv) {
+		J = loadJobs(infile, sep, col, &n);
+	} else if(MV) {
+		J = loadMVJobs(infile, sep, col, mv, MV, &n);
+	} else {
+		J = loadMVEJobs(infile, sep, col, &mv, &n);
+	}
 	closeFileBuff(infile);
 	destroyFileBuff(infile);
 	
 	/* get job weights */
-	jobWeight(J, n, base); /* here multi-class */
+	if(mv) {
+		jobMVWeight(J, mv, n, base);
+	} else {
+		jobWeight(J, n, base);
+	}
 	
 	/* get machines */
 	if(loads) {
-		M = initSkewM(m, n, J, loads); /* here multi-class */
+		M = initSkewM(m, n, mv, J, loads);
 	} else {
-		M = initM(m, n, J); /* here multi-class */
+		M = initM(m, n, mv, J);
 	}
 	
 	/* run makespan */
-	M = makespan_method(M, J, m, n); /* here multi-class */
+	M = makespan_method(M, J, m, n);
 	
 	/* trade jobs */
 	if(tradeM) {
@@ -425,6 +438,40 @@ static double * getLoads(char *src) {
 	return dest;
 }
 
+static int * getMVs(char *src) {
+	
+	int size, m, num, *dest, *dptr;
+	char *ptr, *next, c;
+	
+	/* get size */
+	size = 1;
+	ptr = src;
+	while((c = *++ptr)) {
+		if(c == ',') {
+			++size;
+		}
+	}
+	
+	m = size;
+	dest = smalloc(++size * sizeof(int));
+	dptr = dest++;
+	*dptr = m;
+	
+	while(--size) {
+		num = strtol(src, &next, 10);
+		
+		if(num <= 0 || (*next && *next != ',')) {
+			fprintf(stderr, "Invalid multivariate cluster string:\t%s\n", next);
+			exit(1);
+		} else {
+			*++dptr = num;
+		}
+		src = next + 1;
+	}
+	
+	return dest;
+}
+
 static int helpMessage(FILE *out) {
 	
 	fprintf(out, "#CCPhylo make a DBSCAN given a set of phylip distance matrices.\n");
@@ -434,6 +481,7 @@ static int helpMessage(FILE *out) {
 	fprintf(out, "#    -%c, --%-16s\t%-32s\t%s\n", 'O', "machine_output", "Machine output file", "stdout");
 	fprintf(out, "#    -%c, --%-16s\t%-32s\t%s\n", 'S', "separator", "Separator", "\\t");
 	fprintf(out, "#    -%c, --%-16s\t%-32s\t%s\n", 'k', "key", "Field containing cluster number", "3");
+	fprintf(out, "#    -%c, --%-16s\t%-32s\t%s\n", 'c', "classes", "Field(s) containing class weights", "False");
 	fprintf(out, "#    -%c, --%-16s\t%-32s\t%s\n", 'm', "method", "Makespan initial method", "DBF");
 	fprintf(out, "#    -%c, --%-16s\t%-32s\t%s\n", 'M', "method_help", "Help on option \"-m\"", "");
 	fprintf(out, "#    -%c, --%-16s\t%-32s\t%s\n", 't', "tabu", "Makespan tabu search method", "BB");
@@ -448,14 +496,16 @@ static int helpMessage(FILE *out) {
 int main_makespan(int argc, char **argv) {
 	
 	const char *stdstream = "-";
-	int args, m, len, col, offset;
+	int args, m, len, col, offset, mv, *MV;
 	double *loads, base;
 	char **Arg, *arg, *inputfilename, *outputfilename, *moutputfilename;
-	char *method, *strLoads, *trade, *weight, *errMsg, sep, opt;
+	char *method, *strLoads, *strMV, *trade, *weight, *errMsg, sep, opt;
 	
 	/* set defaults */
 	m = 5;
 	col = 3;
+	mv = 0;
+	MV = 0;
 	loads = 0;
 	base = 1;
 	inputfilename = (char *)(stdstream);
@@ -464,6 +514,7 @@ int main_makespan(int argc, char **argv) {
 	method = "DBF";
 	trade = "BB";
 	strLoads = 0;
+	strMV = 0;
 	weight = "none";
 	errMsg = 0;
 	sep = '\t';
@@ -499,6 +550,8 @@ int main_makespan(int argc, char **argv) {
 					sep = getcArgDie(&Arg, &args, len + offset, "separator");
 				} else if(strncmp(arg, "key", len) == 0) {
 					col = getNumArg(&Arg, &args, len + offset, "key");
+				} else if(strncmp(arg, "classes", len) == 0) {
+					strMV = getArgDie(&Arg, &args, len, "classes");
 				} else if(strncmp(arg, "method", len) == 0) {
 					method = getArgDie(&Arg, &args, len + offset, "method");
 				} else if(strncmp(arg, "method_help", len) == 0) {
@@ -538,6 +591,9 @@ int main_makespan(int argc, char **argv) {
 						opt = 0;
 					} else if(opt == 'k') {
 						col = getNumArg(&Arg, &args, len, "k");
+						opt = 0;
+					} else if(opt == 'c') {
+						strMV = getArgDie(&Arg, &args, len, "c");
 						opt = 0;
 					} else if(opt == 'm') {
 						method = getArgDie(&Arg, &args, len, "m");
@@ -615,6 +671,8 @@ int main_makespan(int argc, char **argv) {
 		tradeM = &tradeDBEB;
 	} else if(strcmp(trade, "None") == 0) {
 		tradeM = 0;
+	} else {
+		invaArg("tabu");
 	}
 	
 	/* get loads */
@@ -633,6 +691,30 @@ int main_makespan(int argc, char **argv) {
 		}
 	}
 	
+	/* get multivariate classes (MV) */
+	if(strMV) {
+		MV = getMVs(strMV);
+		mv = MV[-1];
+		
+		/* reset m, if balanced clusters were parsed */
+		if(mv == 1) {
+			mv = *MV;
+			free(--MV);
+			MV = 0;
+		}
+		if(mv < 0) {
+			invaArg("classes");
+		} else if(1 < mv) {
+			/* set MV makespan pointers */
+			addDBEptr = &addMVDBE;
+			addDBFptr = &addMVDBF;
+			FirstFitptr = &MVFirstFit;
+			FirstFetptr = &MVFirstFet;
+			negotiatePtr = &negotiateMVM;
+			handoverPtr = &mvhandover;
+		}
+	}
+	
 	/* get weight */
 	if(!weight) {
 		fprintf(stderr, "Weight methods:\n");
@@ -643,15 +725,19 @@ int main_makespan(int argc, char **argv) {
 		return 0;
 	} else if(strcmp(weight, "none") == 0) {
 		jobWeight = &nullWeight;
+		jobMVWeight = &nullMVWeight;
 		base = 1;
 	} else if(strncmp(weight, "log", 3) == 0) {
 		jobWeight = &logWeight;
+		jobMVWeight = &logMVWeight;
 		base = strtod(weight + 3, &errMsg);
 	} else if(strncmp(weight, "pow", 3) == 0) {
 		jobWeight = &polWeight;
+		jobMVWeight = &polMVWeight;
 		base = strtod(weight + 3, &errMsg);
 	} else if(strncmp(weight, "exp", 3) == 0) {
 		jobWeight = &expWeight;
+		jobMVWeight = &expMVWeight;
 		base = strtod(weight + 3, &errMsg);
 	} else {
 		invaArg("weight");
@@ -664,8 +750,8 @@ int main_makespan(int argc, char **argv) {
 		}
 	}
 	
-	/* make tree */
-	makespan(inputfilename, outputfilename, moutputfilename, m, loads, base, sep, col);
+	/* make makespan */
+	makespan(inputfilename, outputfilename, moutputfilename, m, loads, mv, MV, base, sep, col);
 	
 	return 0;
 }

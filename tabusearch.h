@@ -34,5 +34,6 @@ void exchangeJobs(Machine *Mm, Machine *Mn, Job *Jm, Job *Jn);
 double negotiateM(Machine *Mm, Machine *Mn, Job **Jmbest, Job **Jnbest);
 int tradeDBEB(Machine *M);
 int handover(Machine *Mm, Machine *Mn);
+int testHandover(Machine *Mm, Machine *Mn, Job *J);
 int tradeBB(Machine *M);
 Job * tradeMsequential(Machine *M, Job *J, int m, int n);

@@ -37,8 +37,8 @@ struct machine {
 
 Machine * machinemerge(Machine *L1, Machine *L2);
 Machine * machinesort(Machine *src, int m);
-Machine * initM(int m, int n, Job *J);
-Machine * initSkewM(int m, int n, Job *J, double *loads);
+Machine * initM(int m, int n, int mv, Job *J);
+Machine * initSkewM(int m, int n, int mv, Job *J, double *loads);
 double machineMSE(Machine *M);
 double machineIMSE(Machine *M);
 void print_stats(Machine *M);

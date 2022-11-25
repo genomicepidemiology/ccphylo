@@ -26,7 +26,7 @@
 
 void (*jobWeight)(Job *src, int n, double logbase) = &nullWeight;
 
-Job * job_realloc(Job *src, int oldsize, int newsize) {
+Job * job_realloc(Job *src, int mv, int oldsize, int newsize) {
 	
 	int i;
 	Job *ptr;
@@ -58,9 +58,54 @@ Job * job_realloc(Job *src, int oldsize, int newsize) {
 			ptr->num = ++oldsize;
 			ptr->size = 0;
 			ptr->weight = 0;
-			ptr->Weights = 0;
+			if(mv) {
+				ptr->Weights = calloc(mv, sizeof(double));
+				if(!ptr->Weights) {
+					ERROR();
+				}
+			} else {
+				ptr->Weights = 0;
+			}
 			ptr->next = ptr + 1;
 			++ptr;
+		}
+	}
+	
+	return src;
+}
+
+Job * jobWeights_realloc(Job *src, int mv, int mv_new, int n) {
+	
+	int i;
+	double *Weights;
+	Job *ptr;
+	
+	if(mv == mv_new) {
+		return src;
+	}
+	
+	/* init */
+	--mv;
+	ptr = src;
+	++n;
+	while(--n) {
+		/* realloc weights */
+		if(ptr->Weights) {
+			ptr->Weights = realloc(ptr->Weights, mv_new * sizeof(double));
+		} else {
+			ptr->Weights = malloc(mv_new * sizeof(double));
+		}
+		if(!ptr->Weights) {
+			ERROR();
+		}
+		
+		if(mv < mv_new) {
+			/* init new part */
+			Weights = ptr->Weights + mv;
+			i = mv_new - mv;
+			while(--i) {
+				*++Weights = 0;
+			}
 		}
 	}
 	
@@ -175,6 +220,33 @@ double totM(Job *J, int n) {
 	return sum;
 }
 
+double * totMVM(Job *J, int n, int mv) {
+	
+	int i;
+	double *targets, *targetsPtr, *targetsJ;
+	
+	if(!mv) {
+		return 0;
+	}
+	
+	targets = calloc(mv, sizeof(double));
+	if(!targets) {
+		ERROR();
+	}
+	++n;
+	--J;
+	while(--n) {
+		targetsPtr = targets - 1;
+		targetsJ = (++J)->Weights - 1;
+		i = mv + 1;
+		while(--i) {
+			*++targetsPtr += *++targetsJ;
+		}
+	}
+	
+	return targets;
+}
+
 double optM(Job *J, int n, int m) {
 	
 	double sum, max;
@@ -287,6 +359,7 @@ int cleanJobs(Job *src, int n) {
 			next->next = next + 1;
 			++next;
 		} else {
+			free(cur->Weights);
 			--n;
 		}
 		++cur;

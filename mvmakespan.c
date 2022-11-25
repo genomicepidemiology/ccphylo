@@ -19,31 +19,57 @@
 
 #include "jobs.h"
 #include "machines.h"
+#include "mvjobs.h"
 #include "mvmakespan.h"
 
 void addMVDBE(Machine **Mdest, Machine **Edest, Job *J, int m, int n) {
 	
-	Machine *M, *E, *nextM;
+	double max, test;
+	Machine *M, *E, *B, *prev, *prevB;
 	
 	/* init */
 	M = *Mdest;
 	E = *Edest;
+	B = M;
+	prev = 0;
+	prevB = 0;
+	
+	/* find best machine */
+	max = M->avail < 0 ? M->avail - J->weight : -M->avail - J->weight;
+	while(M) {
+		test = addValue(M, J);
+		if(max < test) {
+			max = test;
+			prevB = prev;
+			B = M;
+			if(max == J->weight) {
+				break;
+			}
+		}
+		
+		prev = M;
+		M = M->next;
+	}
 	
 	/* put job on least loaded machine */
-	M->n++;
-	J->next = M->jobs;
-	M->jobs = J;
-	M->avail -= J->weight;
+	addMVjobToMachine(B, J);
+	
+	/* isolate best machine */
+	if(prevB) {
+		M = prevB;
+		M->next = B->next;
+		M = *Mdest;
+	} else {
+		M = B->next;
+	}
+	B->next = 0;
 	
 	/* move machine down the qeue */
-	nextM = M->next;
-	M->next = 0;
-	if(M->n < n / m) {
-		M = machinemerge(nextM, M);
+	if(B->n < n / m) {
+		M = machinemerge(M, B);
 	} else {
 		/* remove machine from available list */
-		E = machinemerge(E, M);
-		M = nextM;
+		E = machinemerge(E, B);
 	}
 	
 	/* set pointers */
@@ -53,41 +79,66 @@ void addMVDBE(Machine **Mdest, Machine **Edest, Job *J, int m, int n) {
 
 Machine * addMVDBF(Machine *M, Job *J) {
 	
-	Machine *nextM;
+	double max, test;
+	Machine *B, *Mptr, *prev, *prevB;
+	
+	/* init */
+	Mptr = M;
+	B = M;
+	prev = 0;
+	prevB = 0;
+	
+	/* find best machine */
+	max = M->avail < 0 ? M->avail - J->weight : -M->avail - J->weight;
+	while(Mptr) {
+		test = addValue(Mptr, J);
+		if(max < test) {
+			max = test;
+			prevB = prev;
+			B = Mptr;
+			if(max == J->weight) {
+				break;
+			}
+		}
+		
+		prev = Mptr;
+		Mptr = Mptr->next;
+	}
 	
 	/* put job on least loaded machine */
-	M->n++;
-	J->next = M->jobs;
-	M->jobs = J;
-	M->avail -= J->weight;
+	addMVjobToMachine(B, J);
+	
+	/* isolate best machine */
+	if(prevB) {
+		Mptr = prevB;
+		Mptr->next = B->next;
+	} else {
+		M = B->next;
+	}
+	B->next = 0;
 	
 	/* move machine down the qeue */
-	nextM = M->next;
-	M->next = 0;
-	return machinemerge(nextM, M);
+	return machinemerge(M, B);
 }
 
 Machine * MVFirstFit(Machine *M, Job *J, int m) {
 	
-	double weight, best;
+	double weight, best, test;
 	Machine *F;
 	
 	weight = J->weight;
-	best = M->avail;
+	best = M->avail < 0 ? M->avail - weight : -M->avail - weight;
 	F = M;
 	while(m) {
-		/* here */
+		test = addValue(M, J);
 		/* test fit */
-		if(weight <= M->avail) {
+		if(test == weight) {
 			/* job fits */
-			M->n++;
-			J->next = M->jobs;
-			M->jobs = J;
-			M->avail -= weight;
+			addMVjobToMachine(M, J);
 			return M;
-		} else if(best < M->avail) {
+		} else if(best < test) {
 			/* machine is less filled than the previous */
-			best = M->avail;
+			best = test;
 			F = M;
 		}
 		
@@ -97,37 +148,31 @@ Machine * MVFirstFit(Machine *M, Job *J, int m) {
 	}
 	
 	/* job does not fit anywhere */
-	F->n++;
-	J->next = F->jobs;
-	F->jobs = J;
-	F->avail -= weight;
+	addMVjobToMachine(F, J);
 	
 	return F;
 }
 
 Machine * MVFirstFet(Machine *M, Job *J) {
 	
-	double weight, best;
+	double weight, best, test;
 	Machine *F, *prev, *prevF;
 	
 	weight = J->weight;
-	best = M->avail;
+	best = M->avail < 0 ? M->avail - weight : -M->avail - weight;
 	F = M;
 	prev = 0;
 	prevF = 0;
 	while(M) {
-		/* here */
+		test = addValue(M, J);
 		/* test fit */
-		if(weight <= M->avail) {
+		if(test == weight) {
 			/* job fits */
-			M->n++;
-			J->next = M->jobs;
-			M->jobs = J;
-			M->avail -= weight;
+			addMVjobToMachine(M, J);
 			return prev;
-		} else if(best < M->avail) {
+		} else if(best < test) {
 			/* machine is less filled than the previous */
-			best = M->avail;
+			best = test;
 			prevF = prev;
 			F = M;
 		}
@@ -138,10 +183,7 @@ Machine * MVFirstFet(Machine *M, Job *J) {
 	}
 	
 	/* job does not fit anywhere */
-	F->n++;
-	J->next = F->jobs;
-	F->jobs = J;
-	F->avail -= weight;
+	addMVjobToMachine(F, J);
 	
 	return prevF;
 }

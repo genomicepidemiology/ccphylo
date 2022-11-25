@@ -1,6 +1,6 @@
 CFLAGS ?= -Wall -O3
 CFLAGS += -std=c99
-LIBS = bytescale.o cdist.o cmdline.o dat.o datclust.o dbscan.o dbparse.o distcmp.o dist.o dnj.o fbseek.o filebuff.o fsacmp.o fsacmpthrd.o fullphy.o hashmapstr.o hashmapstrindex.o hclust.o jobs.o ltdmatrix.o ltdmatrixthrd.o machines.o makespan.o matcmp.o matparse.o matrix.o merge.o meth.o methparse.o mvmakespan.o mvtabusearch.o nj.o nwck.o nwck2phy.o pherror.o phy.o phycmp.o qseqs.o rarify.o resparse.o seqparse.o seq2fasta.o stdnuc.o stdstat.o str.o tabusearch.o tmp.o tree.o trim.o tsv.o tsv2nwck.o tsv2phy.o ulist.o union.o unionparse.o vector.o
+LIBS = bytescale.o cdist.o cmdline.o dat.o datclust.o dbscan.o dbparse.o distcmp.o dist.o dnj.o fbseek.o filebuff.o fsacmp.o fsacmpthrd.o fullphy.o hashmapstr.o hashmapstrindex.o hclust.o jobs.o ltdmatrix.o ltdmatrixthrd.o machines.o makespan.o matcmp.o matparse.o matrix.o merge.o meth.o methparse.o mvjobs.o mvmakespan.o mvtabusearch.o nj.o nwck.o nwck2phy.o pherror.o phy.o phycmp.o qseqs.o rarify.o resparse.o seqparse.o seq2fasta.o stdnuc.o stdstat.o str.o tabusearch.o tmp.o tree.o trim.o tsv.o tsv2nwck.o tsv2phy.o ulist.o union.o unionparse.o vector.o
 PROGS = ccphylo
 
 .c .o:
@@ -39,13 +39,14 @@ jobs.o: jobs.h filebuff.h pherror.h
 ltdmatrix.o: ltdmatrix.h filebuff.h ltdmatrix.h matcmp.h matparse.h pherror.h
 ltdmatrixthrd.o: ltdmatrixthrd.h filebuff.h matcmp.h matparse.h matrix.h pherror.h threader.h
 machines.o: machines.h jobs.h pherror.h
-makespan.o: makespan.h filebuff.h jobs.h machines.h pherror.h tabusearch.h tsv.h
+makespan.o: makespan.h filebuff.h jobs.h machines.h mvjobs.h mvtabusearch.h pherror.h tabusearch.h tsv.h
 matcmp.o: matcmp.h filebuff.h matparse.h stdstat.h
 matparse.o: matparse.h filebuff.h pherror.h qseqs.h
 matrix.o: matrix.h pherror.h tmp.h
 merge.o: merge.h cmdline.h filebuff.h hashmapstr.h hashmapstrindex.h matrix.h phy.h qseqs.h ulist.h
 meth.o: meth.h pherror.h
 methparse.o: methparse.h filebuff.h meth.h pherror.h qseqs.h
+mvjobs.o: mvjobs.h jobs.h machines.h
 mvmakespan.o: mvmakespan.h jobs.h machines.h
 mvtabusearch.o: mvtabusearch.h jobs.h machines.h pherror.h
 nj.o: nj.h matrix.h pherror.h threader.h vector.h
@@ -62,7 +63,7 @@ seq2fasta.o: seq2fasta.h dbparse.h pherror.h qseqs.h stdnuc.h
 stdnuc.o: stdnuc.h
 stdstat.o: stdstat.h
 str.o: str.h
-tabusearch.o: tabusearch.h jobs.h machines.h mvtabusearch.h pherror.h
+tabusearch.o: tabusearch.h jobs.h machines.h mvjobs.h mvtabusearch.h pherror.h
 tmp.o: tmp.h pherror.h threader.h
 tree.o: tree.h bytescale.h cmdline.h dnj.h filebuff.h hclust.h matrix.h nj.h pherror.h phy.h qseqs.h tmp.h vector.h
 trim.o: trim.h cmdline.h filebuff.h fsacmp.h matrix.h meth.h methparse.h pherror.h phy.h seqparse.h

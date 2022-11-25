@@ -23,3 +23,5 @@
 
 Dat * loadTsv(FileBuff *infile, unsigned char sep);
 Job * loadJobs(FileBuff *infile, unsigned char sep, int col, int *N);
+Job * loadMVJobs(FileBuff *infile, unsigned char sep, int col, int mv, int *MV, int *N);
+Job * loadMVEJobs(FileBuff *infile, unsigned char sep, int col, int *mv, int *N);
