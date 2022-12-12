@@ -551,7 +551,7 @@ int main_makespan(int argc, char **argv) {
 				} else if(strncmp(arg, "key", len) == 0) {
 					col = getNumArg(&Arg, &args, len + offset, "key");
 				} else if(strncmp(arg, "classes", len) == 0) {
-					strMV = getArgDie(&Arg, &args, len, "classes");
+					strMV = getArgDie(&Arg, &args, len + offset, "classes");
 				} else if(strncmp(arg, "method", len) == 0) {
 					method = getArgDie(&Arg, &args, len + offset, "method");
 				} else if(strncmp(arg, "method_help", len) == 0) {

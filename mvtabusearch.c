@@ -37,7 +37,13 @@ double baseValue(Machine *Mm, Machine *Mn) {
 	/* get error by trade */
 	m = Mm->m + 1;
 	while(--m) {
-		base += ABS(*Mma) + ABS(*Mna);
+		if((*Mma < 0 && 0 < *Mna) || (*Mna < 0 && 0 < *Mma)) { /* machines are somewhat centered around zero */
+			base += ABS(*Mma) + ABS(*Mna);
+		} else if(*Mma < 0) { /* both are over */
+			base -= *Mma < *Mna ? *Mma : *Mna;
+		} else { /* both are under */
+			base += *Mma < *Mna ? *Mna : *Mma;
+		}
 		++Mma;
 		++Mna;
 	}
@@ -59,7 +65,11 @@ double optValue(Machine *Mm, Machine *Mn) {
 	m = Mm->m + 1;
 	while(--m) {
 		diff = *++Mma + *++Mna;
-		opt += ABS(diff);
+		if((*Mma < 0 && 0 < *Mna) || (*Mna < 0 && 0 < *Mma)) { /* machines are somewhat centered around zero */
+			opt += ABS(diff);
+		} else { /* both are over or under*/
+			opt += 0.5 * ABS(diff);
+		}
 	}
 	
 	return opt;
@@ -68,7 +78,7 @@ double optValue(Machine *Mm, Machine *Mn) {
 double tradeValue(Machine *Mm, Machine *Mn, Job *Jm, Job *Jn) {
 	
 	int m;
-	double post, diff, tm, tn, *Mma, *Mna, *Jmw, *Jnw;
+	double post, tm, tn, *Mma, *Mna, *Jmw, *Jnw;
 	
 	/* init */
 	post = 0;
@@ -81,10 +91,15 @@ double tradeValue(Machine *Mm, Machine *Mn, Job *Jm, Job *Jn) {
 	m = Mm->m + 1;
 	while(--m) {
 		/* new error */
-		diff = *++Jmw - *++Jnw;
-		tm = *++Mma + diff;
-		tn = *++Mna - diff;
-		post += ABS(tm) + ABS(tn);
+		tm = *++Mma + *++Jmw - *++Jnw;
+		tn = *++Mna + *Jnw - *Jmw;
+		if((*Mma < 0 && 0 < *Mna) || (*Mna < 0 && 0 < *Mma)) { /* machines are somewhat centered around zero */
+			post += ABS(tm) + ABS(tn);
+		} else { /* both are over or under*/
+			tm = ABS(tm);
+			tn = ABS(tn);
+			post += tm < tn ? tn : tm;
+		}
 	}
 	
 	return post;
@@ -147,7 +162,7 @@ double negotiateMVM(Machine *Mm, Machine *Mn, Job **Jmbest, Job **Jnbest) {
 			*Jnbest = Jmin;
 		}
 		JmPrev = Jm;
-		Jm = best == opt ? 0 : Jm->next;
+		Jm = best <= opt ? 0 : Jm->next; /* early stopping */
 	}
 	
 	/* limit double approximations */
@@ -164,7 +179,7 @@ double negotiateMVM(Machine *Mm, Machine *Mn, Job **Jmbest, Job **Jnbest) {
 double testMVhandover(Machine *Mm, Machine *Mn, Job *J) {
 	
 	int m;
-	double post, prev, *mAvails, *nAvails, *jWeights;
+	double post, prev, t1, t2, *mAvails, *nAvails, *jWeights;
 	
 	/* init */
 	m = Mm->m;
@@ -177,8 +192,21 @@ double testMVhandover(Machine *Mm, Machine *Mn, Job *J) {
 	post = 0;
 	++m;
 	while(--m) {
-		prev += ABS(*mAvails) + ABS(*nAvails);
-		post += ABS((*mAvails + *jWeights)) + ABS((*nAvails - *jWeights));
+		if((*mAvails < 0 && 0 < *nAvails) || (*nAvails < 0 && 0 < *mAvails)) { /* machines are somewhat centered around zero */
+			prev += ABS(*mAvails) + ABS(*nAvails);
+			post += ABS((*mAvails + *jWeights)) + ABS((*nAvails - *jWeights));
+		} else if(*mAvails < 0) { /* both are over */
+			prev -= *mAvails < *nAvails ? *mAvails : *nAvails;
+			t1 = *mAvails + *jWeights;
+			t1 = t1 < 0 ? t1 : -t1;
+			t2 = *nAvails - *jWeights;
+			post -= t1 < t2 ? t1 : t2;
+		} else { /* both are under */
+			prev += *mAvails < *nAvails ? *nAvails : *mAvails;
+			t1 = ABS(*nAvails - *jWeights);
+			t2 = *mAvails + *jWeights;
+			post += t1 < t2 ? t2 : t1;
+		}
 		++mAvails;
 		++nAvails;
 		++jWeights;

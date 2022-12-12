@@ -368,3 +368,22 @@ int cleanJobs(Job *src, int n) {
 	
 	return n;
 }
+
+int cmpJ(Job *Jm, Job *Jn, int m) {
+	
+	double *mWeigths, *nWeigths;
+	
+	if(Jm->weight != Jn->weight) {
+		return Jm->weight < Jn->weight ? 1 : -1;
+	} else if(m++) {
+		mWeigths = Jm->Weights - 1;
+		nWeigths = Jn->Weights - 1;
+		while(--m) {
+			if(*++mWeigths != *++nWeigths) {
+				return *mWeigths < *nWeigths ? 1 : -1;
+			}
+		}
+	}
+	
+	return 0;
+}

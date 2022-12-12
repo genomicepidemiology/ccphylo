@@ -30,7 +30,7 @@ void moveUp(Job **sJ);
 void moveDown(Job **sJ);
 void jobexchange(Job **sJ, unsigned m, unsigned n);
 void insertJob(Machine *M, Job *J);
-void exchangeJobs(Machine *Mm, Machine *Mn, Job *Jm, Job *Jn);
+int exchangeJobs(Machine *Mm, Machine *Mn, Job *Jm, Job *Jn);
 double negotiateM(Machine *Mm, Machine *Mn, Job **Jmbest, Job **Jnbest);
 int tradeDBEB(Machine *M);
 int handover(Machine *Mm, Machine *Mn);

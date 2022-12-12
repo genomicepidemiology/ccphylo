@@ -23,6 +23,7 @@
 #include "mvtabusearch.h"
 #include "pherror.h"
 #include "tabusearch.h"
+#define ABS(num)((num) < 0 ? -(num) : (num))
 
 int (*tradeM)(Machine *) = &tradeBB;
 double (*negotiatePtr)(Machine *, Machine *, Job **, Job **) = &negotiateM;
@@ -134,7 +135,7 @@ void insertJob(Machine *M, Job *J) {
 	}
 }
 
-void exchangeJobs(Machine *Mm, Machine *Mn, Job *Jm, Job *Jn) {
+int exchangeJobs(Machine *Mm, Machine *Mn, Job *Jm, Job *Jn) {
 	
 	Job *J;
 	
@@ -163,19 +164,23 @@ void exchangeJobs(Machine *Mm, Machine *Mn, Job *Jm, Job *Jn) {
 	Mm->jobs = jobmerge_inc(Mm->jobs, Jn);
 	
 	/* adjust availability of machines */
-	Mm->avail += (Jm->weight - Jn->weight);
-	Mn->avail += (Jn->weight - Jm->weight);
+	Mm->avail += Jm->weight - Jn->weight;
+	Mn->avail += Jn->weight - Jm->weight;
 	
 	/* adjust class availability of machines */
 	rmMVjob(Mm, Jm);
 	addMVjob(Mm, Jn);
 	rmMVjob(Mn, Jn);
 	addMVjob(Mn, Jm);
+	
+	/* cmp jobs to validate exchange */
+	return cmpJ(Jm, Jn, Mm->m);
 }
 
 double negotiateM(Machine *Mm, Machine *Mn, Job **Jmbest, Job **Jnbest) {
 	
-	double Mmj, Mnj, w1, w2, min, test, best, base;
+	int balance;
+	double Mmj, Mnj, Jmw, w1, w2, min, test, best, base;
 	Job *Jm, *Jn, *next, *Jmin, *JmPrev, *JnPrev;
 	
 	/* exchange example:
@@ -191,10 +196,17 @@ double negotiateM(Machine *Mm, Machine *Mn, Job **Jmbest, Job **Jnbest) {
 		return 0;
 	}
 	
+	/* set balance of machines */
+	balance = (Mm->avail < 0 && 0 < Mn->avail) || (Mn->avail < 0 && 0 < Mm->avail);
+	
 	/* init minimum trade value */
-	w1 = Mm->avail < 0 ? -Mm->avail : Mm->avail;
-	w2 = Mn->avail < 0 ? -Mn->avail : Mn->avail;
-	base = w1 + w2;
+	if(balance) {
+		base = ABS(Mm->avail) + ABS(Mn->avail);
+	} else {
+		w1 = ABS(Mm->avail);
+		w2 = ABS(Mn->avail);
+		base = w1 < w2 ? w2 : w1;
+	}
 	best = base;
 	min = best;
 	*Jmbest = 0;
@@ -202,36 +214,45 @@ double negotiateM(Machine *Mm, Machine *Mn, Job **Jmbest, Job **Jnbest) {
 	
 	/* identify best trade option by minimizing:
 	(Mm->avail + Mm->job_i - Mn->job_j)^2 + (Mn->avail - Mm->job_i + Mn->job_j)^2
-	(Mmj - Mn->job_j)^2 + (Mnj + Mn->job_j)^2
+	(Mmj - Mn->job_j)^2 + (Mnj + Mn->job_j)^2 // Makes doulbe approximation
 	*/
 	Jm = Mm->jobs;
 	JmPrev = 0;
 	Jn = Mn->jobs;
 	JnPrev = 0;
 	while(Jm) {
-		/* set constants */
-		Mmj = Mm->avail + Jm->weight;
-		Mnj = Mn->avail - Jm->weight;
+		/* set constant */
+		Jmw = Jm->weight;
+		Mmj = Mm->avail + Jmw;
+		Mnj = Mn->avail;
 		
 		/* set first option as best */
-		w1 = (Mmj - Jn->weight);
-		w1 = w1 < 0 ? -w1 : w1;
-		w2 = (Mnj + Jn->weight);
-		w2 = w2 < 0 ? -w2 : w2;
-		min = Jm->weight != Jn->weight ? w1 + w2 : base; /* avoid double approximations */
+		w1 = Mmj - Jn->weight;
+		w2 = Mnj + Jn->weight - Jmw;
+		if(balance) {
+			min = ABS(w1) + ABS(w2);
+		} else {
+			w1 = ABS(w1);
+			w2 = ABS(w2);
+			min = (w1 < w2 ? w2 : w1);
+		}
 		Jmin = JnPrev; /* set pointer to prev job to allow post-merging */
 		next = Jn->next;
 		
 		/* since both list of jobs are sorted the best trade option can be 
 		identified by a merge search in O(m + n / m) */
 		while(next) {
-			if(Jm->weight != next->weight) { /* avoid double approximations */
+			if(Jm->weight != next->weight) {
 				/* test next trade option */
-				w1 = (Mmj - next->weight);
-				w1 = w1 < 0 ? -w1 : w1;
-				w2 = (Mnj + next->weight);
-				w2 = w2 < 0 ? -w2 : w2;
-				test = w1 + w2;
+				w1 = Mmj - next->weight;
+				w2 = Mnj + next->weight - Jmw;
+				if(balance) {
+					test = ABS(w1) + ABS(w2);
+				} else {
+					w1 = ABS(w1);
+					w2 = ABS(w2);
+					test = (w1 < w2 ? w2 : w1);
+				}
 				
 				/* advance Jn if value-error is not increasing */
 				if(test < min) {
@@ -249,6 +270,7 @@ double negotiateM(Machine *Mm, Machine *Mn, Job **Jmbest, Job **Jnbest) {
 					next = 0;
 				}
 				if(min == 0) {
+					/* continuing will not increase trade value */
 					next = 0;
 				}
 			} else {
@@ -269,7 +291,7 @@ double negotiateM(Machine *Mm, Machine *Mn, Job **Jmbest, Job **Jnbest) {
 		Jm = best == 0 ? 0 : Jm->next;
 	}
 	
-	/* avoid double approximations */
+	/* set pointers to best jobs */
 	if(*Jmbest) {
 		Jm = (*Jmbest)->next;
 	} else {
@@ -281,14 +303,8 @@ double negotiateM(Machine *Mm, Machine *Mn, Job **Jmbest, Job **Jnbest) {
 		Jn = Mn->jobs;
 	}
 	
-	/* avoid double approximations */
-	Mmj = Mm->avail;
-	Mmj += (Jm->weight - Jn->weight);
-	Mmj = Mmj < 0 ? -Mmj : Mmj;
-	Mnj = Mn->avail;
-	Mnj += (Jn->weight - Jm->weight);
-	Mnj = Mnj < 0 ? -Mnj : Mnj;
-	if(base != Mmj + Mnj && Jm->weight != Jn->weight) {
+	/* test validity of trade */
+	if(best != base && Jm->weight != Jn->weight) {
 		best -= base;
 	} else {
 		best = 0;
@@ -301,7 +317,7 @@ double negotiateM(Machine *Mm, Machine *Mn, Job **Jmbest, Job **Jnbest) {
 int tradeDBEB(Machine *M) {
 	
 	/* Der Bor En Bager */
-	int trades;
+	int trades, nullTrades;
 	double min, test;
 	Job *Jn, *Jm, *JnBest, *JmBest;
 	Machine *Mm, *Mn, *Mbest;
@@ -317,6 +333,7 @@ int tradeDBEB(Machine *M) {
 	trades = 0;
 	do {
 		Mbest = 0;
+		nullTrades = trades;
 		
 		/* go through machines */
 		Mm = M;
@@ -344,14 +361,13 @@ int tradeDBEB(Machine *M) {
 			}
 			
 			/* exchange jobs */
-			if(min < 0) {
-				exchangeJobs(Mm, Mbest, JmBest, JnBest);
+			if(min < 0 && exchangeJobs(Mm, Mbest, JmBest, JnBest)) {
 				++trades;
 			} else {
 				Mm = Mm->next;
 			}
 		}
-	} while(Mbest);
+	} while(nullTrades != trades);
 	
 	return trades;
 }
@@ -360,13 +376,20 @@ int testHandover(Machine *Mm, Machine *Mn, Job *J) {
 	
 	double e, tmp;
 	
-	/* calc: prev - post */
-	e = (Mm->avail < 0 ? -Mm->avail : Mm->avail);
-	e += (Mn->avail < 0 ? -Mn->avail : Mn->avail);
-	tmp = Mm->avail + J->weight;
-	e -= tmp < 0 ? -tmp : tmp;
-	tmp = Mn->avail - J->weight;
-	e -= tmp < 0 ? -tmp : tmp;
+	/* get error after trade */
+	if(Mn->avail < Mm->avail) { /* Mm->avail < Mn->avail to make a valid trade */
+		e = Mn->avail - Mm->avail;
+	} else if(Mm->avail < 0 && 0 < Mn->avail) { /* machines are somewhat centered around zero */
+		/* org L1 */
+		/* calc: prev - post */
+		e = ABS(Mm->avail) + ABS(Mn->avail);
+		tmp = Mm->avail + J->weight;
+		e -= ABS(tmp);
+		tmp = Mn->avail - J->weight;
+		e -= ABS(tmp);
+	} else { /* both are over or under */
+		e = Mn->avail - J->weight - Mm->avail;
+	}
 	
 	return e;
 }
@@ -381,6 +404,8 @@ int handover(Machine *Mm, Machine *Mn) {
 		middleman = Mn;
 		Mn = Mm;
 		Mm = middleman;
+	} else if(Mm->avail == Mn->avail) {
+		return 0;
 	}
 	
 	/* handover jobs as long as there is an improvement */
@@ -413,7 +438,7 @@ int handover(Machine *Mm, Machine *Mn) {
 int tradeBB(Machine *M) {
 	
 	/* Babettes Buckets */
-	int trades;
+	int trades, nullTrades;
 	double min, test;
 	Job *Jn, *Jm, *JnBest, *JmBest;
 	Machine *Mm, *Mn, *Mbest;
@@ -429,6 +454,7 @@ int tradeBB(Machine *M) {
 	trades = 0;
 	do {
 		Mbest = 0;
+		nullTrades = trades;
 		
 		/* go through machines */
 		Mm = M;
@@ -459,14 +485,13 @@ int tradeBB(Machine *M) {
 			}
 			
 			/* exchange jobs */
-			if(min < 0) {
-				exchangeJobs(Mm, Mbest, JmBest, JnBest);
+			if(min < 0 && exchangeJobs(Mm, Mbest, JmBest, JnBest)) {
 				++trades;
 			} else {
 				Mm = Mm->next;
 			}
 		}
-	} while(Mbest);
+	} while(nullTrades != trades);
 	
 	return trades;
 }

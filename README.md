@@ -12,6 +12,9 @@ CCPhylo is a software suite designed to easen phylogenetic analysis based on ali
 Neighbor-Joining can be run without KMA alignments, if a Phylip distance matrix is given using "ccphylo tree".
 
 If you use CCPhylo for your published research, then please cite:
+Philip T.L.C. Clausen
+"Scaling neighbor joining to one million taxa with dynamic and heuristic neighbor joining",
+Bioinformatics, 2022.
 Malte B. Hallgren, Søren Overballe-Petersen, Ole Lund, Henrik Hasman & Philip T.L.C. Clausen
 "MINTyper: an outbreak-detection method for accurate and rapid SNP typing of clonal clusters with noisy long reads",
 Biology, Methods & Protocols 2021.
@@ -75,7 +78,8 @@ Usage and options are available with the "-h" option on all programs in the soft
 If in doubt, please mail any concerns or problems to: *plan@dtu.dk*.
 
 # Citation #
-1. Malte B. Hallgren, Søren Overballe-Petersen, Ole Lund, Henrik Hasman & Philip T.L.C. Clausen "MINTyper: an outbreak-detection method for accurate and rapid SNP typing of clonal clusters with noisy long reads", Biology, Methods & Protocols 2021.
+1. Philip T.L.C. Clausen "Scaling neighbor joining to one million taxa with dynamic and heuristic neighbor joining", Bioinformatics, 2022.
+2. Malte B. Hallgren, Søren Overballe-Petersen, Ole Lund, Henrik Hasman & Philip T.L.C. Clausen "MINTyper: an outbreak-detection method for accurate and rapid SNP typing of clonal clusters with noisy long reads", Biology, Methods & Protocols 2021.
 
 # License #
 Copyright (c) 2017, Philip Clausen, Technical University of Denmark

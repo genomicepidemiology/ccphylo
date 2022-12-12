@@ -127,10 +127,9 @@ Machine * initM(int m, int n, int mv, Job *J) {
 Machine * initSkewM(int m, int n, int mv, Job *J, double *loads) {
 	
 	int i;
-	double totL, m_target, *m_targets, *Avails, *targetPtr, *wLoads;
+	double totL, m_target, *m_targets, *Avails, *targetPtr;
 	Machine *dest, *ptr;
 	
-	wLoads = loads - 1;
 	i = m;
 	totL = *loads;
 	while(--i) {
@@ -143,9 +142,9 @@ Machine * initSkewM(int m, int n, int mv, Job *J, double *loads) {
 	m_targets = totMVM(J, n, mv);
 	
 	ptr = dest - 1;
-	i = m + 1;
-	while(--i) {
-		(++ptr)->num = i;
+	++m;
+	while(--m) {
+		(++ptr)->num = m;
 		ptr->n = 0;
 		ptr->m = mv;
 		ptr->buff = 0;
@@ -156,9 +155,8 @@ Machine * initSkewM(int m, int n, int mv, Job *J, double *loads) {
 			ptr->Avails = smalloc(mv * sizeof(double));
 			Avails = ptr->Avails - 1;
 			while(--i) {
-				*++Avails = *++targetPtr * *++wLoads / totL;
+				*++Avails = *++targetPtr * *loads / totL;
 			}
-			wLoads -= m;
 		} else {
 			ptr->Avails = 0;
 		}

@@ -45,3 +45,4 @@ void logWeight(Job *src, int len, double logbase);
 void polWeight(Job *src, int len, double exponent);
 void expWeight(Job *src, int len, double expobase);
 int cleanJobs(Job *src, int n);
+int cmpJ(Job *Jm, Job *Jn, int m);
