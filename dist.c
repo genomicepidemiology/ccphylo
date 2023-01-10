@@ -526,60 +526,60 @@ int main_dist(int argc, char **argv) {
 				if(*arg == 0) {
 					/* terminate cmd-line */
 					++Arg;
-				} else if(strncmp(arg, "input", len) == 0) {
+				} else if(cmdcmp(arg, "input") == 0) {
 					filenames = getArgListDie(&Arg, &args, len + offset, "input");
 					numFile = getArgListLen(&Arg, &args);
-				} else if(strncmp(arg, "output", len) == 0) {
+				} else if(cmdcmp(arg, "output") == 0) {
 					outputfilename = getArgDie(&Arg, &args, len + offset, "output");
-				} else if(strncmp(arg, "nucleotide_numbers", len) == 0) {
+				} else if(cmdcmp(arg, "nucleotide_numbers") == 0) {
 					noutputfilename = getArgDie(&Arg, &args, len + offset, "nucleotide_numbers");
-				} else if(strncmp(arg, "separator", len) == 0) {
+				} else if(cmdcmp(arg, "separator") == 0) {
 					sep = getcArgDie(&Arg, &args, len + offset, "separator");
-				} else if(strncmp(arg, "print_precision", len) == 0) {
+				} else if(cmdcmp(arg, "print_precision") == 0) {
 					precision = getNumArg(&Arg, &args, len + offset, "print_precision");
-				} else if(strncmp(arg, "methylation_motifs", len) == 0) {
+				} else if(cmdcmp(arg, "methylation_motifs") == 0) {
 					methfilename = getArgDie(&Arg, &args, len + offset, "methylation_motifs");
-				} else if(strncmp(arg, "nucleotide_variations", len) == 0) {
+				} else if(cmdcmp(arg, "nucleotide_variations") == 0) {
 					diffilename = getArgDie(&Arg, &args, len + offset, "nucleotide_variations");
-				} else if(strncmp(arg, "reference", len) == 0) {
+				} else if(cmdcmp(arg, "reference") == 0) {
 					targetTemplate = getArgDie(&Arg, &args, len + offset, "reference");
-				} else if(strncmp(arg, "add", len) == 0) {
+				} else if(cmdcmp(arg, "add") == 0) {
 					addfilename = getArgDie(&Arg, &args, len + offset, "add");
-				} else if(strncmp(arg, "min_depth", len) == 0) {
+				} else if(cmdcmp(arg, "min_depth") == 0) {
 					minDepth = getdArg(&Arg, &args, len + offset, "min_depth");
-				} else if(strncmp(arg, "min_cov", len) == 0) {
+				} else if(cmdcmp(arg, "min_cov") == 0) {
 					minCov = getdArg(&Arg, &args, len + offset, "min_cov") / 100;
-				} else if(strncmp(arg, "min_len", len) == 0) {
+				} else if(cmdcmp(arg, "min_len") == 0) {
 					minLength = getNumArg(&Arg, &args, len + offset, "min_len");
-				} else if(strncmp(arg, "normalization_weight", len) == 0) {
+				} else if(cmdcmp(arg, "normalization_weight") == 0) {
 					norm = getNumArg(&Arg, &args, len + offset, "normalization_weight");
-				} else if(strncmp(arg, "proximity", len) == 0) {
+				} else if(cmdcmp(arg, "proximity") == 0) {
 					proxi = getNumArg(&Arg, &args, len + offset, "proximity");
-				} else if(strncmp(arg, "flag", len) == 0) {
+				} else if(cmdcmp(arg, "flag") == 0) {
 					flag = getNumArg(&Arg, &args, len + offset, "flag");
-				} else if(strncmp(arg, "flag_help", len) == 0) {
+				} else if(cmdcmp(arg, "flag_help") == 0) {
 					flag = -1;
-				} else if(strncmp(arg, "distance", len) == 0) {
+				} else if(cmdcmp(arg, "distance") == 0) {
 					method = getArgDie(&Arg, &args, len + offset, "distance");
-				} else if(strncmp(arg, "distance_help", len) == 0) {
+				} else if(cmdcmp(arg, "distance_help") == 0) {
 					method = 0;
-				} else if(strncmp(arg, "significance_lvl", len) == 0) {
+				} else if(cmdcmp(arg, "significance_lvl") == 0) {
 					alpha = getdArg(&Arg, &args, len + offset, "significance_lvl");
-				} else if(strncmp(arg, "float_precision", len) == 0) {
+				} else if(cmdcmp(arg, "float_precision") == 0) {
 					size = sizeof(float);
-				} else if(strncmp(arg, "short_precision", len) == 0) {
+				} else if(cmdcmp(arg, "short_precision") == 0) {
 					size = sizeof(short unsigned);
 					ByteScale = getdDefArg(&Arg, &args, len + offset, ByteScale, "short_precision");
-				} else if(strncmp(arg, "byte_precision", len) == 0) {
+				} else if(cmdcmp(arg, "byte_precision") == 0) {
 					size = sizeof(unsigned char);
 					ByteScale = getdDefArg(&Arg, &args, len + offset, ByteScale, "byte_precision");
-				} else if(strncmp(arg, "mmap", len) == 0) {
+				} else if(cmdcmp(arg, "mmap") == 0) {
 					ltdMatrix_init = &ltdMatrixMinit;
-				} else if(strncmp(arg, "tmp", len) == 0) {
+				} else if(cmdcmp(arg, "tmp") == 0) {
 					tmp = getArgDie(&Arg, &args, len + offset, "tmp");
-				} else if(strncmp(arg, "threads", len) == 0) {
+				} else if(cmdcmp(arg, "threads") == 0) {
 					t = getNumArg(&Arg, &args, len + offset, "threads");
-				} else if(strncmp(arg, "help", len) == 0) {
+				} else if(cmdcmp(arg, "help") == 0) {
 					return helpMessage(stdout);
 				} else {
 					unknArg(arg - 2);

@@ -98,7 +98,7 @@ static int helpMessage(FILE *out) {
 
 int main(int argc, char **argv) {
 	
-	int args, len, offset, flag;
+	int args, len, flag;//, offset;
 	char **Arg, *arg, opt;
 	
 	arg = *++argv;
@@ -146,17 +146,17 @@ int main(int argc, char **argv) {
 				if(*arg == '-') {
 					/* check if argument is included */
 					len = getOptArg(++arg);
-					offset = 2 + (arg[len] ? 1 : 0);
+					//offset = 2 + (arg[len] ? 1 : 0);
 					
 					/* long option */
 					if(*arg == 0) {
 						/* terminate cmd-line */
 						++Arg;
-					} else if(strncmp(arg, "version", len + offset) == 0) {
+					} else if(cmdcmp(arg, "version") == 0) {
 						flag |= 1;
-					} else if(strncmp(arg, "citation", len + offset) == 0) {
+					} else if(cmdcmp(arg, "citation") == 0) {
 						flag |= 2;
-					} else if(strncmp(arg, "help", len + offset) == 0) {
+					} else if(cmdcmp(arg, "help") == 0) {
 						flag |= 4;
 					} else {
 						unknArg(arg - 2);
@@ -195,7 +195,8 @@ int main(int argc, char **argv) {
 			fprintf(stdout, "CCPhylo-%s\n", CCPHYLO_VERSION);
 		}
 		if(flag & 2) {
-			fprintf(stdout, "Malte B. Hallgren, Soeren Overballe-Petersen, Ole Lund, Henrik Hasman, Philip T.L.C. Clausen, \"MINTyper: an outbreak-detection method for accurate and rapid SNP typing of clonal clusters with noisy long reads\", Biology Methods & Protocols,  https://doi.org/10.1093/biomethods/bpab008.\n");
+			fprintf(stdout, "1. Philip T.L.C. Clausen, \"Scaling neighbor joining to one million taxa with dynamic and heuristic neighbor joining\", Bioinformatics, 2023, https://doi.org/10.1093/bioinformatics/btac774.\n");
+			fprintf(stdout, "2. Malte B. Hallgren, Soeren Overballe-Petersen, Ole Lund, Henrik Hasman, Philip T.L.C. Clausen, \"MINTyper: an outbreak-detection method for accurate and rapid SNP typing of clonal clusters with noisy long reads\", Biology Methods & Protocols, 2021, https://doi.org/10.1093/biomethods/bpab008.\n");
 		}
 		if(flag & 4) {
 			return helpMessage(stdout);

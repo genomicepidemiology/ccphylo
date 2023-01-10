@@ -1,9 +1,11 @@
+[![install with bioconda](https://img.shields.io/badge/install%20with-bioconda-brightgreen.svg?style=flat)](http://bioconda.github.io/recipes/ccphylo/README.html)
 # Getting Started #
 
 ```
 git clone https://bitbucket.org/genomicepidemiology/ccphylo.git
 cd ccphylo && make
 
+./ccphylo -h
 ./ccphylo tree test.phy.gz
 ```
 
@@ -14,7 +16,7 @@ Neighbor-Joining can be run without KMA alignments, if a Phylip distance matrix 
 If you use CCPhylo for your published research, then please cite:
 Philip T.L.C. Clausen
 "Scaling neighbor joining to one million taxa with dynamic and heuristic neighbor joining",
-Bioinformatics, 2022.
+Bioinformatics, 2023.
 Malte B. Hallgren, Søren Overballe-Petersen, Ole Lund, Henrik Hasman & Philip T.L.C. Clausen
 "MINTyper: an outbreak-detection method for accurate and rapid SNP typing of clonal clusters with noisy long reads",
 Biology, Methods & Protocols 2021.
@@ -78,7 +80,7 @@ Usage and options are available with the "-h" option on all programs in the soft
 If in doubt, please mail any concerns or problems to: *plan@dtu.dk*.
 
 # Citation #
-1. Philip T.L.C. Clausen "Scaling neighbor joining to one million taxa with dynamic and heuristic neighbor joining", Bioinformatics, 2022.
+1. Philip T.L.C. Clausen "Scaling neighbor joining to one million taxa with dynamic and heuristic neighbor joining", Bioinformatics, 2023.
 2. Malte B. Hallgren, Søren Overballe-Petersen, Ole Lund, Henrik Hasman & Philip T.L.C. Clausen "MINTyper: an outbreak-detection method for accurate and rapid SNP typing of clonal clusters with noisy long reads", Biology, Methods & Protocols 2021.
 
 # License #

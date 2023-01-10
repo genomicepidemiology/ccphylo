@@ -293,26 +293,26 @@ int main_trim(int argc, char **argv) {
 				if(*arg == 0) {
 					/* terminate cmd-line */
 					++Arg;
-				} else if(strncmp(arg, "input", len) == 0) {
+				} else if(cmdcmp(arg, "input") == 0) {
 					filenames = getArgListDie(&Arg, &args, len + offset, "input");
 					numFile = getArgListLen(&Arg, &args);
-				} else if(strncmp(arg, "output", len) == 0) {
+				} else if(cmdcmp(arg, "output") == 0) {
 					outputfilename = getArgDie(&Arg, &args, len + offset, "output");
-				} else if(strncmp(arg, "methylation_motifs", len) == 0) {
+				} else if(cmdcmp(arg, "methylation_motifs") == 0) {
 					methfilename = getArgDie(&Arg, &args, len + offset, "methylation_motifs");
-				} else if(strncmp(arg, "reference", len) == 0) {
+				} else if(cmdcmp(arg, "reference") == 0) {
 					targetTemplate = getArgDie(&Arg, &args, len + offset, "reference");
-				} else if(strncmp(arg, "min_cov", len) == 0) {
+				} else if(cmdcmp(arg, "min_cov") == 0) {
 					minCov = getdArg(&Arg, &args, len + offset, "min_cov") / 100;
-				} else if(strncmp(arg, "min_len", len) == 0) {
+				} else if(cmdcmp(arg, "min_len") == 0) {
 					minLength = getNumArg(&Arg, &args, len + offset, "min_len");
-				} else if(strncmp(arg, "proximity", len) == 0) {
+				} else if(cmdcmp(arg, "proximity") == 0) {
 					proxi = getNumArg(&Arg, &args, len + offset, "proximity");
-				} else if(strncmp(arg, "flag", len) == 0) {
+				} else if(cmdcmp(arg, "flag") == 0) {
 					flag = getNumArg(&Arg, &args, len + offset, "flag");
-				} else if(strncmp(arg, "flag_help", len) == 0) {
+				} else if(cmdcmp(arg, "flag_help") == 0) {
 					flag = -1;
-				} else if(strncmp(arg, "help", len) == 0) {
+				} else if(cmdcmp(arg, "help") == 0) {
 					return helpMessage(stdout);
 				} else {
 					unknArg(arg - 2);

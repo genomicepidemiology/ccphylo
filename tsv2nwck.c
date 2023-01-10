@@ -152,31 +152,31 @@ int main_tsv2nwck(int argc, char *argv[]) {
 				if(*arg == 0) {
 					/* terminate cmd-line */
 					++Arg;
-				} else if(strncmp(arg, "input", len) == 0) {
+				} else if(cmdcmp(arg, "input") == 0) {
 					inputfilename = getArgDie(&Arg, &args, len + offset, "input");
-				} else if(strncmp(arg, "output", len) == 0) {
+				} else if(cmdcmp(arg, "output") == 0) {
 					outputfilename = getArgDie(&Arg, &args, len + offset, "output");
-				} else if(strncmp(arg, "separator", len) == 0) {
+				} else if(cmdcmp(arg, "separator") == 0) {
 					sep = getcArgDie(&Arg, &args, len + offset, "separator");
-				} else if(strncmp(arg, "print_precision", len) == 0) {
+				} else if(cmdcmp(arg, "print_precision") == 0) {
 					precision = getNumArg(&Arg, &args, len + offset, "print_precision");
-				} else if(strncmp(arg, "distance", len) == 0) {
+				} else if(cmdcmp(arg, "distance") == 0) {
 					method = getArgDie(&Arg, &args, len + offset, "distance");
-				} else if(strncmp(arg, "distance_help", len) == 0) {
+				} else if(cmdcmp(arg, "distance_help") == 0) {
 					method = 0;
-				} else if(strncmp(arg, "float_precision", len) == 0) {
+				} else if(cmdcmp(arg, "float_precision") == 0) {
 					size = sizeof(float);
-				} else if(strncmp(arg, "short_precision", len) == 0) {
+				} else if(cmdcmp(arg, "short_precision") == 0) {
 					size = sizeof(short unsigned);
 					ByteScale = getdDefArg(&Arg, &args, len + offset, ByteScale, "short_precision");
-				} else if(strncmp(arg, "byte_precision", len) == 0) {
+				} else if(cmdcmp(arg, "byte_precision") == 0) {
 					size = sizeof(unsigned char);
 					ByteScale = getdDefArg(&Arg, &args, len + offset, ByteScale, "byte_precision");
-				} else if(strncmp(arg, "mmap", len) == 0) {
+				} else if(cmdcmp(arg, "mmap") == 0) {
 					Dat_init = &DatMinit;
-				} else if(strncmp(arg, "tmp", len) == 0) {
+				} else if(cmdcmp(arg, "tmp") == 0) {
 					tmp = getArgDie(&Arg, &args, len + offset, "tmp");
-				} else if(strncmp(arg, "help", len) == 0) {
+				} else if(cmdcmp(arg, "help") == 0) {
 					return helpMessage(stdout);
 				} else {
 					unknArg(arg - 2);

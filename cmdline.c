@@ -230,3 +230,20 @@ int getArgListLen(char ***Arg, int *argc) {
 	
 	return len;
 }
+
+int cmdcmp(const char *cmdline, const char *opt) {
+	
+	char *src, *cmd;
+	
+	src = (char*)(opt);
+	cmd = (char*)(cmdline);
+	while(*src && *cmd) {
+		if(*src != *cmd) {
+			return *src - *cmd;
+		}
+		++src;
+		++cmd;
+	}
+	
+	return !*src && (!*cmd || *cmd == '=') ? 0 : *src - *cmd;
+}

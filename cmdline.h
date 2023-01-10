@@ -38,3 +38,4 @@ double getdDefArg(char ***Arg, int *argc, int len, double def, const char *opt);
 char ** getArgList(char ***Arg, int *argc, const int len);
 char ** getArgListDie(char ***Arg, int *argc, const int len, const char *opt);
 int getArgListLen(char ***Arg, int *argc);
+int cmdcmp(const char *cmdline, const char *opt);

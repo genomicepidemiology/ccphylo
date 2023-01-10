@@ -139,15 +139,15 @@ int main_rarify(int argc, char **argv) {
 				if(*arg == 0) {
 					/* terminate cmd-line */
 					++Arg;
-				} else if(strncmp(arg, "input", len) == 0) {
+				} else if(cmdcmp(arg, "input") == 0) {
 					inputfilename = getArgDie(&Arg, &args, len + offset, "input");
-				} else if(strncmp(arg, "output", len) == 0) {
+				} else if(cmdcmp(arg, "output") == 0) {
 					outputfilename = getArgDie(&Arg, &args, len + offset, "output");
-				} else if(strncmp(arg, "fragment_amount", len) == 0) {
+				} else if(cmdcmp(arg, "fragment_amount") == 0) {
 					nf = getNumArg(&Arg, &args, len + offset, "fragment_amount");
-				} else if(strncmp(arg, "rarification_factor", len) == 0) {
+				} else if(cmdcmp(arg, "rarification_factor") == 0) {
 					rf = getNumArg(&Arg, &args, len + offset, "rarification_factor");
-				} else if(strncmp(arg, "help", len) == 0) {
+				} else if(cmdcmp(arg, "help") == 0) {
 					return helpMessage(stdout);
 				} else {
 					unknArg(arg - 2);

@@ -540,33 +540,33 @@ int main_makespan(int argc, char **argv) {
 				if(*arg == 0) {
 					/* terminate cmd-line */
 					++Arg;
-				} else if(strncmp(arg, "input", len) == 0) {
+				} else if(cmdcmp(arg, "input") == 0) {
 					inputfilename = getArgDie(&Arg, &args, len + offset, "input");
-				} else if(strncmp(arg, "output", len) == 0) {
+				} else if(cmdcmp(arg, "output") == 0) {
 					outputfilename = getArgDie(&Arg, &args, len + offset, "output");
-				} else if(strncmp(arg, "machine_output", len) == 0) {
+				} else if(cmdcmp(arg, "machine_output") == 0) {
 					moutputfilename = getArgDie(&Arg, &args, len + offset, "output");
-				} else if(strncmp(arg, "separator", len) == 0) {
+				} else if(cmdcmp(arg, "separator") == 0) {
 					sep = getcArgDie(&Arg, &args, len + offset, "separator");
-				} else if(strncmp(arg, "key", len) == 0) {
+				} else if(cmdcmp(arg, "key") == 0) {
 					col = getNumArg(&Arg, &args, len + offset, "key");
-				} else if(strncmp(arg, "classes", len) == 0) {
+				} else if(cmdcmp(arg, "classes") == 0) {
 					strMV = getArgDie(&Arg, &args, len + offset, "classes");
-				} else if(strncmp(arg, "method", len) == 0) {
+				} else if(cmdcmp(arg, "method") == 0) {
 					method = getArgDie(&Arg, &args, len + offset, "method");
-				} else if(strncmp(arg, "method_help", len) == 0) {
+				} else if(cmdcmp(arg, "method_help") == 0) {
 					method = 0;
-				} else if(strncmp(arg, "tabu", len) == 0) {
+				} else if(cmdcmp(arg, "tabu") == 0) {
 					trade = getArgDie(&Arg, &args, len + offset, "trade");
-				} else if(strncmp(arg, "tabu_help", len) == 0) {
+				} else if(cmdcmp(arg, "tabu_help") == 0) {
 					trade = 0;
-				} else if(strncmp(arg, "weight", len) == 0) {
+				} else if(cmdcmp(arg, "weight") == 0) {
 					weight = getArgDie(&Arg, &args, len + offset, "weight");
-				} else if(strncmp(arg, "weight_help", len) == 0) {
+				} else if(cmdcmp(arg, "weight_help") == 0) {
 					weight = 0;
-				} else if(strncmp(arg, "loads", len) == 0) {
+				} else if(cmdcmp(arg, "loads") == 0) {
 					strLoads = getArgDie(&Arg, &args, len + offset, "loads");
-				} else if(strncmp(arg, "help", len) == 0) {
+				} else if(cmdcmp(arg, "help") == 0) {
 					return helpMessage(stdout);
 				} else {
 					unknArg(arg - 2);

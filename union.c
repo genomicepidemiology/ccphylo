@@ -252,22 +252,22 @@ int main_union(int argc, char **argv) {
 				if(*arg == 0) {
 					/* terminate cmd-line */
 					++Arg;
-				} else if(strncmp(arg, "input", len) == 0) {
+				} else if(cmdcmp(arg, "input") == 0) {
 					filenames = getArgListDie(&Arg, &args, len + offset, "input");
 					numFile = getArgListLen(&Arg, &args);
-				} else if(strncmp(arg, "output", len) == 0) {
+				} else if(cmdcmp(arg, "output") == 0) {
 					outputfilename = getArgDie(&Arg, &args, len + offset, "output");
-				} else if(strncmp(arg, "database", len) == 0) {
+				} else if(cmdcmp(arg, "database") == 0) {
 					templatefilename = getArgDie(&Arg, &args, len + offset, "database");
-				} else if(strncmp(arg, "reference_file", len) == 0) {
+				} else if(cmdcmp(arg, "reference_file") == 0) {
 					reffilename = getArgDie(&Arg, &args, len + offset, "reference_file");
-				} else if(strncmp(arg, "min_depth", len) == 0) {
+				} else if(cmdcmp(arg, "min_depth") == 0) {
 					minDepth = getdArg(&Arg, &args, len + offset, "min_depth");
-				} else if(strncmp(arg, "min_cov", len) == 0) {
+				} else if(cmdcmp(arg, "min_cov") == 0) {
 					minCov = getdArg(&Arg, &args, len + offset, "min_cov");
-				} else if(strncmp(arg, "min_len", len) == 0) {
+				} else if(cmdcmp(arg, "min_len") == 0) {
 					minLength = getNumArg(&Arg, &args, len + offset, "min_len");
-				} else if(strncmp(arg, "help", len) == 0) {
+				} else if(cmdcmp(arg, "help") == 0) {
 					return helpMessage(stdout);
 				} else {
 					unknArg(arg - 2);
