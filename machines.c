@@ -220,7 +220,7 @@ void print_stats(Machine *M) {
 	Cmin = M->avail;
 	L1 = 0;
 	L1imse = 0;
-	Jmax = M->jobs->weight;
+	Jmax = M->jobs ? M->jobs->weight : 0;
 	weights = 0;
 	OPT = 0;
 	while(M) {
