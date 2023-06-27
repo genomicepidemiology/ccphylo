@@ -1,3 +1,4 @@
+[![install with bioconda](https://img.shields.io/badge/install%20with-genomicepidemiology-brightgreen.svg?style=flat)](https://anaconda.org/genomicepidemiology/ccphylo)
 [![install with bioconda](https://img.shields.io/badge/install%20with-bioconda-brightgreen.svg?style=flat)](http://bioconda.github.io/recipes/ccphylo/README.html)
 # Getting Started #
 
@@ -14,9 +15,11 @@ CCPhylo is a software suite designed to easen phylogenetic analysis based on ali
 Neighbor-Joining can be run without KMA alignments, if a Phylip distance matrix is given using "ccphylo tree".
 
 If you use CCPhylo for your published research, then please cite:
+
 Philip T.L.C. Clausen
 "Scaling neighbor joining to one million taxa with dynamic and heuristic neighbor joining",
 Bioinformatics, 2023.
+
 Malte B. Hallgren, Søren Overballe-Petersen, Ole Lund, Henrik Hasman & Philip T.L.C. Clausen
 "MINTyper: an outbreak-detection method for accurate and rapid SNP typing of clonal clusters with noisy long reads",
 Biology, Methods & Protocols 2021.
