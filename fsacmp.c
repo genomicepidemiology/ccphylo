@@ -502,6 +502,54 @@ int getNpos(unsigned *include, int len) {
 	return n;
 }
 
+void pseudoAlnPrune(unsigned *include, unsigned char **seqs, int len, int n) {
+	
+	int i, shifter;
+	unsigned char *ref, *refptr, *seqptr;
+	unsigned *consensus, *conptr;
+	
+	if(!len || !n) {
+		return;
+	} else if(!(consensus = calloc((len >> 5) + ((len & 31) ? 1 : 0), sizeof(unsigned)))) {
+		ERROR();
+	}
+	
+	
+	/* go over alignments */
+	while(n && !(ref = *seqs)) {
+		++seqs;
+		--n;
+	}
+	while(--n) {
+		conptr = consensus;
+		refptr = ref - 1;
+		if((seqptr = *++seqs)) {
+			--seqptr;
+			/* go through alignment */
+			for(i = 0, shifter = 31; i < len; ++i, --shifter) {
+				if(*++refptr != *++seqptr) {
+					*conptr |= (1 << shifter);
+				}
+				if(!shifter) {
+					shifter = 32;
+					++conptr;
+				}
+			}
+		}
+	}
+	
+	/* mask inclusion array */
+	i = (len >> 5) + ((len & 31) ? 1 : 0) + 1;
+	--include;
+	conptr = consensus - 1;
+	while(--i) {
+		*++include &= *++conptr;
+	}
+	
+	/* clean up */
+	free(consensus);
+}
+
 unsigned fsacmp(long unsigned *seq1, long unsigned *seq2, unsigned *include, int len) {
 	
 	unsigned dist, inc;

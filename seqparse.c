@@ -35,7 +35,10 @@ int FileBuffgetFsa(FileBuff *src, Qseqs *header, Qseqs *qseq, unsigned char *tra
 	avail = src->bytes;
 	buff = src->next;
 	buffFileBuff = src->buffFileBuff;
+	header->len = 0;
+	*(header->seq) = 0;
 	qseq->len = 0;
+	*(qseq->seq) = 0;
 	if(avail == 0) {
 		if((avail = buffFileBuff(src)) == 0) {
 			return 0;
@@ -132,13 +135,14 @@ int FileBuffgetFsaHeader(FileBuff *src, Qseqs *header) {
 	avail = src->bytes;
 	buff = src->next;
 	buffFileBuff = src->buffFileBuff;
+	header->len = 0;
+	*(header->seq) = 0;
 	if(avail == 0) {
 		if((avail = buffFileBuff(src)) == 0) {
 			return 0;
 		}
 		buff = src->buffer;
 	}
-	header->len = 0;
 	
 	/* find next header */
 	while(*buff++ != '>') {
@@ -199,6 +203,7 @@ int FileBuffgetFsaSeq(FileBuff *src, Qseqs *qseq, unsigned char *trans) {
 	buff = src->next;
 	buffFileBuff = src->buffFileBuff;
 	qseq->len = 0;
+	*(qseq->seq) = 0;
 	if(avail == 0) {
 		if((avail = buffFileBuff(src)) == 0) {
 			return 0;
