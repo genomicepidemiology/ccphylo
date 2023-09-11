@@ -1,9 +1,9 @@
 package:
   name: ccphylo
-  version: 0.8.3
+  version: 0.8.4
 
 source:
-  url: https://bitbucket.org/genomicepidemiology/ccphylo/get/0.8.3.tar.gz
+  url: https://bitbucket.org/genomicepidemiology/ccphylo/get/0.8.4.tar.gz
 
 build:
   number: 0
