@@ -1,9 +1,8 @@
-name: conda-osx-release
 on:
-  push:
-    # Sequence of patterns matched against refs/tags
-    tags:
-      - 'v*' # Push events to matching v*, i.e. v1.0, v20.15.10
+  workflow_dispatch
+
+name: manual release osx
+
 jobs:
   conda-osx:
     name: ${{ matrix.os }}
@@ -15,26 +14,25 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [macos-latest]
+        os: [ macos-latest ]
 
     steps:
       - name: checkout repository
         uses: actions/checkout@v2
 
-      - name: create environment with mamba
-        uses: conda-incubator/setup-miniconda@v2
-        with:
-          mamba-version: "*"
-          channels: conda-forge,bioconda,defaults
-          auto-activate-base: true
-          activate-environment: osx-build
-          environment-file: envs/osx-build.yml
-
-      - name: check solution
+      - name: Make conda yaml
         run: |
-          mamba env export
+          pip install PyYAML
+          pip install ruamel.yaml
+          python conda/make_conda_osx.py
+          cat conda/meta.yaml
 
       - name: build conda package
+        uses: mamba-org/setup-micromamba@v1
+        with:
+          environment-file: envs/osx-build.yml
+
+      - name: build package
         run: |
           conda mambabuild conda -c conda-forge --output-folder .
 

@@ -1,4 +1,4 @@
-name: osx-build
+name: linux-build
 channels:
   - conda-forge
   - defaults
