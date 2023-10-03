@@ -32,6 +32,7 @@ void getIncPosInsigPrune(unsigned *include, Qseqs *seq, Qseqs *ref, unsigned pro
 void getIncPosInsig(unsigned *include, Qseqs *seq, Qseqs *ref, unsigned proxi);
 void maskProxi(unsigned *include, unsigned *include1, unsigned *include2, long unsigned *seq1, long unsigned *seq2, unsigned len, unsigned proxi);
 int getNpos(unsigned *include, int len);
+void pseudoAlnPrune(unsigned *include, unsigned char **seqs, int len, int n);
 unsigned fsacmp(long unsigned *seq1, long unsigned *seq2, unsigned *include, int len);
 long unsigned fsacmpair(long unsigned *seq1, long unsigned *seq2, unsigned *include, int len);
 void printDiff(FILE *outfile, int samplei, int samplej, int nuci, int pos, int nucj);
