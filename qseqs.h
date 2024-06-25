@@ -32,4 +32,4 @@ Qseqs * setQseqs(unsigned size);
 /* destroy Qseqs */
 void destroyQseqs(Qseqs *dest);
 void insertKmerBound(Qseqs *header, int start, int end);
-void qseq2nibble(Qseqs *src, long unsigned *dest);
+int qseq2nibble(Qseqs *src, long unsigned *dest);

@@ -76,7 +76,7 @@ void printTrimFsa(FILE *out, char *filename, unsigned char *seq, int len, unsign
 
 void fsaTrim(int numFile, char *targetTemplate, char **filenames, char *outputfilename, unsigned minLength, double minCov, unsigned flag, unsigned proxi, char *methfilename) {
 	
-	int i, pair, inludeN, len, cSize, numSeqs, maxSeqs;
+	int i, pair, inludeN, len, inc, cSize, numSeqs, maxSeqs;
 	unsigned *includes;
 	long unsigned *nibbleSeq;
 	unsigned char *trans, **seqs, **seqsPtr, **seqnames;
@@ -84,12 +84,6 @@ void fsaTrim(int numFile, char *targetTemplate, char **filenames, char *outputfi
 	FileBuff *infile;
 	MethMotif *motif;
 	Qseqs *header, *ref, *seq;
-	
-	/* here */
-	/*
-	add "seqnames" as "filenames" when no reference entry is given
-	loop over files when no reference is added
-	*/
 	
 	/* init */
 	numSeqs = 0;
@@ -105,7 +99,7 @@ void fsaTrim(int numFile, char *targetTemplate, char **filenames, char *outputfi
 		ERROR();
 	}
 	seqsPtr = seqs;
-	trans = getIupacBitTable(flag);
+	trans = (flag & 4) ? get2BitTable(flag) : getIupacBitTable(flag);
 	maxSeqs = numFile;
 	if(!pair && !targetTemplate) {
 		seqnames = smalloc(maxSeqs * sizeof(unsigned char *));
@@ -166,19 +160,27 @@ void fsaTrim(int numFile, char *targetTemplate, char **filenames, char *outputfi
 						qseq2nibble(seq, nibbleSeq);
 						maskMotifs(nibbleSeq, includes, len, motif);
 						getIncPosPtr(includes, seq, seq, proxi);
-						if(getNpos(includes, len) < minLength) {
-							fprintf(stderr, "Template (\"%s\") did not exceed threshold for inclusion:\t%s\n", targetTemplate, *filenames);
+						inc = getNpos(includes, len);
+						if(inc < minLength) {
+							//fprintf(stderr, "Template (\"%s\") did not exceed threshold for inclusion:\t%s\n", targetTemplate, *filenames);
+							fprintf(stderr, "# Excluded:\t%s\t( %d / %d )\n", targetTemplate ? *filenames : (char *)(header->seq), inc, len);
 						} else {
+							fprintf(stderr, "# Included:\t%s\t( %d / %d )\n", targetTemplate ? *filenames : (char *)(header->seq), inc, len);
 							++inludeN;
 						}
 					} else {
-						qseq2nibble(seq, nibbleSeq);
-						maskMotifs(nibbleSeq, includes, len, motif);
-						getIncPosPtr(includes, seq, ref, proxi);
-						*seqsPtr = smalloc(len + 1);
-						memcpy(*seqsPtr, seq->seq, len + 1);
-						++numSeqs;
-						++inludeN;
+						inc = len - qseq2nibble(seq, nibbleSeq);
+						if(inc < minLength) {
+							fprintf(stderr, "# Excluded:\t%s\t( %d / %d )\n", targetTemplate ? *filenames : (char *)(header->seq), inc, len);
+						} else {
+							fprintf(stderr, "# Included:\t%s\t( %d / %d )\n", targetTemplate ? *filenames : (char *)(header->seq), inc, len);
+							maskMotifs(nibbleSeq, includes, len, motif);
+							getIncPosPtr(includes, seq, ref, proxi);
+							*seqsPtr = smalloc(len + 1);
+							memcpy(*seqsPtr, seq->seq, len + 1);
+							++numSeqs;
+							++inludeN;
+						}
 					}
 				} else {
 					len = seq->len;
@@ -193,12 +195,15 @@ void fsaTrim(int numFile, char *targetTemplate, char **filenames, char *outputfi
 					qseq2nibble(seq, nibbleSeq);
 					maskMotifs(nibbleSeq, includes, len, motif);
 					getIncPos(includes, seq, seq, proxi);
+					inc = getNpos(includes, len);
 					
-					if(getNpos(includes, len) < minLength) {
+					if(inc < minLength) {
+						fprintf(stderr, "# Excluded:\t%s\t( %d / %d )\n", targetTemplate ? *filenames : (char *)(header->seq), inc, len);
 						free(nibbleSeq);
 						free(includes);
 						includes = 0;
 					} else if(!pair) {
+						fprintf(stderr, "# Included:\t%s\t( %d / %d )\n", targetTemplate ? *filenames : (char *)(header->seq), inc, len);
 						*seqsPtr = smalloc(len + 1);
 						memcpy(*seqsPtr, seq->seq, len + 1);
 						ref = seq;
@@ -233,13 +238,16 @@ void fsaTrim(int numFile, char *targetTemplate, char **filenames, char *outputfi
 	if(!inludeN) {
 		errno = 1;
 		fprintf(stderr, "All sequences were trimmed away.\n");
-	} if(!pair) {
-		if(minLength <= getNpos(includes, len)) {
-			/* create pseudo inclusion criteria */
+	} else if(!pair) {
+		inc = getNpos(includes, len);
+		if(1 || minLength <= inc) { /* might want to include threshold option here */
+			fprintf(stderr, "# %d / %d bases included in distance matrix.\n", inc, len);
+			/* pseudo aln */
 			if(flag & 16) {
-				/* here */
 				pseudoAlnPrune(includes, seqs, len, (targetTemplate ? numFile : numSeqs));
+				fprintf(stderr, "# %d / %d positions with variance\n", getNpos(includes, len), inc);
 			}
+			
 			/* print all sequences */
 			i = (targetTemplate ? numFile : numSeqs) + 1;
 			while(--i) {
@@ -279,167 +287,6 @@ void fsaTrim(int numFile, char *targetTemplate, char **filenames, char *outputfi
 		}
 		free(seqnames);
 	}
-	if(nibbleSeq) {
-		free(nibbleSeq);
-	}
-	destroyMethMotifs(motif);
-	fclose(out);
-}
-
-void fsaTrimOld(int numFile, char *targetTemplate, char **filenames, char *outputfilename, unsigned minLength, double minCov, unsigned flag, unsigned proxi, char *methfilename) {
-	
-	int i, pair, inludeN, len, cSize;
-	unsigned *includes;
-	long unsigned *nibbleSeq;
-	unsigned char *trans, **seqs, **seqsPtr;
-	FILE *out;
-	FileBuff *infile;
-	MethMotif *motif;
-	Qseqs *header, *ref, *seq;
-	
-	/* init */
-	includes = 0;
-	--filenames;
-	pair = flag & 2 ? 1 : 0;
-	inludeN = numFile;
-	infile = setFileBuff(1048576);
-	header = setQseqs(64);
-	ref = 0;
-	seq = setQseqs(1048576);
-	if(!(seqs = calloc(numFile, sizeof(unsigned char *)))) {
-		ERROR();
-	}
-	seqsPtr = seqs;
-	trans = getIupacBitTable(flag);
-	nibbleSeq = 0;
-	len = 0;
-	if(methfilename) {
-		openAndDetermine(infile, methfilename);
-		motif = getMethMotifs(infile, seq);
-		closeFileBuff(infile);
-	} else {
-		motif = 0;
-	}
-	if(*outputfilename == '-' && outputfilename[1] == 0) {
-		out = stdout;
-	} else {
-		out = sfopen(outputfilename, "wb");
-	}
-	
-	/* load sequences and trim positions */
-	i = numFile + 1;
-	while(--i) {
-		/* open and validate file */
-		if(openAndDetermine(infile, *++filenames) != '>') {
-			fprintf(stderr, "\"%s\" is not fasta.\n", *filenames);
-			exit(1);
-		}
-		
-		/* find the correct entry */
-		while(FileBuffgetFsaHeader(infile, header) && (targetTemplate && strcmp((char *) header->seq, targetTemplate)));
-		
-		/* get sequence */
-		if(!header->len) {
-			fprintf(stderr, "Missing template entry (\"%s\") in file:\t%s\n", targetTemplate, *filenames);
-			--inludeN;
-		} else if(FileBuffgetFsaSeq(infile, seq, trans)) {
-			if(ref) {
-				if(seq->len != ref->len) {
-					fprintf(stderr, "Sequences does not match: %s\n", *filenames);
-					exit(1);
-				}
-				
-				/* make / update inclusion array(s) */
-				if(pair) {
-					initIncPos(includes, len);
-					qseq2nibble(seq, nibbleSeq);
-					maskMotifs(nibbleSeq, includes, len, motif);
-					getIncPosPtr(includes, seq, seq, proxi);
-					if(getNpos(includes, len) < minLength) {
-						fprintf(stderr, "Template (\"%s\") did not exceed threshold for inclusion:\t%s\n", targetTemplate, *filenames);
-						--inludeN;
-					}
-				} else {
-					qseq2nibble(seq, nibbleSeq);
-					maskMotifs(nibbleSeq, includes, len, motif);
-					getIncPosPtr(includes, seq, ref, proxi);
-					*seqsPtr = smalloc(len + 1);
-					memcpy(*seqsPtr, seq->seq, len + 1);
-				}
-			} else {
-				len = seq->len;
-				minLength = minLength < minCov * len ? minCov * len : minLength;
-				cSize = len / 32 + 1;
-				if(!(nibbleSeq = calloc(cSize, sizeof(long unsigned)))) {
-					ERROR();
-				}
-				includes = smalloc(cSize * sizeof(unsigned));
-				
-				initIncPos(includes, len);
-				qseq2nibble(seq, nibbleSeq);
-				maskMotifs(nibbleSeq, includes, len, motif);
-				getIncPos(includes, seq, seq, proxi);
-				
-				if(getNpos(includes, len) < minLength) {
-					free(nibbleSeq);
-					free(includes);
-					includes = 0;
-					--inludeN;
-				} else if(!pair) {
-					*seqsPtr = smalloc(len + 1);
-					memcpy(*seqsPtr, seq->seq, len + 1);
-					ref = seq;
-					seq = setQseqs(len + 1);
-				}
-			}
-		} else {
-			fprintf(stderr, "Missing template sequence (\"%s\") in file:\t%s\n", targetTemplate, *filenames);
-			--inludeN;
-		}
-		
-		if(pair) {
-			printTrimFsa(out, *filenames, seq->seq, len, includes, flag);
-		} else {
-			++seqsPtr;
-		}
-		closeFileBuff(infile);
-	}
-	
-	/* make final output */
-	if(!inludeN) {
-		errno = 1;
-		fprintf(stderr, "All sequences were trimmed away.\n");
-	} if(!pair) {
-		if(minLength <= getNpos(includes, len)) {
-			/* print all sequences */
-			i = numFile + 1;
-			while(--i) {
-				if(*--seqsPtr) {
-					printTrimFsa(out, *filenames, *seqsPtr, len, includes, flag);
-				}
-				--filenames;
-			}
-		} else {
-			errno = 1;
-			fprintf(stderr, "No sufficient overlap was found.\n");
-		}
-	}
-	
-	/* clean */
-	destroyFileBuff(infile);
-	destroyQseqs(header);
-	destroyQseqs(seq);
-	if(ref) {
-		destroyQseqs(ref);
-	}
-	i = numFile + 1;
-	seqsPtr = seqs - 1;
-	while(--i) {
-		if(*++seqsPtr) {
-			free(*seqsPtr);
-		}
-	}
-	free(seqs);
 	if(nibbleSeq) {
 		free(nibbleSeq);
 	}
@@ -603,7 +450,8 @@ int main_trim(int argc, char **argv) {
 		fprintf(stdout, "#\n");
 		fprintf(stdout, "#   1:\tHard mask\n");
 		fprintf(stdout, "#   2:\tPairwise comparison\n");
-		fprintf(stdout, "#   8:\tInclude insignificant bases in distance calculation, only affects fasta input\n");
+		fprintf(stdout, "#   4:\tMask gaps and ambiguous bases\n");
+		fprintf(stdout, "#   8:\tUnmask soft masked bases in input\n");
 		fprintf(stdout, "#  16:\tCreate pseudo alignment, not compatible with pairwise comparison\n");
 		fprintf(stdout, "#  32:\tDo not include insignificant bases in pruning\n");
 		fprintf(stdout, "#\n");

@@ -35,7 +35,7 @@
 
 int ltdFsaMatrix_get(Matrix *D, Matrix *N, int numFile, long unsigned **seqs, int cSize, FileBuff *infile, TimeStamp **targetStamps, unsigned char *include, unsigned **includes, char *targetTemplate, char **filenames, unsigned char *trans, Qseqs *ref, Qseqs *seq, Qseqs *header, unsigned norm, unsigned minLength, double minCov, unsigned flag, unsigned proxi, MethMotif *motif, FILE *diffile, int tnum) {
 	
-	unsigned i, j, pair, len, inludeN, **includesPtr;
+	unsigned i, j, pair, len, inc, inludeN, **includesPtr;
 	long unsigned **seqsPtr;
 	unsigned char *includePtr, *tmpseq;
 	TimeStamp **targetStamp;
@@ -89,15 +89,27 @@ int ltdFsaMatrix_get(Matrix *D, Matrix *N, int numFile, long unsigned **seqs, in
 						qseq2nibble(seq, *++seqsPtr);
 						maskMotifs(*seqsPtr, *includesPtr, len, motif);
 						getIncPosPtr(*includesPtr, seq, seq, proxi);
-						if(getNpos(*includesPtr, len) < minLength) {
-							fprintf(stderr, "Template (\"%s\") did not exceed threshold for inclusion:\t%s\n", targetTemplate, *filenames);
+						inc = getNpos(*includesPtr, len);
+						if(inc < minLength) {
+							//fprintf(stderr, "Template (\"%s\") did not exceed threshold for inclusion:\t%s ( %d / %d )\n", targetTemplate, *filenames, inc, len);
+							fprintf(stderr, "# Excluded:\t%s\t( %d / %d )\n", *filenames, inc, len);
 							*includePtr = 0;
 							--inludeN;
+						} else {
+							fprintf(stderr, "# Included:\t%s\t( %d / %d )\n", *filenames, inc, len);
 						}
 					} else {
-						qseq2nibble(seq, *++seqsPtr);
-						maskMotifs(*seqsPtr, *includes, len, motif);
-						getIncPosPtr(*includes, seq, ref, proxi);
+						inc = len - qseq2nibble(seq, *++seqsPtr);
+						if(inc < minLength) {
+							//fprintf(stderr, "Template (\"%s\") did not exceed threshold for inclusion:\t%s ( %d / %d )\n", targetTemplate, *filenames, inc, len);
+							fprintf(stderr, "# Excluded:\t%s\t( %d / %d )\n", *filenames, inc, len);
+							*includePtr = 0;
+							--inludeN;
+						} else {
+							fprintf(stderr, "# Included:\t%s\t( %d / %d )\n", *filenames, inc, len);
+							maskMotifs(*seqsPtr, *includes, len, motif);
+							getIncPosPtr(*includes, seq, ref, proxi);
+						}
 					}
 				} else {
 					len = seq->len;
@@ -124,13 +136,15 @@ int ltdFsaMatrix_get(Matrix *D, Matrix *N, int numFile, long unsigned **seqs, in
 					qseq2nibble(seq, *++seqsPtr);
 					maskMotifs(*seqsPtr, *includesPtr, len, motif);
 					getIncPosPtr(*includesPtr, seq, seq, proxi);
-					
-					if(getNpos(*includesPtr, len) < minLength) {
-						fprintf(stderr, "Template (\"%s\") did not exceed threshold for inclusion:\t%s\n", targetTemplate, *filenames);
+					inc = getNpos(*includesPtr, len);
+					if(inc < minLength) {
+						//fprintf(stderr, "Template (\"%s\") did not exceed threshold for inclusion:\t%s ( %d / %d )\n", targetTemplate, *filenames, inc, len);
+						fprintf(stderr, "# Excluded:\t%s\t( %d / %d )\n", *filenames, inc, len);
 						*includePtr = 0;
 						ref->len = 0;
 						--inludeN;
 					} else {
+						fprintf(stderr, "# Included:\t%s\t( %d / %d )\n", *filenames, inc, len);
 						/* swap seq and ref */
 						exchange(seq->size, ref->size, len);
 						exchange(seq->len, ref->len, len);
@@ -166,7 +180,7 @@ int ltdFsaMatrix_get(Matrix *D, Matrix *N, int numFile, long unsigned **seqs, in
 	} else if(pair) {
 		fsaCmpThreadOut(tnum, &cmpairFsaThrd, D, N, numFile, len, seqs, include, includes, norm, minLength, minCov, diffile, targetTemplate, ref, 0, proxi);
 		//cmpairFsa(D, N, numFile, len, seqs, include, includes, norm, minLength, minCov, proxi, diffile);
-	} else if(minLength <= getNpos(*includes, len)) {
+	} else if(1 || minLength <= getNpos(*includes, len)) { /* might want to include threshold option here */
 		fsaCmpThreadOut(tnum, &cmpFsaThrd, D, N, numFile, len, seqs, include, includes, norm, minLength, minCov, diffile, targetTemplate, ref, 0, proxi);
 		/* i = cmpFsa(D, numFile, len, seqs, include, includes, norm, diffile);
 		fprintf(stderr, "# %d / %d bases included in distance matrix.\n", i, len); */
@@ -181,7 +195,7 @@ int ltdFsaMatrix_get(Matrix *D, Matrix *N, int numFile, long unsigned **seqs, in
 
 int ltdMsaMatrix_get(FileBuff *infile, FILE *outfile, FILE *noutfile, Qseqs *ref, Qseqs *seq, Qseqs *header, unsigned char *trans, unsigned norm, unsigned minLength, double minCov, unsigned flag, unsigned proxi, MethMotif *motif, FILE *diffile, int tnum) {
 	
-	int i, n, size, cSize, len, pair;
+	int i, n, size, cSize, len, pair, inc;
 	unsigned **includes, **includesPtr;
 	long unsigned **seqs, **seqsPtr;
 	char **headers, **headersPtr;
@@ -241,24 +255,35 @@ int ltdMsaMatrix_get(FileBuff *infile, FILE *outfile, FILE *noutfile, Qseqs *ref
 				getIncPosPtr(*includesPtr, seq, seq, proxi);
 				*headersPtr = smalloc(header->len); 
 				strcpy(*headersPtr, (char *)(header->seq + 1));
-				if(getNpos(*includesPtr, len) < minLength) {
-					fprintf(stderr, "Template (\"%s\") did not exceed threshold for inclusion\n", header->seq);
+				inc = getNpos(*includesPtr, len);
+				if(inc < minLength) {
+					fprintf(stderr, "# Excluded:\t%s\t( %d / %d )\n", header->seq + 1, inc, len);
 					--n;
 				} else {
+					fprintf(stderr, "# Included:\t%s\t( %d / %d )\n", header->seq + 1, inc, len);
 					++seqsPtr;
 					++headersPtr;
 					includesPtr += pair;
 				}
 			} else {
-				qseq2nibble(seq, *seqsPtr);
-				maskMotifs(*seqsPtr, *includes, len, motif);
-				getIncPosPtr(*includes, seq, ref, proxi);
-				*headersPtr = smalloc(header->len); 
-				strcpy(*headersPtr, (char *)(header->seq + 1));
-				++seqsPtr;
-				++headersPtr;
-				includesPtr += pair;
-			}
+				inc = len - qseq2nibble(seq, *seqsPtr);
+				if(minLength < inc) {
+					fprintf(stderr, "# Included:\t%s\t( %d / %d )\n", header->seq + 1, inc, len);
+					maskMotifs(*seqsPtr, *includes, len, motif);
+					getIncPosPtr(*includes, seq, ref, proxi);
+					*headersPtr = smalloc(header->len);
+					strcpy(*headersPtr, (char *)(header->seq + 1));
+					++seqsPtr;
+					++headersPtr;
+					includesPtr += pair;
+				} else {
+					fprintf(stderr, "# Excluded:\t%s\t( %d / %d )\n", header->seq + 1, inc, len);
+					--n;
+				}
+			} /* else {
+				fprintf(stderr, "Template (\"%s\") did not exceed threshold for inclusion\n", header->seq); // consider writing inc bases for all
+				--n;
+			} */
 		} else { /* use first valid sequence as validater */
 			len = seq->len;
 			minLength = minLength < minCov * len ? minCov * len : minLength;
@@ -276,12 +301,13 @@ int ltdMsaMatrix_get(FileBuff *infile, FILE *outfile, FILE *noutfile, Qseqs *ref
 			qseq2nibble(seq, *seqsPtr);
 			maskMotifs(*seqsPtr, *includesPtr, len, motif);
 			getIncPosPtr(*includesPtr, seq, seq, proxi);
-			
-			if(getNpos(*includesPtr, len) < minLength) {
-				fprintf(stderr, "Template (\"%s\") did not exceed threshold for inclusion\n", header->seq);
+			inc = getNpos(*includesPtr, len);
+			if(inc < minLength) {
+				fprintf(stderr, "# Excluded:\t%s\t( %d / %d )\n", header->seq + 1, inc, len);
 				ref->len = 0;
 				--n;
 			} else {
+				fprintf(stderr, "# Included:\t%s\t( %d / %d )\n", header->seq + 1, inc, len);
 				*headersPtr = smalloc(header->len); 
 				strcpy(*headersPtr, (char *)(header->seq + 1));
 				/* swap seq and ref */
@@ -324,7 +350,7 @@ int ltdMsaMatrix_get(FileBuff *infile, FILE *outfile, FILE *noutfile, Qseqs *ref
 	} else if(pair) {
 		fsaCmpThreadOut(tnum, &cmpairFsaThrd, D, N, n, len, seqs, include, includes, norm, minLength, minCov, diffile, 0, ref, 0, proxi);
 		//cmpairFsa(D, N, numFile, len, seqs, include, includes, norm, minLength, minCov, proxi, diffile);
-	} else if(minLength <= getNpos(*includes, len)) {
+	} else if(1 || minLength <= getNpos(*includes, len)) { /* might want to include threshold option here */
 		fsaCmpThreadOut(tnum, &cmpFsaThrd, D, N, n, len, seqs, include, includes, norm, minLength, minCov, diffile, 0, ref, 0, proxi);
 		/* i = cmpFsa(D, numFile, len, seqs, include, includes, norm, diffile);
 		fprintf(stderr, "# %d / %d bases included in distance matrix.\n", i, len); */

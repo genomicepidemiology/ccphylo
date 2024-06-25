@@ -514,7 +514,6 @@ void pseudoAlnPrune(unsigned *include, unsigned char **seqs, int len, int n) {
 		ERROR();
 	}
 	
-	
 	/* go over alignments */
 	while(n && !(ref = *seqs)) {
 		++seqs;

@@ -57,12 +57,13 @@ void insertKmerBound(Qseqs *header, int start, int end) {
 	
 }
 
-void qseq2nibble(Qseqs *src, long unsigned *dest) {
+int qseq2nibble(Qseqs *src, long unsigned *dest) {
 	
-	int i, j, end, len;
+	int i, j, end, len, Ns;
 	long unsigned nuc;
 	unsigned char *seq;
 	
+	Ns = 0;
 	len = src->len;
 	seq = src->seq - 1;
 	--dest;
@@ -72,6 +73,7 @@ void qseq2nibble(Qseqs *src, long unsigned *dest) {
 		for(j = i; j < end; ++j) {
 			if(*++seq == 4) {
 				nuc <<= 2;
+				++Ns;
 			} else {
 				nuc = (nuc << 2) | *seq;
 			}
@@ -81,4 +83,6 @@ void qseq2nibble(Qseqs *src, long unsigned *dest) {
 	if(len & 31) {
 		*dest <<= (64 - ((len & 31) << 1));
 	}
+	
+	return Ns;
 }
